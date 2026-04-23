@@ -681,7 +681,7 @@ export default function Goals() {
           </CardHeader>
           <CardContent className="pt-2 pb-4 px-2">
             <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={projectionData} margin={{ top: 10, right: 10, bottom: 0, left: 10 }}>
+              <AreaChart data={projectionData} margin={{ top: 36, right: 10, bottom: 0, left: 10 }}>
                 <defs>
                   <linearGradient id="goalGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%"  stopColor="#00d4ff" stopOpacity={0.15} />
@@ -706,7 +706,7 @@ export default function Goals() {
                     x={projectionData[idx]?.label}
                     stroke={goal.impactType === 'expense' ? '#ff4466' : '#00ff88'}
                     strokeDasharray="4 2"
-                    label={{ value: goal.emoji, position: 'top', fill: '#e8e8f0', fontSize: 12 }}
+                    label={{ value: goal.emoji, position: 'top', fill: '#e8e8f0', fontSize: 16 }}
                   />
                 ))}
 
