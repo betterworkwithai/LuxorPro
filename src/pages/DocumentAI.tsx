@@ -1,0 +1,659 @@
+import React, { useState, useCallback } from 'react'
+import { useDropzone } from 'react-dropzone'
+import {
+  Upload, FileText, Image, Trash2, Eye, Zap, CheckCircle2,
+  AlertCircle, Loader2, X, Paperclip, FileSearch,
+  Download, SquareCheck, Square, ShieldCheck, AlertTriangle,
+} from 'lucide-react'
+import { nanoid } from 'nanoid'
+import { clsx } from 'clsx'
+import { useStore } from '../store/useStore'
+import { PageHeader } from '../components/ui/PageHeader'
+import { Card, CardHeader, CardTitle } from '../components/ui/Card'
+import { Modal } from '../components/ui/Modal'
+import { Badge } from '../components/ui/Badge'
+import { formatDate, formatBRL } from '../lib/formatters'
+import { useAllCategories } from '../lib/useCategories'
+import { AccountSelect } from '../components/ui/AccountSelect'
+import type { Attachment } from '../lib/types'
+import { processInvoice } from '../lib/invoice/pipeline'
+import type { ParsedTransaction, PipelineResult, InvoiceMetadata } from '../lib/invoice/types'
+import { confidenceLabel } from '../lib/invoice/confidenceScorer'
+
+// ── Types ────────────────────────────────────────────────────────────────────
+
+type ProcessStatus = 'pending' | 'processing' | 'done' | 'error'
+
+interface FileEntry {
+  id: string
+  file: File
+  status: ProcessStatus
+  attachment?: Attachment
+  errorMsg?: string
+  result?: PipelineResult
+  progressStep?: string
+  progressPct?: number
+}
+
+// ── Confidence Badge ─────────────────────────────────────────────────────────
+function ConfidenceBadge({ score }: { score: number }) {
+  const label = confidenceLabel(score)
+  const pct = Math.round(score * 100)
+  return (
+    <span className={clsx('text-[9px] font-semibold px-1.5 py-0.5 rounded border',
+      label === 'alta'  && 'border-[#00ff88]/30 text-[#00ff88] bg-[#00ff88]/5',
+      label === 'média' && 'border-[#f59e0b]/30 text-[#f59e0b] bg-[#f59e0b]/5',
+      label === 'baixa' && 'border-[#ff4466]/30 text-[#ff4466] bg-[#ff4466]/5',
+    )}>
+      {pct}%
+    </span>
+  )
+}
+
+// ── Invoice Metadata Card ─────────────────────────────────────────────────────
+function MetadataCard({ meta, issuer, usedOCR }: { meta: InvoiceMetadata; issuer?: string; usedOCR: boolean }) {
+  const hasData = meta.issuer || meta.dueDate || meta.totalAmount || meta.creditLimit || meta.period
+  if (!hasData) return null
+
+  return (
+    <div className="flex flex-wrap gap-3 px-5 py-3 bg-[#16161f] border-b border-[#1e1e2e] text-xs">
+      {(issuer ?? meta.issuer) && (
+        <div className="flex items-center gap-1.5">
+          <span className="text-[#55556a]">Emissor:</span>
+          <span className="font-semibold text-[#e8e8f0]">{issuer ?? meta.issuer}</span>
+        </div>
+      )}
+      {meta.cardLastFour && (
+        <div className="flex items-center gap-1.5">
+          <span className="text-[#55556a]">Cartão:</span>
+          <span className="font-mono text-[#e8e8f0]">•••• {meta.cardLastFour}</span>
+        </div>
+      )}
+      {meta.dueDate && (
+        <div className="flex items-center gap-1.5">
+          <span className="text-[#55556a]">Vencimento:</span>
+          <span className="text-[#f59e0b]">{formatDate(meta.dueDate)}</span>
+        </div>
+      )}
+      {meta.totalAmount != null && (
+        <div className="flex items-center gap-1.5">
+          <span className="text-[#55556a]">Total fatura:</span>
+          <span className="font-bold text-[#ff4466]">{formatBRL(meta.totalAmount)}</span>
+        </div>
+      )}
+      {meta.minPayment != null && (
+        <div className="flex items-center gap-1.5">
+          <span className="text-[#55556a]">Mín. pagamento:</span>
+          <span className="text-[#f59e0b]">{formatBRL(meta.minPayment)}</span>
+        </div>
+      )}
+      {meta.period && (
+        <div className="flex items-center gap-1.5">
+          <span className="text-[#55556a]">Período:</span>
+          <span className="text-[#8888aa]">{meta.period}</span>
+        </div>
+      )}
+      {usedOCR && (
+        <div className="flex items-center gap-1 text-[#f59e0b]">
+          <AlertTriangle className="w-3 h-3" />
+          <span>Processado via OCR — revise com atenção</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Review Table ─────────────────────────────────────────────────────────────
+const TYPE_OPTIONS = [
+  { value: 'expense', label: '↓ Despesa',   color: 'text-[#ff4466]' },
+  { value: 'income',  label: '↑ Receita',   color: 'text-[#00ff88]' },
+] as const
+
+function ReviewTable({
+  items, meta, issuer, usedOCR, onChange, onImport, onClear,
+}: {
+  items: ParsedTransaction[]
+  meta: InvoiceMetadata
+  issuer?: string
+  usedOCR: boolean
+  onChange: (items: ParsedTransaction[]) => void
+  onImport: (selected: ParsedTransaction[]) => void
+  onClear: () => void
+}) {
+  const [globalAccount, setGlobalAccount] = useState('Itaú')
+  const allCats = useAllCategories()
+  const expenseCats = allCats.filter(c => c.type === 'expense' || c.type === 'both')
+  const incomeCats  = allCats.filter(c => c.type === 'income'  || c.type === 'both')
+
+  const selected  = items.filter(t => t.selected)
+  const totalExp  = selected.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0)
+  const totalInc  = selected.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0)
+  const allSel    = items.length > 0 && items.every(t => t.selected)
+  const lowConf   = items.filter(t => t.confidence < 0.4).length
+
+  const update = (idx: number, patch: Partial<ParsedTransaction>) =>
+    onChange(items.map((t, i) => i === idx ? { ...t, ...patch } : t))
+  const remove = (idx: number) => onChange(items.filter((_, i) => i !== idx))
+  const toggleAll = () => onChange(items.map(t => ({ ...t, selected: !allSel })))
+
+  // Invoice total discrepancy check
+  const parsedTotal = selected.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0)
+  const totalDiff = meta.totalAmount != null ? Math.abs(parsedTotal - meta.totalAmount) : null
+
+  return (
+    <Card className="overflow-hidden border-[#00d4ff]/20">
+      {/* Header */}
+      <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 bg-[#00d4ff]/5 border-b border-[#1e1e2e]">
+        <div className="flex items-center gap-3">
+          <Zap className="w-4 h-4 text-[#00d4ff]" />
+          <div>
+            <p className="text-sm font-semibold text-[#e8e8f0]">
+              {items.length} lançamento{items.length !== 1 ? 's' : ''} encontrado{items.length !== 1 ? 's' : ''}
+              {lowConf > 0 && (
+                <span className="ml-2 text-[10px] font-normal text-[#f59e0b]">
+                  · {lowConf} com confiança baixa
+                </span>
+              )}
+            </p>
+            <p className="text-xs text-[#55556a]">
+              {selected.length} selecionado{selected.length !== 1 ? 's' : ''}
+              {totalExp > 0 && <> · <span className="text-[#ff4466]">−{formatBRL(totalExp, true)}</span></>}
+              {totalInc > 0 && <> · <span className="text-[#00ff88]">+{formatBRL(totalInc, true)}</span></>}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-[#55556a]">Conta:</span>
+            <AccountSelect
+              className="input-dark text-xs py-1 px-2 h-7"
+              value={globalAccount}
+              onChange={acc => { setGlobalAccount(acc); onChange(items.map(t => ({ ...t, account: acc }))) }}
+              placeholder="Selecionar…"
+            />
+          </div>
+          <button onClick={onClear} className="btn-ghost text-xs px-3 py-1.5 flex items-center gap-1.5">
+            <X className="w-3 h-3" /> Descartar
+          </button>
+          <button
+            onClick={() => onImport(selected.map(t => ({ ...t, account: globalAccount })))}
+            disabled={selected.length === 0}
+            className="btn-primary text-xs px-4 py-1.5 flex items-center gap-1.5"
+          >
+            <Download className="w-3.5 h-3.5" />
+            Importar {selected.length > 0 ? selected.length : ''} lançamento{selected.length !== 1 ? 's' : ''}
+          </button>
+        </div>
+      </div>
+
+      {/* Metadata bar */}
+      <MetadataCard meta={meta} issuer={issuer} usedOCR={usedOCR} />
+
+      {/* Invoice total discrepancy */}
+      {totalDiff != null && totalDiff > 0.50 && (
+        <div className="flex items-center gap-2 px-5 py-2 bg-[#f59e0b]/10 border-b border-[#f59e0b]/20 text-xs text-[#f59e0b]">
+          <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+          <span>
+            Total da fatura: <strong>{formatBRL(meta.totalAmount!)}</strong> ·
+            Soma dos itens: <strong>{formatBRL(parsedTotal)}</strong> ·
+            Diferença: <strong>{formatBRL(totalDiff)}</strong> — verifique se há lançamentos faltando ou duplicados.
+          </span>
+        </div>
+      )}
+
+      {/* Column labels */}
+      <div className="grid items-center bg-[#0d0d15] border-b border-[#1e1e2e] px-3 py-2 text-[10px] uppercase tracking-wider text-[#55556a]"
+           style={{ gridTemplateColumns: '28px 90px 1fr 150px 80px 95px 46px 24px' }}>
+        <button onClick={toggleAll} className="flex items-center justify-center">
+          {allSel ? <SquareCheck className="w-3.5 h-3.5 text-[#00d4ff]" /> : <Square className="w-3.5 h-3.5 text-[#55556a]" />}
+        </button>
+        <span>Data</span>
+        <span>Descrição</span>
+        <span>Categoria</span>
+        <span>Tipo</span>
+        <span className="text-right">Valor (R$)</span>
+        <span className="text-center">Conf.</span>
+        <span />
+      </div>
+
+      {/* Rows */}
+      <div className="divide-y divide-[#1e1e2e] max-h-[480px] overflow-y-auto">
+        {items.map((tx, idx) => (
+          <div
+            key={tx.id}
+            className={clsx(
+              'grid items-center px-3 py-2 gap-2 group transition-colors',
+              tx.selected ? 'hover:bg-[#16161f]/60' : 'opacity-40 hover:opacity-60',
+              tx.confidence < 0.4 && tx.selected && 'bg-[#ff4466]/3',
+            )}
+            style={{ gridTemplateColumns: '28px 90px 1fr 150px 80px 95px 46px 24px' }}
+          >
+            <button onClick={() => update(idx, { selected: !tx.selected })} className="flex items-center justify-center">
+              {tx.selected
+                ? <SquareCheck className="w-4 h-4 text-[#00d4ff]" />
+                : <Square className="w-4 h-4 text-[#55556a]" />}
+            </button>
+
+            <input
+              type="date"
+              className="input-dark text-xs py-1 px-2"
+              value={tx.date}
+              onChange={e => update(idx, { date: e.target.value })}
+            />
+
+            <input
+              className="input-dark text-xs py-1 px-2"
+              value={tx.merchant}
+              onChange={e => update(idx, { merchant: e.target.value })}
+            />
+
+            <select
+              className="input-dark text-xs py-1 px-2"
+              value={tx.category}
+              onChange={e => update(idx, { category: e.target.value })}
+            >
+              <optgroup label="— Despesas —">
+                {expenseCats.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+              </optgroup>
+              <optgroup label="— Receitas —">
+                {incomeCats.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+              </optgroup>
+            </select>
+
+            <select
+              className={clsx('input-dark text-xs py-1 px-1.5 font-semibold',
+                TYPE_OPTIONS.find(o => o.value === tx.type)?.color ?? 'text-[#e8e8f0]')}
+              value={tx.type}
+              onChange={e => update(idx, { type: e.target.value as ParsedTransaction['type'] })}
+            >
+              {TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+
+            <input
+              type="number" step="0.01"
+              className="input-dark text-xs py-1 px-2 text-right"
+              value={tx.amount}
+              onChange={e => update(idx, { amount: parseFloat(e.target.value) || 0 })}
+            />
+
+            <div className="flex justify-center">
+              <ConfidenceBadge score={tx.confidence} />
+            </div>
+
+            <button
+              onClick={() => remove(idx)}
+              className="w-5 h-5 flex items-center justify-center rounded text-[#55556a] hover:text-[#ff4466] hover:bg-[#ff4466]/10 opacity-0 group-hover:opacity-100 transition-all"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* Footer */}
+      <div className="px-5 py-3 border-t border-[#1e1e2e] flex items-center justify-between bg-[#0d0d15]">
+        <div className="flex items-center gap-4 text-xs text-[#55556a]">
+          <span>
+            <span className="text-[#ff4466] font-semibold">{selected.filter(t => t.type === 'expense').length} despesas</span>
+            {' '}· {selected.filter(t => t.type === 'income').length} receitas
+          </span>
+          {totalExp > 0 && <span>Total: <span className="text-[#ff4466] font-semibold">{formatBRL(totalExp)}</span></span>}
+        </div>
+        <div className="flex items-center gap-3 text-[10px] text-[#55556a]">
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#00ff88]/50" /> alta confiança</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#f59e0b]/50" /> média</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#ff4466]/50" /> baixa — revise</span>
+        </div>
+      </div>
+    </Card>
+  )
+}
+
+// ── Preview modal ─────────────────────────────────────────────────────────────
+function PreviewModal({ attachment, onClose }: { attachment: Attachment; onClose: () => void }) {
+  return (
+    <Modal open={true} onClose={onClose} title={attachment.filename} size="xl">
+      <div className="p-4">
+        {attachment.mimeType.startsWith('image/') && (
+          <img src={attachment.dataUrl} alt={attachment.filename} className="max-w-full rounded-xl mx-auto" />
+        )}
+        {attachment.mimeType === 'application/pdf' && (
+          <iframe src={attachment.dataUrl} className="w-full h-[70vh] rounded-xl" title={attachment.filename} />
+        )}
+        {attachment.extractedText && (
+          <details className="mt-4">
+            <summary className="text-xs font-semibold text-[#8888aa] cursor-pointer hover:text-[#e8e8f0] transition-colors">
+              Texto extraído ({attachment.extractedText.length} caracteres)
+            </summary>
+            <pre className="mt-2 p-4 bg-[#16161f] rounded-xl border border-[#1e1e2e] text-[10px] text-[#e8e8f0] whitespace-pre-wrap font-mono leading-relaxed max-h-64 overflow-y-auto">
+              {attachment.extractedText.slice(0, 3000)}{attachment.extractedText.length > 3000 ? '\n…' : ''}
+            </pre>
+          </details>
+        )}
+      </div>
+    </Modal>
+  )
+}
+
+// ── File icon ─────────────────────────────────────────────────────────────────
+function FileIcon({ type }: { type: string }) {
+  if (type.startsWith('image/'))     return <Image className="w-5 h-5 text-[#8b5cf6]" />
+  if (type === 'application/pdf')    return <FileText className="w-5 h-5 text-[#ff4466]" />
+  return <FileSearch className="w-5 h-5 text-[#55556a]" />
+}
+
+// ── Progress bar ──────────────────────────────────────────────────────────────
+function ProgressBar({ step, pct }: { step: string; pct: number }) {
+  return (
+    <div className="mt-1.5">
+      <div className="flex justify-between text-[10px] text-[#55556a] mb-1">
+        <span>{step}</span>
+        <span>{pct}%</span>
+      </div>
+      <div className="w-full h-1 bg-[#1e1e2e] rounded-full overflow-hidden">
+        <div
+          className="h-full bg-[#00d4ff] rounded-full transition-all duration-300"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  )
+}
+
+// ── Main page ─────────────────────────────────────────────────────────────────
+export default function DocumentAI() {
+  const { attachments, addAttachment, deleteAttachment, addTransaction, addTaxItem } = useStore()
+  const [queue,         setQueue]         = useState<FileEntry[]>([])
+  const [previewing,    setPreviewing]    = useState<Attachment | null>(null)
+  const [pendingTxs,    setPendingTxs]    = useState<ParsedTransaction[]>([])
+  const [pendingMeta,   setPendingMeta]   = useState<InvoiceMetadata>({})
+  const [pendingIssuer, setPendingIssuer] = useState<string | undefined>()
+  const [pendingOCR,    setPendingOCR]    = useState(false)
+  const [importedCount, setImportedCount] = useState<number | null>(null)
+
+  const updateEntry = (id: string, patch: Partial<FileEntry>) =>
+    setQueue(q => q.map(e => e.id === id ? { ...e, ...patch } : e))
+
+  const onDrop = useCallback(async (accepted: File[]) => {
+    const newEntries: FileEntry[] = accepted.map(f => ({
+      id: nanoid(), file: f, status: 'pending', result: undefined,
+    }))
+    setQueue(q => [...q, ...newEntries])
+
+    for (const entry of newEntries) {
+      updateEntry(entry.id, { status: 'processing', progressStep: 'Iniciando…', progressPct: 0 })
+
+      try {
+        // Read as data URL for storage
+        const dataUrl: string = await new Promise((res, rej) => {
+          const reader = new FileReader()
+          reader.onload  = () => res(reader.result as string)
+          reader.onerror = rej
+          reader.readAsDataURL(entry.file)
+        })
+
+        // Run full pipeline
+        const result = await processInvoice(entry.file, {
+          onProgress: (step, pct) => updateEntry(entry.id, { progressStep: step, progressPct: pct }),
+        })
+
+        // Save attachment (store raw text for preview)
+        const rawTextForStorage = result.logs
+          .map(l => `[${l.step}] ${l.message}`)
+          .join('\n')
+
+        const att = await addAttachment({
+          filename:      entry.file.name,
+          mimeType:      entry.file.type,
+          size:          entry.file.size,
+          dataUrl,
+          extractedText: rawTextForStorage || undefined,
+          createdAt:     new Date().toISOString(),
+        })
+
+        updateEntry(entry.id, { status: 'done', attachment: att, result })
+
+        // Push to review queue (merge, deduplicate by id)
+        if (result.transactions.length > 0) {
+          setPendingTxs(prev => {
+            const existingIds = new Set(prev.map(t => t.id))
+            return [...prev, ...result.transactions.filter(t => !existingIds.has(t.id))]
+          })
+          setPendingMeta(result.metadata)
+          setPendingIssuer(result.issuerDetected)
+          setPendingOCR(result.usedOCR)
+        }
+      } catch (err) {
+        console.error('[DocumentAI] pipeline error:', err)
+        updateEntry(entry.id, { status: 'error', errorMsg: 'Processamento falhou' })
+      }
+    }
+  }, [addAttachment])
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: { 'application/pdf': ['.pdf'], 'image/*': ['.png', '.jpg', '.jpeg', '.webp'] },
+    maxSize: 20 * 1024 * 1024,
+  })
+
+  const handleImport = async (selected: ParsedTransaction[]) => {
+    let count = 0
+    for (const tx of selected) {
+      await addTransaction({
+        date:        tx.date,
+        description: tx.merchant,
+        category:    tx.category,
+        type:        tx.type,
+        amount:      tx.amount,
+        account:     tx.account,
+      })
+      count++
+    }
+    setPendingTxs([])
+    setPendingMeta({})
+    setPendingIssuer(undefined)
+    setPendingOCR(false)
+    setImportedCount(count)
+    setTimeout(() => setImportedCount(null), 4000)
+  }
+
+  const formatSize = (bytes: number) => {
+    if (bytes < 1024)       return `${bytes} B`
+    if (bytes < 1024*1024)  return `${(bytes/1024).toFixed(0)} KB`
+    return `${(bytes/1024/1024).toFixed(1)} MB`
+  }
+
+  return (
+    <div className="min-h-screen animate-fade-in">
+      <PageHeader
+        title="IA de Documentos"
+        subtitle="Envie faturas de cartão ou extratos — o sistema detecta texto nativo, reconstrói o layout e extrai os lançamentos automaticamente"
+      />
+
+      <div className="p-4 sm:p-6 space-y-5">
+
+        {/* Success banner */}
+        {importedCount !== null && (
+          <div className="flex items-center gap-3 p-4 bg-[#00ff88]/5 border border-[#00ff88]/20 rounded-2xl animate-fade-in">
+            <CheckCircle2 className="w-5 h-5 text-[#00ff88] flex-shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-[#00ff88]">
+                {importedCount} lançamento{importedCount !== 1 ? 's' : ''} importado{importedCount !== 1 ? 's' : ''} com sucesso!
+              </p>
+              <p className="text-xs text-[#55556a]">Acesse Fluxo de Caixa para conferir</p>
+            </div>
+          </div>
+        )}
+
+        {/* Review table */}
+        {pendingTxs.length > 0 && (
+          <ReviewTable
+            items={pendingTxs}
+            meta={pendingMeta}
+            issuer={pendingIssuer}
+            usedOCR={pendingOCR}
+            onChange={setPendingTxs}
+            onImport={handleImport}
+            onClear={() => { setPendingTxs([]); setPendingMeta({}); setPendingIssuer(undefined); setPendingOCR(false) }}
+          />
+        )}
+
+        {/* Drop zone */}
+        <div {...getRootProps()} className={clsx(
+          'relative border-2 border-dashed rounded-2xl p-10 flex flex-col items-center gap-4',
+          'cursor-pointer transition-all duration-200 text-center',
+          isDragActive
+            ? 'border-[#00d4ff] bg-[#00d4ff]/5'
+            : 'border-[#1e1e2e] hover:border-[#2a2a3e] hover:bg-[#16161f]/30',
+        )}>
+          <input {...getInputProps()} />
+          <div className={clsx('w-14 h-14 rounded-2xl flex items-center justify-center transition-all',
+            isDragActive ? 'bg-[#00d4ff]/15' : 'bg-[#16161f]')}>
+            <Upload className={clsx('w-6 h-6', isDragActive ? 'text-[#00d4ff]' : 'text-[#55556a]')} />
+          </div>
+          <div>
+            <p className="text-base font-semibold text-[#e8e8f0]">
+              {isDragActive ? 'Solte aqui…' : 'Arraste faturas, extratos ou comprovantes'}
+            </p>
+            <p className="text-xs text-[#55556a] mt-1">
+              Fatura do cartão, extrato bancário, demonstrativo de pagamento — PDF ou imagem até 20 MB
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="neutral">PDF</Badge>
+            <Badge variant="neutral">PNG / JPG</Badge>
+            <Badge variant="neutral">WebP</Badge>
+          </div>
+          <p className="text-xs text-[#55556a] flex items-center gap-1.5">
+            <ShieldCheck className="w-3 h-3 text-[#00d4ff]" />
+            100% local · pdf.js + Tesseract.js · nenhum dado sai do seu navegador
+          </p>
+        </div>
+
+        {/* Processing queue */}
+        {queue.length > 0 && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Processamento</CardTitle>
+                <button onClick={() => setQueue([])} className="text-xs text-[#55556a] hover:text-[#e8e8f0] flex items-center gap-1">
+                  <X className="w-3 h-3" /> Limpar
+                </button>
+              </div>
+            </CardHeader>
+            <div className="divide-y divide-[#1e1e2e]">
+              {queue.map(entry => (
+                <div key={entry.id} className="px-5 py-3">
+                  <div className="flex items-center gap-4">
+                    <FileIcon type={entry.file.type} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-[#e8e8f0] font-medium truncate">{entry.file.name}</p>
+                      <p className="text-xs text-[#55556a]">{formatSize(entry.file.size)}</p>
+                      {entry.status === 'processing' && entry.progressStep && (
+                        <ProgressBar step={entry.progressStep} pct={entry.progressPct ?? 0} />
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 text-xs flex-shrink-0">
+                      {entry.status === 'processing' && (
+                        <span className="flex items-center gap-1.5 text-[#00d4ff]">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Analisando…
+                        </span>
+                      )}
+                      {entry.status === 'done' && (
+                        <span className="flex items-center gap-1.5 text-[#00ff88]">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          {entry.result && entry.result.transactions.length > 0
+                            ? `${entry.result.transactions.length} lançamentos`
+                            : 'Sem lançamentos detectados'}
+                          {entry.result?.usedOCR && (
+                            <span className="text-[#f59e0b] text-[10px]">(OCR)</span>
+                          )}
+                        </span>
+                      )}
+                      {entry.status === 'error' && (
+                        <span className="flex items-center gap-1.5 text-[#ff4466]">
+                          <AlertCircle className="w-3.5 h-3.5" /> Erro
+                        </span>
+                      )}
+                      {entry.status === 'pending' && <span className="text-[#55556a]">Na fila</span>}
+                      {entry.attachment && (
+                        <button onClick={() => setPreviewing(entry.attachment!)}
+                          className="w-7 h-7 rounded-lg hover:bg-[#00d4ff]/15 text-[#55556a] hover:text-[#00d4ff] flex items-center justify-center">
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
+        {/* Pipeline overview card */}
+        <Card className="p-5 border-dashed">
+          <p className="text-xs font-semibold text-[#8888aa] mb-3 uppercase tracking-wider">Como funciona</p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {[
+              { step: '1', icon: '🔍', title: 'Detecta texto nativo', desc: 'PDFs digitais são lidos diretamente — sem OCR.' },
+              { step: '2', icon: '📐', title: 'Reconstrói layout', desc: 'Fragmentos espaciais são agrupados em linhas visuais corretas.' },
+              { step: '3', icon: '🏷', title: 'Classifica linhas', desc: 'Totais, cabeçalhos e rodapés são descartados automaticamente.' },
+              { step: '4', icon: '✅', title: 'Score de confiança', desc: 'Cada lançamento recebe um indicador para facilitar a revisão.' },
+            ].map(s => (
+              <div key={s.step} className="flex gap-3">
+                <span className="text-xl leading-tight">{s.icon}</span>
+                <div>
+                  <p className="text-xs font-semibold text-[#e8e8f0]">{s.title}</p>
+                  <p className="text-[11px] text-[#55556a] mt-0.5">{s.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        {/* Document library */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Biblioteca de Documentos</CardTitle>
+              <span className="text-xs text-[#55556a]">{attachments.length} arquivo{attachments.length !== 1 ? 's' : ''}</span>
+            </div>
+          </CardHeader>
+          {attachments.length === 0 ? (
+            <div className="px-5 py-8 text-center">
+              <Paperclip className="w-8 h-8 text-[#2a2a3e] mx-auto mb-3" />
+              <p className="text-sm text-[#55556a]">Nenhum documento ainda</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-[#1e1e2e]">
+              {attachments.map(att => (
+                <div key={att.id} className="flex items-center gap-4 px-5 py-3 group hover:bg-[#16161f]/40 transition-colors">
+                  <FileIcon type={att.mimeType} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-[#e8e8f0] font-medium truncate">{att.filename}</p>
+                    <p className="text-xs text-[#55556a]">
+                      {formatSize(att.size)} · {formatDate(att.createdAt)}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => setPreviewing(att)}
+                      className="w-7 h-7 rounded-lg hover:bg-[#00d4ff]/15 text-[#55556a] hover:text-[#00d4ff] flex items-center justify-center">
+                      <Eye className="w-3.5 h-3.5" />
+                    </button>
+                    <button onClick={() => deleteAttachment(att.id)}
+                      className="w-7 h-7 rounded-lg hover:bg-[#ff4466]/15 text-[#55556a] hover:text-[#ff4466] flex items-center justify-center">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
+      </div>
+
+      {previewing && <PreviewModal attachment={previewing} onClose={() => setPreviewing(null)} />}
+    </div>
+  )
+}

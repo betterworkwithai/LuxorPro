@@ -1,0 +1,162 @@
+@import url("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 20% 97%;
+    --foreground: 220 30% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 30% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 30% 10%;
+
+    --primary: 220 60% 15%;
+    --primary-foreground: 0 0% 98%;
+
+    --secondary: 215 20% 90%;
+    --secondary-foreground: 220 30% 10%;
+
+    --muted: 215 15% 92%;
+    --muted-foreground: 215 10% 45%;
+
+    --accent: 28 90% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 215 20% 88%;
+    --input: 215 20% 88%;
+    --ring: 220 60% 15%;
+
+    --radius: 0.5rem;
+
+    --navy: 220 60% 15%;
+    --navy-light: 220 40% 25%;
+    --navy-dark: 220 70% 8%;
+    --gold: 28 90% 55%;
+    --gold-light: 35 90% 65%;
+    --gold-dark: 25 85% 45%;
+    --slate: 215 15% 55%;
+    --slate-light: 215 15% 75%;
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 220 70% 8%;
+    --foreground: 210 30% 95%;
+
+    --card: 220 60% 12%;
+    --card-foreground: 210 30% 95%;
+
+    --popover: 220 60% 12%;
+    --popover-foreground: 210 30% 95%;
+
+    --primary: 28 90% 55%;
+    --primary-foreground: 220 70% 8%;
+
+    --secondary: 220 40% 20%;
+    --secondary-foreground: 210 30% 95%;
+
+    --muted: 220 30% 18%;
+    --muted-foreground: 215 15% 60%;
+
+    --accent: 28 90% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 220 30% 20%;
+    --input: 220 30% 20%;
+    --ring: 28 90% 55%;
+
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Inter", sans-serif;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: "Playfair Display", serif;
+  }
+}
+
+/* This targets common class names used by AI builders */
+.lovable-badge,
+#lovable-tag,
+[data-lovable-component="true"] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* ─── Personal Finance app utility classes (dark theme) ─── */
+@layer components {
+  .input-dark {
+    @apply w-full px-3 py-2 rounded-xl bg-[#16161f] border border-[#1e1e2e] text-[#e8e8f0] text-sm placeholder:text-[#55556a] outline-none transition-all;
+  }
+  .input-dark:focus {
+    @apply border-[#00d4ff]/50 bg-[#1a1a24];
+    box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
+  }
+  .input-dark:disabled {
+    @apply opacity-50 cursor-not-allowed;
+  }
+  /* Native select arrow on dark bg */
+  select.input-dark {
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238888aa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    padding-right: 2rem;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold bg-gradient-to-r from-[#00d4ff] to-[#0099ff] text-[#0a0a0f] border border-[#00d4ff]/40 transition-all hover:brightness-110 hover:shadow-[0_4px_20px_rgba(0,212,255,0.3)] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-none;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium bg-[#16161f] border border-[#1e1e2e] text-[#e8e8f0] transition-all hover:border-[#00d4ff]/40 hover:text-[#00d4ff] disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium bg-transparent border border-[#1e1e2e] text-[#8888aa] transition-all hover:text-[#e8e8f0] hover:border-[#2a2a3e] hover:bg-[#16161f] disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold bg-[#ff4466]/10 border border-[#ff4466]/30 text-[#ff4466] transition-all hover:bg-[#ff4466]/20 hover:border-[#ff4466]/50 disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+}
