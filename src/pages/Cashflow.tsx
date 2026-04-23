@@ -350,6 +350,8 @@ export default function Cashflow() {
   const [editSub,      setEditSub]      = useState<RecurringTransaction | undefined>()
   const [recFilter,    setRecFilter]    = useState<'all' | 'income' | 'expense'>('all')
   const [recSort,      setRecSort]      = useState<'name' | 'value' | 'category' | 'day'>('day')
+  const [recPage,      setRecPage]      = useState(1)
+  const REC_PAGE_SIZE = 5
   const [editTx,       setEditTx]       = useState<Transaction | undefined>()
   const [expandedCatKeys, setExpandedCatKeys] = useState<Set<string>>(new Set())
   const toggleCatKey = (key: string) =>
@@ -359,7 +361,7 @@ export default function Cashflow() {
     setDisabledWishIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
 
   // Pagination
-  const [pageSize, setPageSize] = useState(20)
+  const [pageSize, setPageSize] = useState(10)
   const [page,     setPage]     = useState(1)
 
   // Bulk edit
@@ -615,6 +617,18 @@ export default function Cashflow() {
       if (s.currency === 'EUR') return sum + s.amount * (settings.eurToBrl ?? 5.90)
       return sum + s.amount
     }, 0)
+
+  const recSorted = [...subscriptions]
+    .filter(s => recFilter === 'all' || s.type === recFilter)
+    .sort((a, b) => {
+      if (recSort === 'name')     return a.name.localeCompare(b.name)
+      if (recSort === 'value')    return b.amount - a.amount
+      if (recSort === 'category') return a.category.localeCompare(b.category)
+      return a.billingDay - b.billingDay
+    })
+  const recTotalPages = Math.max(1, Math.ceil(recSorted.length / REC_PAGE_SIZE))
+  const recCurPage    = Math.min(recPage, recTotalPages)
+  const recPaginated  = recSorted.slice((recCurPage - 1) * REC_PAGE_SIZE, recCurPage * REC_PAGE_SIZE)
 
   const toggleSort = (field: SortField) => {
     if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
@@ -1003,7 +1017,7 @@ export default function Cashflow() {
             <div className="flex items-center gap-2 px-5 pt-3 pb-3 flex-wrap">
               <div className="flex gap-1 bg-[#16161f] rounded-lg p-0.5 border border-[#1e1e2e]">
                 {(['all', 'income', 'expense'] as const).map(f => (
-                  <button key={f} onClick={() => setRecFilter(f)}
+                  <button key={f} onClick={() => { setRecFilter(f); setRecPage(1) }}
                     className={`px-2.5 py-1 rounded-md text-[10px] font-medium transition-all ${
                       recFilter === f ? 'bg-[#ff7a00]/15 text-[#ff7a00]' : 'text-[#8888aa] hover:text-[#e8e8f0]'
                     }`}>
@@ -1011,7 +1025,7 @@ export default function Cashflow() {
                   </button>
                 ))}
               </div>
-              <select value={recSort} onChange={e => setRecSort(e.target.value as any)}
+              <select value={recSort} onChange={e => { setRecSort(e.target.value as any); setRecPage(1) }}
                 className="text-[10px] bg-[#16161f] border border-[#1e1e2e] text-[#55556a] rounded-lg px-2 py-1 focus:outline-none focus:border-[#ff7a00]/40 cursor-pointer">
                 <option value="day">Ordenar: Dia</option>
                 <option value="name">Ordenar: Nome</option>
@@ -1028,15 +1042,7 @@ export default function Cashflow() {
             </CardContent>
           ) : (
             <div className="divide-y divide-[#1e1e2e]">
-              {[...subscriptions]
-                .filter(s => recFilter === 'all' || s.type === recFilter)
-                .sort((a, b) => {
-                  if (recSort === 'name')     return a.name.localeCompare(b.name)
-                  if (recSort === 'value')    return b.amount - a.amount
-                  if (recSort === 'category') return a.category.localeCompare(b.category)
-                  return a.billingDay - b.billingDay
-                })
-                .map(sub => {
+              {recPaginated.map(sub => {
                 const isIncome  = sub.type === 'income'
                 const amountBRL = sub.currency === 'USD' ? sub.amount * settings.usdToBrl
                   : sub.currency === 'EUR' ? sub.amount * (settings.eurToBrl ?? 5.90)
@@ -1102,6 +1108,28 @@ export default function Cashflow() {
                   </div>
                 )
               })}
+              {recTotalPages > 1 && (
+                <div className="flex items-center justify-between px-5 py-3 border-t border-[#1e1e2e]">
+                  <span className="text-[11px] text-[#55556a]">
+                    {(recCurPage - 1) * REC_PAGE_SIZE + 1}–{Math.min(recCurPage * REC_PAGE_SIZE, recSorted.length)} de {recSorted.length}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => setRecPage(1)} disabled={recCurPage === 1}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg text-[#55556a] hover:text-[#e8e8f0] hover:bg-[#1e1e2e] disabled:opacity-30 transition-colors text-xs font-bold">«</button>
+                    <button onClick={() => setRecPage(p => Math.max(1, p - 1))} disabled={recCurPage === 1}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg text-[#55556a] hover:text-[#e8e8f0] hover:bg-[#1e1e2e] disabled:opacity-30 transition-colors">
+                      <ChevronLeft className="w-3.5 h-3.5" />
+                    </button>
+                    <span className="text-xs text-[#e8e8f0] font-semibold px-2">{recCurPage} / {recTotalPages}</span>
+                    <button onClick={() => setRecPage(p => Math.min(recTotalPages, p + 1))} disabled={recCurPage === recTotalPages}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg text-[#55556a] hover:text-[#e8e8f0] hover:bg-[#1e1e2e] disabled:opacity-30 transition-colors">
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                    <button onClick={() => setRecPage(recTotalPages)} disabled={recCurPage === recTotalPages}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg text-[#55556a] hover:text-[#e8e8f0] hover:bg-[#1e1e2e] disabled:opacity-30 transition-colors text-xs font-bold">»</button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </Card>

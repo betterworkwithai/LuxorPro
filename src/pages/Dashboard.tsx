@@ -994,31 +994,9 @@ export default function Dashboard() {
           <>
             <div className="flex items-center justify-between gap-3 flex-wrap pt-2">
               <h2 className="text-sm font-semibold text-[#e8e8f0] uppercase tracking-wider">Resumo de Investimentos</h2>
-              <div className="flex items-center gap-2 flex-wrap">
-                <div className="flex items-center gap-1 bg-[#16161f] rounded-lg p-1 border border-[#1e1e2e]">
-                  {([
-                    { v: 'global',        l: 'Global'        },
-                    { v: 'local',         l: 'Local'         },
-                    { v: 'international', l: 'Internacional' },
-                  ] as const).map(({ v, l }) => (
-                    <button
-                      key={v}
-                      onClick={() => setPortfolioScope(v)}
-                      className={clsx(
-                        'px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all',
-                        portfolioScope === v
-                          ? 'bg-[#ff7a00] text-[#0a0a0f]'
-                          : 'text-[#55556a] hover:text-[#e8e8f0]',
-                      )}
-                    >
-                      {l}
-                    </button>
-                  ))}
-                </div>
-                <Link to={pfPath('/wealth')} className="text-xs text-[#ff7a00] hover:text-[#e06500] flex items-center gap-1">
-                  Ver Portfólio <ArrowRight className="w-3 h-3" />
-                </Link>
-              </div>
+              <Link to={pfPath('/wealth')} className="text-xs text-[#ff7a00] hover:text-[#e06500] flex items-center gap-1">
+                Ver Portfólio <ArrowRight className="w-3 h-3" />
+              </Link>
             </div>
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
