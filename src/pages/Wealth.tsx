@@ -1063,7 +1063,8 @@ export default function Wealth() {
                                 </td>
                                 {/* col 7: Alocação */}
                                 <td className="px-3 py-2.5 text-right">
-                                  <span className="text-xs font-semibold text-[#e8e8f0]">{groupAlloc.toFixed(1)}%</span>
+                                  {!group.items.every(i => i.location === 'physical-re') &&
+                                    <span className="text-xs font-semibold text-[#e8e8f0]">{groupAlloc.toFixed(1)}%</span>}
                                 </td>
                                 {/* col 8: actions placeholder */}
                                 <td />
@@ -1119,7 +1120,9 @@ export default function Wealth() {
                                     <td className="px-3 py-2.5 text-right text-xs font-mono font-semibold text-[#ff7a00] whitespace-nowrap">{fmtNative(inv, mktVal)}</td>
                                     {/* Alocação */}
                                     <td className="px-3 py-2.5 text-right whitespace-nowrap">
-                                      <span className="text-xs font-semibold text-[#e8e8f0]">{allocPct.toFixed(2)}%</span>
+                                      {inv.location !== 'physical-re'
+                                        ? <span className="text-xs font-semibold text-[#e8e8f0]">{allocPct.toFixed(2)}%</span>
+                                        : <span className="text-xs text-[#55556a]">—</span>}
                                     </td>
                                     {/* Actions */}
                                     <td className="px-3 py-2.5">
