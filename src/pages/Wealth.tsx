@@ -55,7 +55,7 @@ const tt = { background: '#0d0d14', border: '1px solid #1e1e2e', borderRadius: 1
 const ttItem  = { color: '#ffffff' }
 const ttLabel = { color: '#ffffff', fontWeight: 600 }
 
-const PERIOD_OPTIONS = ['1M', '6M', 'YTD', '1 ano', 'ALL'] as const
+const PERIOD_OPTIONS = ['1M', '6M', 'YTD', '1 ano', '2 anos', '3 anos', '5 anos', 'ALL'] as const
 type PeriodOption = typeof PERIOD_OPTIONS[number]
 
 type ViewMode = 'global' | 'local' | 'international'
@@ -68,6 +68,9 @@ function periodCutoff(p: PeriodOption): Date | null {
   if (p === '1M')  { const d = new Date(now); d.setMonth(d.getMonth() - 1); return d }
   if (p === '6M')  { const d = new Date(now); d.setMonth(d.getMonth() - 6); return d }
   if (p === '1 ano')  { const d = new Date(now); d.setFullYear(d.getFullYear() - 1); return d }
+  if (p === '2 anos') { const d = new Date(now); d.setFullYear(d.getFullYear() - 2); return d }
+  if (p === '3 anos') { const d = new Date(now); d.setFullYear(d.getFullYear() - 3); return d }
+  if (p === '5 anos') { const d = new Date(now); d.setFullYear(d.getFullYear() - 5); return d }
   return null
 }
 
@@ -991,56 +994,142 @@ export default function Wealth() {
                   <Plus className="w-4 h-4" /> Adicionar Ativo
                 </button>
               </div>
-            ) : (
-              <div className="space-y-3">
-                {groupedAssets.map(group => {
-                  const expanded = groupExpanded[group.cls] ?? true
-                  const hasPhysical = group.items.some(i => i.location === 'physical-re')
-                  return (
-                    <div key={group.cls} className="rounded-xl border border-[#1e1e2e] overflow-hidden">
-                      <button onClick={() => setGroupExpanded(s => ({ ...s, [group.cls]: !expanded }))}
-                        className="w-full flex items-center justify-between px-4 py-3 bg-[#0d0d14] hover:bg-[#111118] transition-colors">
-                        <div className="flex items-center gap-2">
-                          {expanded ? <ChevronDown className="w-4 h-4 text-[#55556a]" /> : <ChevronRight className="w-4 h-4 text-[#55556a]" />}
-                          <div className="flex flex-col items-start">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-semibold text-[#e8e8f0]">{group.cls}</span>
-                              <span className="text-[10px] text-[#55556a]">({group.items.length})</span>
-                              {hasPhysical && (
-                                <span className="px-2 py-0.5 rounded-md text-[9px] font-medium bg-[#8b5cf6]/15 border border-[#8b5cf6]/40 text-[#8b5cf6]">
-                                  Ativo Ilíquido
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex items-baseline gap-2 mt-0.5">
-                              <span className="text-sm font-bold text-[#ff7a00] font-mono">{fmtBase(group.total)}</span>
-                              <span className="text-xs text-[#8888aa]">
-                                {metrics.totalValue > 0 ? ((group.total / metrics.totalValue) * 100).toFixed(2) : '0'}%
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </button>
-                      {expanded && (
-                        <div className="p-3 grid grid-cols-1 md:grid-cols-2 gap-3 bg-[#080810]">
-                          {group.items.map(inv => (
-                            <AssetCard key={inv.id} inv={inv}
-                              baseValue={toBase(inv.quantity * inv.currentPrice, inv.currency)}
-                              totalValue={metrics.totalValue}
-                              currency={displayCurrency}
-                              onEdit={() => { setEditing(inv); setShowModal(true) }}
-                              onDelete={() => {
-                                if (confirm(`Remover "${inv.name}"?`)) deleteInvestment(inv.id)
-                              }}
-                            />
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+            ) : (() => {
+                const fmtDate = (iso?: string) =>
+                  iso ? new Date(iso + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—'
+                const fmtQty = (n: number) =>
+                  n % 1 === 0
+                    ? n.toLocaleString('pt-BR')
+                    : n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 6 })
+                const fmtNative = (inv: Investment, v: number) =>
+                  inv.currency === 'USD' ? formatUSD(v)
+                  : inv.currency === 'EUR' ? `€ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                  : formatBRL(v)
+                const thCls = 'px-3 py-2.5 text-left text-[10px] font-semibold text-[#55556a] uppercase tracking-wider whitespace-nowrap'
+                const tdCls = 'px-3 py-2.5 text-xs text-[#e8e8f0] font-mono whitespace-nowrap'
+                const tdMuted = 'px-3 py-2.5 text-xs text-[#8888aa] whitespace-nowrap'
+
+                return (
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr className="border-b border-[#1e1e2e]">
+                          <th className={thCls}>Ativo</th>
+                          <th className={`${thCls} text-right`}>Vencimento</th>
+                          <th className={`${thCls} text-right`}>Valor Aplicado</th>
+                          <th className={`${thCls} text-right`}>Quantidade</th>
+                          <th className={`${thCls} text-right`}>PU / Cotação</th>
+                          <th className={`${thCls} text-right`}>Valor de Mercado</th>
+                          <th className={`${thCls} text-right`}>Alocação</th>
+                          <th className={thCls} />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {groupedAssets.map(group => {
+                          const expanded = groupExpanded[group.cls] ?? true
+                          const hasPhysical = group.items.some(i => i.location === 'physical-re')
+                          const groupAlloc = metrics.totalValue > 0 ? (group.total / metrics.totalValue) * 100 : 0
+                          return (
+                            <React.Fragment key={group.cls}>
+                              {/* ── Group header row ── */}
+                              <tr
+                                className="cursor-pointer bg-[#0d0d14] hover:bg-[#111118] transition-colors border-b border-[#1e1e2e]"
+                                onClick={() => setGroupExpanded(s => ({ ...s, [group.cls]: !expanded }))}
+                              >
+                                <td colSpan={8} className="px-3 py-2.5">
+                                  <div className="flex items-center gap-2">
+                                    {expanded
+                                      ? <ChevronDown className="w-3.5 h-3.5 text-[#55556a] flex-shrink-0" />
+                                      : <ChevronRight className="w-3.5 h-3.5 text-[#55556a] flex-shrink-0" />}
+                                    <span className="text-sm font-semibold text-[#e8e8f0]">{group.cls}</span>
+                                    <span className="text-[10px] text-[#55556a]">({group.items.length})</span>
+                                    {hasPhysical && (
+                                      <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-[#8b5cf6]/15 border border-[#8b5cf6]/40 text-[#8b5cf6]">
+                                        Ilíquido
+                                      </span>
+                                    )}
+                                    <span className="ml-auto font-mono font-bold text-[#ff7a00] text-sm">{fmtBase(group.total)}</span>
+                                    <span className="text-xs text-[#8888aa] w-14 text-right">{groupAlloc.toFixed(1)}%</span>
+                                  </div>
+                                </td>
+                              </tr>
+
+                              {/* ── Asset rows ── */}
+                              {expanded && group.items.map((inv, rowIdx) => {
+                                const cost      = inv.quantity * inv.avgCost
+                                const mktVal    = inv.quantity * inv.currentPrice
+                                const bVal      = toBase(mktVal, inv.currency)
+                                const allocPct  = metrics.totalValue > 0 ? (bVal / metrics.totalValue) * 100 : 0
+                                const tax       = TAX_BADGES[inv.taxTreatment ?? 'taxable']
+                                const isLast    = rowIdx === group.items.length - 1
+                                const rowBorder = isLast ? 'border-b border-[#1e1e2e]' : 'border-b border-[#16161f]'
+                                return (
+                                  <tr key={inv.id}
+                                    className={`${rowBorder} bg-[#080810] hover:bg-[#0d0d14] transition-colors group/row`}>
+                                    {/* Ativo */}
+                                    <td className="px-3 py-2.5 min-w-[200px]">
+                                      <div className="flex flex-col gap-0.5">
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="text-xs font-semibold text-[#e8e8f0]">{inv.name}</span>
+                                          {inv.ticker && <span className="text-[10px] text-[#55556a] font-mono">{inv.ticker}</span>}
+                                        </div>
+                                        <span className="text-[10px] text-[#55556a]">{inv.institution}</span>
+                                        <div className="flex flex-wrap gap-1 mt-0.5">
+                                          <span className="px-1.5 py-px rounded text-[9px] font-medium border"
+                                            style={{ background: tax.color + '18', borderColor: tax.color + '40', color: tax.color }}>
+                                            {tax.label}
+                                          </span>
+                                          {inv.benchmark && (
+                                            <span className="px-1.5 py-px rounded text-[9px] font-medium bg-[#16161f] border border-[#1e1e2e] text-[#8888aa]">
+                                              vs {inv.benchmark}
+                                            </span>
+                                          )}
+                                          {inv.liquidity && (
+                                            <span className="px-1.5 py-px rounded text-[9px] font-medium bg-[#16161f] border border-[#1e1e2e] text-[#8888aa]">
+                                              {inv.liquidity}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </td>
+                                    {/* Vencimento */}
+                                    <td className={`${tdMuted} text-right`}>{fmtDate(inv.maturityDate)}</td>
+                                    {/* Valor Aplicado */}
+                                    <td className={`${tdCls} text-right`}>{fmtNative(inv, cost)}</td>
+                                    {/* Quantidade */}
+                                    <td className={`${tdCls} text-right`}>{fmtQty(inv.quantity)}</td>
+                                    {/* PU / Cotação */}
+                                    <td className={`${tdCls} text-right`}>{fmtNative(inv, inv.currentPrice)}</td>
+                                    {/* Valor de Mercado */}
+                                    <td className={`${tdCls} text-right`}>{fmtNative(inv, mktVal)}</td>
+                                    {/* Alocação */}
+                                    <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                                      <span className="text-xs font-semibold text-[#ff7a00]">{allocPct.toFixed(2)}%</span>
+                                    </td>
+                                    {/* Actions */}
+                                    <td className="px-3 py-2.5">
+                                      <div className="flex gap-1 opacity-0 group-hover/row:opacity-100 transition-opacity">
+                                        <button onClick={() => { setEditing(inv); setShowModal(true) }}
+                                          className="w-6 h-6 rounded flex items-center justify-center text-[#55556a] hover:text-[#ff7a00] hover:bg-[#ff7a00]/10 transition-colors">
+                                          <Edit3 className="w-3 h-3" />
+                                        </button>
+                                        <button onClick={() => { if (confirm(`Remover "${inv.name}"?`)) deleteInvestment(inv.id) }}
+                                          className="w-6 h-6 rounded flex items-center justify-center text-[#55556a] hover:text-[#ff4466] hover:bg-[#ff4466]/10 transition-colors">
+                                          <Trash2 className="w-3 h-3" />
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )
+                              })}
+                            </React.Fragment>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )
+              })()}
           </CardContent>
         </Card>
 
