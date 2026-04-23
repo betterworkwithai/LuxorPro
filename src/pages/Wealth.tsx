@@ -1036,7 +1036,8 @@ export default function Wealth() {
                                 className="cursor-pointer bg-[#0d0d14] hover:bg-[#111118] transition-colors border-b border-[#1e1e2e]"
                                 onClick={() => setGroupExpanded(s => ({ ...s, [group.cls]: !expanded }))}
                               >
-                                <td colSpan={8} className="px-3 py-2.5">
+                                {/* col 1: Ativo — chevron + class name */}
+                                <td className="px-3 py-2.5">
                                   <div className="flex items-center gap-2">
                                     {expanded
                                       ? <ChevronDown className="w-3.5 h-3.5 text-[#55556a] flex-shrink-0" />
@@ -1048,10 +1049,20 @@ export default function Wealth() {
                                         Ilíquido
                                       </span>
                                     )}
-                                    <span className="ml-auto font-mono font-bold text-[#ff7a00] text-sm">{fmtBase(group.total)}</span>
-                                    <span className="text-xs text-[#8888aa] w-14 text-right">{groupAlloc.toFixed(1)}%</span>
                                   </div>
                                 </td>
+                                {/* cols 2-5: empty */}
+                                <td /><td /><td /><td />
+                                {/* col 6: Valor de Mercado */}
+                                <td className="px-3 py-2.5 text-right">
+                                  <span className="font-mono font-bold text-[#ff7a00] text-sm">{fmtBase(group.total)}</span>
+                                </td>
+                                {/* col 7: Alocação */}
+                                <td className="px-3 py-2.5 text-right">
+                                  <span className="text-xs font-semibold text-[#8888aa]">{groupAlloc.toFixed(1)}%</span>
+                                </td>
+                                {/* col 8: actions placeholder */}
+                                <td />
                               </tr>
 
                               {/* ── Asset rows ── */}
