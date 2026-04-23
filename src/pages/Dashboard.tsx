@@ -187,13 +187,6 @@ export default function Dashboard() {
     localStorage.setItem(PERIOD_LS_KEY, JSON.stringify({ mode: periodMode, selMonth, selYear }))
   }, [periodMode, selMonth, selYear])
 
-  // ── Donut chart period (independent from bar chart) ──
-  const [donutMonth, setDonutMonth] = useState<number>(todayMonth)
-  const [donutYear,  setDonutYear]  = useState<number>(todayYear)
-  const prevDonutMonth = () => { if (donutMonth === 1) { setDonutMonth(12); setDonutYear(y => y - 1) } else setDonutMonth(m => m - 1) }
-  const nextDonutMonth = () => { if (donutMonth === 12) { setDonutMonth(1);  setDonutYear(y => y + 1) } else setDonutMonth(m => m + 1) }
-  const isDonutFuture = donutYear > todayYear || (donutYear === todayYear && donutMonth > todayMonth)
-
   // ── Expanded category state ───────────────
   const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set())
 
@@ -415,13 +408,8 @@ export default function Dashboard() {
     })
   }, [transactions, periodMode, selMonth, selYear, todayMonth, todayYear])
 
-  // ── Donut transactions (filtered to donut period month) ──
-  const donutTx = useMemo(() =>
-    transactions.filter(t => {
-      const [y, m] = t.date.split('-').map(Number)
-      return y === donutYear && m === donutMonth
-    }),
-  [transactions, donutMonth, donutYear])
+  // ── Donut transactions follow the main period selector ──
+  const donutTx = periodTx
 
   // ── Category breakdown (uses donut period, always distinct palette colors) ──
   const expByCategory = useMemo(() => {
@@ -748,26 +736,13 @@ export default function Dashboard() {
 
         {/* ── Donut charts: Despesas + Receitas por Categoria ── */}
         {(() => {
-          // Shared period navigator rendered in each card header
-          const DonutPeriodNav = () => (
-            <div className="flex items-center gap-1 mt-0.5">
-              <button onClick={prevDonutMonth} className="p-0.5 rounded hover:bg-[#1e1e2e] transition-colors">
-                <ChevronLeft className="w-3.5 h-3.5 text-[#55556a]" />
-              </button>
-              <span className="text-xs text-[#55556a] min-w-[80px] text-center">
-                {monthName(donutMonth).slice(0, 3)} {donutYear}
-              </span>
-              <button onClick={nextDonutMonth} disabled={isDonutFuture}
-                className="p-0.5 rounded hover:bg-[#1e1e2e] transition-colors disabled:opacity-30">
-                <ChevronRight className="w-3.5 h-3.5 text-[#55556a]" />
-              </button>
-            </div>
-          )
-
-          const CategoryList = ({ items, txType }: { items: typeof expByCategory; txType: 'expense' | 'income' }) => (
+          const CategoryList = ({ items, txType }: { items: typeof expByCategory; txType: 'expense' | 'income' }) => {
+            const total = items.reduce((s, c) => s + c.amount, 0)
+            return (
             <div className="w-full space-y-0.5">
               {items.map(cat => {
                 const isOpen = expandedCats.has(cat.id + txType)
+                const pct = total > 0 ? (cat.amount / total * 100).toFixed(1) : '0'
                 const catTxs = donutTx.filter(t => t.type === txType && t.category === cat.id)
                   .sort((a, b) => b.amount - a.amount)
                 return (
@@ -780,54 +755,71 @@ export default function Dashboard() {
                         <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: cat.color }} />
                         {cat.icon} {cat.name}
                       </span>
-                      <span className="flex items-center gap-1">
+                      <span className="flex items-center gap-2">
                         <span className="text-[#e8e8f0] font-medium">{formatBRL(cat.amount)}</span>
-                        <ChevronDown className={clsx('w-3 h-3 text-[#55556a] transition-transform', isOpen && 'rotate-180')} />
+                        <span className="text-[#55556a] font-semibold w-9 text-right flex-shrink-0">{pct}%</span>
+                        <ChevronDown className={clsx('w-3 h-3 text-[#55556a] transition-transform flex-shrink-0', isOpen && 'rotate-180')} />
                       </span>
                     </button>
                     {isOpen && (() => {
                       const subGroups = catTxs.reduce((acc, t) => {
                         const key = (t.description || 'Sem descrição').trim().toLowerCase()
                         const display = (t.description || 'Sem descrição').trim()
-                        if (!acc[key]) acc[key] = { name: display, total: 0, count: 0 }
-                        acc[key].total += t.amount; acc[key].count += 1
+                        if (!acc[key]) acc[key] = { name: display, total: 0, count: 0, isWanted: false }
+                        acc[key].total += txToBRL(t); acc[key].count += 1
+                        if (t.isWanted) acc[key].isWanted = true
                         return acc
-                      }, {} as Record<string, { name: string; total: number; count: number }>)
+                      }, {} as Record<string, { name: string; total: number; count: number; isWanted: boolean }>)
                       return (
-                        <div className="ml-4 mb-1 space-y-0.5 border-l border-[#1e1e2e] pl-3">
-                          {Object.values(subGroups).sort((a, b) => b.total - a.total).map(row => (
-                            <div key={row.name} className="flex items-center justify-between text-[11px] py-0.5">
-                              <span className="text-[#55556a] truncate max-w-[120px] flex items-center gap-1">
-                                {row.name}
-                                {row.count > 1 && <span className="bg-[#1e1e2e] rounded px-1 py-0.5 text-[10px] flex-shrink-0">{row.count}×</span>}
-                              </span>
-                              <span className={clsx('font-medium flex-shrink-0', txType === 'expense' ? 'text-[#ff4466]' : 'text-[#00ff88]')}>
-                                {formatBRL(row.total)}
-                              </span>
-                            </div>
-                          ))}
+                        <div className="mb-1 space-y-0.5 border-l border-[#1e1e2e] ml-4 pl-3">
+                          {Object.values(subGroups).sort((a, b) => b.total - a.total).map(row => {
+                            const rowPct = total > 0 ? (row.total / total * 100).toFixed(1) : '0'
+                            return (
+                              <div key={row.name} className="flex items-center justify-between text-[11px] py-0.5 px-1">
+                                <span className="text-[#55556a] truncate flex items-center gap-1 min-w-0 mr-2">
+                                  {row.name}
+                                  {row.count > 1 && <span className="bg-[#1e1e2e] rounded px-1 py-0.5 text-[10px] flex-shrink-0">{row.count}×</span>}
+                                  {row.isWanted && <span className="bg-[#8b5cf6]/20 text-[#8b5cf6] rounded px-1 py-0.5 text-[10px] flex-shrink-0">desejo</span>}
+                                </span>
+                                <span className="flex items-center gap-2 flex-shrink-0">
+                                  <span className="font-medium" style={{ color: cat.color }}>
+                                    {formatBRL(row.total)}
+                                  </span>
+                                  <span className="text-[#55556a] w-9 text-right">{rowPct}%</span>
+                                  <span className="w-3" />
+                                </span>
+                              </div>
+                            )
+                          })}
                         </div>
                       )
                     })()}
                   </div>
                 )
               })}
+              {total > 0 && (
+                <div className="flex items-center justify-between text-xs pt-1.5 mt-0.5 border-t border-[#1e1e2e] px-1">
+                  <span className="text-[#55556a] font-semibold">Total</span>
+                  <span className="flex items-center gap-2">
+                    <span className="text-[#e8e8f0] font-semibold">{formatBRL(total)}</span>
+                    <span className="text-[#55556a] font-semibold w-9 text-right flex-shrink-0">100%</span>
+                    <span className="w-3 flex-shrink-0" />
+                  </span>
+                </div>
+              )}
             </div>
-          )
+          )}
 
           return (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Despesas por Categoria */}
               <Card>
                 <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <CardTitle>Despesas por Categoria</CardTitle>
-                    <DonutPeriodNav />
-                  </div>
+                  <CardTitle>Despesas por Categoria</CardTitle>
                 </CardHeader>
                 <CardContent className="flex flex-col items-center gap-3">
                   {expByCategory.length === 0 ? (
-                    <p className="text-xs text-[#55556a] py-8">Sem despesas em {monthName(donutMonth)} {donutYear}</p>
+                    <p className="text-xs text-[#55556a] py-8">Sem despesas no período selecionado</p>
                   ) : (
                     <>
                       <ResponsiveContainer width="100%" height={220}>
@@ -858,14 +850,11 @@ export default function Dashboard() {
               {/* Receitas por Categoria */}
               <Card>
                 <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <CardTitle>Receitas por Categoria</CardTitle>
-                    <DonutPeriodNav />
-                  </div>
+                  <CardTitle>Receitas por Categoria</CardTitle>
                 </CardHeader>
                 <CardContent className="flex flex-col items-center gap-3">
                   {incByCategory.length === 0 ? (
-                    <p className="text-xs text-[#55556a] py-8">Sem receitas em {monthName(donutMonth)} {donutYear}</p>
+                    <p className="text-xs text-[#55556a] py-8">Sem receitas no período selecionado</p>
                   ) : (
                     <>
                       <ResponsiveContainer width="100%" height={220}>

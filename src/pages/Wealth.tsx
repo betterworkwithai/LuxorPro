@@ -685,14 +685,8 @@ export default function Wealth() {
             )
           })}
         </div>
-        {/* Physical RE toggle + Exposição Global Recomendada */}
+        {/* Physical RE toggle */}
         <div className="flex items-center justify-end gap-4">
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs text-[#8888aa]">Exposição Global Recomendada</span>
-            <span className="text-xs font-bold text-[#8b5cf6]">
-              {({ Conservador: 5, Moderado: 15, Arrojado: 30, Agressivo: 40 } as Record<SuitabilityProfile, number>)[profile]}%
-            </span>
-          </div>
           <button onClick={() => setExcludePhysRE(v => !v)}
             className={clsx(
               'px-3 py-1.5 rounded-lg text-xs font-medium border transition-all flex items-center gap-1.5',
@@ -733,6 +727,7 @@ export default function Wealth() {
             title="Alocação Offshore"
             value={`${metrics.offshorePct.toFixed(1)}%`}
             subtitle="% dos ativos líquidos"
+            secondary={`Exposição Global Recomendada ${{ Conservador: 5, Moderado: 15, Arrojado: 30, Agressivo: 40 }[profile as SuitabilityProfile]}%`}
             icon={<Globe className="w-4 h-4" />}
             color="purple"
           />

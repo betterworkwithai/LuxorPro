@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import {
   PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis,
 } from 'recharts'
 import { useStore } from '../store/useStore'
 import { PageHeader } from '../components/ui/PageHeader'
@@ -326,18 +327,36 @@ export default function Cashflow() {
   const [sortField, setSortField] = useState<SortField>('date')
   const [sortDir,   setSortDir]   = useState<SortDir>('desc')
 
-  // Period selector
-  const [periodMode,  setPeriodMode]  = useState<PeriodMode>('monthly')
-  const [periodMonth, setPeriodMonth] = useState(() => {
+  // Period selector — persisted across tab switches
+  const CF_PERIOD_KEY = 'luxor_cashflow_period'
+  const [periodMode,  setPeriodMode]  = useState<PeriodMode>(() => {
+    try { return (JSON.parse(localStorage.getItem(CF_PERIOD_KEY) ?? '{}').mode ?? 'monthly') as PeriodMode } catch { return 'monthly' }
+  })
+  const [periodMonth, setPeriodMonth] = useState<string>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(CF_PERIOD_KEY) ?? '{}').month
+      if (saved) return saved
+    } catch {}
     const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}`
   })
-  const [periodYear,  setPeriodYear]  = useState(() => new Date().getFullYear())
+  const [periodYear,  setPeriodYear]  = useState<number>(() => {
+    try { return JSON.parse(localStorage.getItem(CF_PERIOD_KEY) ?? '{}').year ?? new Date().getFullYear() } catch { return new Date().getFullYear() }
+  })
+  useEffect(() => {
+    localStorage.setItem(CF_PERIOD_KEY, JSON.stringify({ mode: periodMode, month: periodMonth, year: periodYear }))
+  }, [periodMode, periodMonth, periodYear])
 
   const [showSubModal, setShowSubModal] = useState(false)
   const [editSub,      setEditSub]      = useState<RecurringTransaction | undefined>()
   const [recFilter,    setRecFilter]    = useState<'all' | 'income' | 'expense'>('all')
   const [recSort,      setRecSort]      = useState<'name' | 'value' | 'category' | 'day'>('day')
   const [editTx,       setEditTx]       = useState<Transaction | undefined>()
+  const [expandedCatKeys, setExpandedCatKeys] = useState<Set<string>>(new Set())
+  const toggleCatKey = (key: string) =>
+    setExpandedCatKeys(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n })
+  const [disabledWishIds, setDisabledWishIds] = useState<Set<string>>(new Set())
+  const toggleWish = (id: string) =>
+    setDisabledWishIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
 
   // Pagination
   const [pageSize, setPageSize] = useState(20)
@@ -432,9 +451,61 @@ export default function Cashflow() {
     [transactions, periodIncludes]
   )
 
+  // ── Bar chart data — adapts to period mode ──
+  const cashflowBarData = useMemo(() => {
+    if (periodMode === 'monthly') {
+      const weeks = [
+        { label: 'Sem 1', start: 1,  end: 7  },
+        { label: 'Sem 2', start: 8,  end: 14 },
+        { label: 'Sem 3', start: 15, end: 21 },
+        { label: 'Sem 4', start: 22, end: 31 },
+      ]
+      const prefix = periodMonth + '-'
+      const monthTxs = transactions.filter(t => t.date.startsWith(prefix))
+      return weeks.map(w => {
+        const txs = monthTxs.filter(t => {
+          const day = parseInt(t.date.split('-')[2])
+          return day >= w.start && day <= w.end
+        })
+        return {
+          label: w.label,
+          income:   txs.filter(t => t.type === 'income').reduce((s, t) => s + toBRL(t), 0),
+          expenses: txs.filter(t => t.type === 'expense').reduce((s, t) => s + toBRL(t), 0),
+        }
+      })
+    }
+    if (periodMode === 'ytd') {
+      return Array.from({ length: curMonth }, (_, i) => {
+        const m = i + 1
+        const txs = transactions.filter(t => {
+          const [ty, tm] = t.date.split('-')
+          return parseInt(ty) === periodYear && parseInt(tm) === m
+        })
+        return {
+          label: monthName(m).slice(0, 3),
+          income:   txs.filter(t => t.type === 'income').reduce((s, t) => s + toBRL(t), 0),
+          expenses: txs.filter(t => t.type === 'expense').reduce((s, t) => s + toBRL(t), 0),
+        }
+      })
+    }
+    // yearly — all 12 months
+    return Array.from({ length: 12 }, (_, i) => {
+      const m = i + 1
+      const txs = transactions.filter(t => {
+        const [ty, tm] = t.date.split('-')
+        return parseInt(ty) === periodYear && parseInt(tm) === m
+      })
+      return {
+        label: monthName(m).slice(0, 3),
+        income:   txs.filter(t => t.type === 'income').reduce((s, t) => s + toBRL(t), 0),
+        expenses: txs.filter(t => t.type === 'expense').reduce((s, t) => s + toBRL(t), 0),
+      }
+    })
+  }, [transactions, periodMode, periodMonth, periodYear, curMonth, toBRL])
+
   const expByCategory = useMemo(() => {
     const map = new Map<string, { id: string; name: string; icon: string; color: string; amount: number }>()
-    chartTx.filter(t => t.type === 'expense' && !t.isWanted).forEach(t => {
+    chartTx.filter(t => t.type === 'expense').forEach(t => {
       const cat = allCategories.find(c => c.id === t.category)
       const cur = map.get(t.category) ?? { id: t.category, name: cat?.name ?? t.category, icon: cat?.icon ?? '📦', color: cat?.color ?? '#55556a', amount: 0 }
       map.set(t.category, { ...cur, amount: cur.amount + toBRL(t) })
@@ -499,13 +570,18 @@ export default function Cashflow() {
     return alerts.sort((a, b) => b.pct - a.pct).slice(0, 3)
   }, [transactions, curMonth, curYear, allCategories, toBRL])
 
-  // ── Want expenses ────────────────────────────
-  const wantedExpenses = useMemo(() =>
-    transactions.filter(t => t.isWanted === true),
+  // ── Want expenses — all time (section shows all); active = not disabled ──
+  const allWishExpenses = useMemo(() =>
+    transactions.filter(t => t.isWanted === true && t.type === 'expense')
+      .sort((a, b) => b.date.localeCompare(a.date)),
     [transactions]
   )
+  // period-scoped active wishes drive the impact numbers
+  const wantedExpenses = useMemo(() =>
+    chartTx.filter(t => t.isWanted === true && t.type === 'expense' && !disabledWishIds.has(t.id)),
+    [chartTx, disabledWishIds]
+  )
   const wantedMonthlyBudget = useMemo(() => {
-    // Compare wanted total vs current month income
     const mInc = chartTx.filter(t => t.type === 'income').reduce((s, t) => s + toBRL(t), 0)
     const wantedTotal = wantedExpenses.reduce((s, t) => s + toBRL(t), 0)
     return { wantedTotal, mInc, fits: mInc > 0 && wantedTotal <= mInc * 0.10 }
@@ -614,8 +690,8 @@ export default function Cashflow() {
               <span className="text-sm font-semibold text-[#e8e8f0] w-36 text-center select-none">
                 {periodLabel}
               </span>
-              <button onClick={() => stepMonth(1)} disabled={isNextMonthFuture}
-                className="w-7 h-7 flex items-center justify-center rounded-lg text-[#55556a] hover:text-[#e8e8f0] hover:bg-[#1e1e2e] transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+              <button onClick={() => stepMonth(1)}
+                className="w-7 h-7 flex items-center justify-center rounded-lg text-[#55556a] hover:text-[#e8e8f0] hover:bg-[#1e1e2e] transition-colors">
                 <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -631,8 +707,8 @@ export default function Cashflow() {
               <span className="text-sm font-semibold text-[#e8e8f0] w-20 text-center select-none">
                 {periodMode === 'ytd' ? `${periodYear} YTD` : periodYear}
               </span>
-              <button onClick={() => setPeriodYear(y => y + 1)} disabled={periodYear >= curYear}
-                className="w-7 h-7 flex items-center justify-center rounded-lg text-[#55556a] hover:text-[#e8e8f0] hover:bg-[#1e1e2e] transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+              <button onClick={() => setPeriodYear(y => y + 1)}
+                className="w-7 h-7 flex items-center justify-center rounded-lg text-[#55556a] hover:text-[#e8e8f0] hover:bg-[#1e1e2e] transition-colors">
                 <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -698,32 +774,74 @@ export default function Cashflow() {
                         <Legend wrapperStyle={{ fontSize: 11, color: '#8888aa' }} />
                       </PieChart>
                     </ResponsiveContainer>
-                    <div className="mt-2">
-                      <table className="w-full text-xs border-separate" style={{ borderSpacing: '0 2px' }}>
-                        <tbody>
-                          {expByCategory.map(cat => {
-                            const total = expByCategory.reduce((s, c) => s + c.amount, 0)
-                            const pct = total > 0 ? (cat.amount / total * 100).toFixed(1) : '0'
-                            return (
-                              <tr key={cat.id}>
-                                <td className="text-left py-0.5">
-                                  <span className="flex items-center gap-1.5 text-[#8888aa]">
-                                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: cat.color }} />
-                                    {cat.icon} {cat.name}
-                                  </span>
-                                </td>
-                                <td className="text-center text-[#e8e8f0] font-medium px-2">{formatBRL(cat.amount)}</td>
-                                <td className="text-right text-[#55556a] font-semibold w-12">{pct}%</td>
-                              </tr>
-                            )
-                          })}
-                          <tr className="border-t border-[#1e1e2e]">
-                            <td className="text-left text-[#55556a] font-semibold pt-1.5">Total</td>
-                            <td className="text-center text-[#e8e8f0] font-semibold pt-1.5 px-2">{formatBRL(expByCategory.reduce((s, c) => s + c.amount, 0))}</td>
-                            <td className="text-right text-[#55556a] font-semibold pt-1.5 w-12">100%</td>
-                          </tr>
-                        </tbody>
-                      </table>
+                    <div className="mt-2 space-y-0.5">
+                      {(() => {
+                        const total = expByCategory.reduce((s, c) => s + c.amount, 0)
+                        return (
+                          <>
+                            {expByCategory.map(cat => {
+                              const pct = total > 0 ? (cat.amount / total * 100).toFixed(1) : '0'
+                              const key = `exp-${cat.id}`
+                              const isOpen = expandedCatKeys.has(key)
+                              const catTxs = chartTx.filter(t => t.type === 'expense' && t.category === cat.id)
+                                .sort((a, b) => toBRL(b) - toBRL(a))
+                              const subGroups = catTxs.reduce((acc, t) => {
+                                const k = (t.description || 'Sem descrição').trim().toLowerCase()
+                                const disp = (t.description || 'Sem descrição').trim()
+                                if (!acc[k]) acc[k] = { name: disp, total: 0, count: 0, isWanted: false }
+                                acc[k].total += toBRL(t); acc[k].count += 1
+                                if (t.isWanted) acc[k].isWanted = true
+                                return acc
+                              }, {} as Record<string, { name: string; total: number; count: number; isWanted: boolean }>)
+                              return (
+                                <div key={cat.id}>
+                                  <button onClick={() => toggleCatKey(key)}
+                                    className="w-full flex items-center justify-between text-xs py-1.5 px-1 rounded-lg hover:bg-[#16161f] transition-colors group">
+                                    <span className="flex items-center gap-1.5 text-[#8888aa] group-hover:text-[#e8e8f0]">
+                                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: cat.color }} />
+                                      {cat.icon} {cat.name}
+                                    </span>
+                                    <span className="flex items-center gap-2">
+                                      <span className="text-[#e8e8f0] font-medium">{formatBRL(cat.amount)}</span>
+                                      <span className="text-[#55556a] font-semibold w-10 text-right">{pct}%</span>
+                                      <ChevronDown className={clsx('w-3 h-3 text-[#55556a] transition-transform flex-shrink-0', isOpen && 'rotate-180')} />
+                                    </span>
+                                  </button>
+                                  {isOpen && (
+                                    <div className="mb-1 space-y-0.5 border-l border-[#1e1e2e] ml-4 pl-3">
+                                      {Object.values(subGroups).sort((a, b) => b.total - a.total).map(row => {
+                                        const rowPct = total > 0 ? (row.total / total * 100).toFixed(1) : '0'
+                                        return (
+                                          <div key={row.name} className="flex items-center justify-between text-[11px] py-0.5 px-1">
+                                            <span className="text-[#55556a] truncate flex items-center gap-1 min-w-0 mr-2">
+                                              {row.name}
+                                              {row.count > 1 && <span className="bg-[#1e1e2e] rounded px-1 py-0.5 text-[10px] flex-shrink-0">{row.count}×</span>}
+                                              {row.isWanted && <span className="bg-[#8b5cf6]/20 text-[#8b5cf6] rounded px-1 py-0.5 text-[10px] flex-shrink-0">desejo</span>}
+                                            </span>
+                                            <span className="flex items-center gap-2 flex-shrink-0">
+                                              <span className="font-medium" style={{ color: cat.color }}>{formatBRL(row.total)}</span>
+                                              <span className="text-[#55556a] w-9 text-right">{rowPct}%</span>
+                                              <span className="w-3" />
+                                            </span>
+                                          </div>
+                                        )
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              )
+                            })}
+                            <div className="flex items-center justify-between text-xs pt-1.5 mt-0.5 border-t border-[#1e1e2e] px-1">
+                              <span className="text-[#55556a] font-semibold">Total</span>
+                              <span className="flex items-center gap-2">
+                                <span className="text-[#e8e8f0] font-semibold">{formatBRL(total)}</span>
+                                <span className="text-[#55556a] font-semibold w-10 text-right">100%</span>
+                                <span className="w-3" />
+                              </span>
+                            </div>
+                          </>
+                        )
+                      })()}
                     </div>
                   </>
                 )}
@@ -760,32 +878,75 @@ export default function Cashflow() {
                         <Legend wrapperStyle={{ fontSize: 11, color: '#8888aa' }} />
                       </PieChart>
                     </ResponsiveContainer>
-                    <div className="mt-2">
-                      <table className="w-full text-xs border-separate" style={{ borderSpacing: '0 2px' }}>
-                        <tbody>
-                          {incByCategory.map((cat, i) => {
-                            const total = incByCategory.reduce((s, c) => s + c.amount, 0)
-                            const pct = total > 0 ? (cat.amount / total * 100).toFixed(1) : '0'
-                            return (
-                              <tr key={cat.id}>
-                                <td className="text-left py-0.5">
-                                  <span className="flex items-center gap-1.5 text-[#8888aa]">
-                                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: INC_PALETTE[i % INC_PALETTE.length] }} />
-                                    {cat.icon} {cat.name}
-                                  </span>
-                                </td>
-                                <td className="text-center text-[#e8e8f0] font-medium px-2">{formatBRL(cat.amount)}</td>
-                                <td className="text-right text-[#55556a] font-semibold w-12">{pct}%</td>
-                              </tr>
-                            )
-                          })}
-                          <tr className="border-t border-[#1e1e2e]">
-                            <td className="text-left text-[#55556a] font-semibold pt-1.5">Total</td>
-                            <td className="text-center text-[#e8e8f0] font-semibold pt-1.5 px-2">{formatBRL(incByCategory.reduce((s, c) => s + c.amount, 0))}</td>
-                            <td className="text-right text-[#55556a] font-semibold pt-1.5 w-12">100%</td>
-                          </tr>
-                        </tbody>
-                      </table>
+                    <div className="mt-2 space-y-0.5">
+                      {(() => {
+                        const total = incByCategory.reduce((s, c) => s + c.amount, 0)
+                        return (
+                          <>
+                            {incByCategory.map((cat, i) => {
+                              const pct = total > 0 ? (cat.amount / total * 100).toFixed(1) : '0'
+                              const color = INC_PALETTE[i % INC_PALETTE.length]
+                              const key = `inc-${cat.id}`
+                              const isOpen = expandedCatKeys.has(key)
+                              const catTxs = chartTx.filter(t => t.type === 'income' && t.category === cat.id)
+                                .sort((a, b) => toBRL(b) - toBRL(a))
+                              const subGroups = catTxs.reduce((acc, t) => {
+                                const k = (t.description || 'Sem descrição').trim().toLowerCase()
+                                const disp = (t.description || 'Sem descrição').trim()
+                                if (!acc[k]) acc[k] = { name: disp, total: 0, count: 0, isWanted: false }
+                                acc[k].total += toBRL(t); acc[k].count += 1
+                                if (t.isWanted) acc[k].isWanted = true
+                                return acc
+                              }, {} as Record<string, { name: string; total: number; count: number; isWanted: boolean }>)
+                              return (
+                                <div key={cat.id}>
+                                  <button onClick={() => toggleCatKey(key)}
+                                    className="w-full flex items-center justify-between text-xs py-1.5 px-1 rounded-lg hover:bg-[#16161f] transition-colors group">
+                                    <span className="flex items-center gap-1.5 text-[#8888aa] group-hover:text-[#e8e8f0]">
+                                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: color }} />
+                                      {cat.icon} {cat.name}
+                                    </span>
+                                    <span className="flex items-center gap-2">
+                                      <span className="text-[#e8e8f0] font-medium">{formatBRL(cat.amount)}</span>
+                                      <span className="text-[#55556a] font-semibold w-10 text-right">{pct}%</span>
+                                      <ChevronDown className={clsx('w-3 h-3 text-[#55556a] transition-transform flex-shrink-0', isOpen && 'rotate-180')} />
+                                    </span>
+                                  </button>
+                                  {isOpen && (
+                                    <div className="mb-1 space-y-0.5 border-l border-[#1e1e2e] ml-4 pl-3">
+                                      {Object.values(subGroups).sort((a, b) => b.total - a.total).map(row => {
+                                        const rowPct = total > 0 ? (row.total / total * 100).toFixed(1) : '0'
+                                        return (
+                                          <div key={row.name} className="flex items-center justify-between text-[11px] py-0.5 px-1">
+                                            <span className="text-[#55556a] truncate flex items-center gap-1 min-w-0 mr-2">
+                                              {row.name}
+                                              {row.count > 1 && <span className="bg-[#1e1e2e] rounded px-1 py-0.5 text-[10px] flex-shrink-0">{row.count}×</span>}
+                                              {row.isWanted && <span className="bg-[#8b5cf6]/20 text-[#8b5cf6] rounded px-1 py-0.5 text-[10px] flex-shrink-0">desejo</span>}
+                                            </span>
+                                            <span className="flex items-center gap-2 flex-shrink-0">
+                                              <span className="font-medium" style={{ color }}>{formatBRL(row.total)}</span>
+                                              <span className="text-[#55556a] w-9 text-right">{rowPct}%</span>
+                                              <span className="w-3" />
+                                            </span>
+                                          </div>
+                                        )
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              )
+                            })}
+                            <div className="flex items-center justify-between text-xs pt-1.5 mt-0.5 border-t border-[#1e1e2e] px-1">
+                              <span className="text-[#55556a] font-semibold">Total</span>
+                              <span className="flex items-center gap-2">
+                                <span className="text-[#e8e8f0] font-semibold">{formatBRL(total)}</span>
+                                <span className="text-[#55556a] font-semibold w-10 text-right">100%</span>
+                                <span className="w-3" />
+                              </span>
+                            </div>
+                          </>
+                        )
+                      })()}
                     </div>
                   </>
                 )}
@@ -793,6 +954,28 @@ export default function Cashflow() {
             </Card>
           </div>
         )}
+
+        {/* ── Receitas vs Despesas bar chart ── */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Receitas vs Despesas — {periodLabel}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={cashflowBarData} barCategoryGap="30%">
+                <XAxis dataKey="label" tick={{ fill: '#55556a', fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis tickFormatter={v => `R$${(v / 1000).toFixed(0)}k`} tick={{ fill: '#55556a', fontSize: 11 }} axisLine={false} tickLine={false} />
+                <Tooltip
+                  formatter={(v: any, name: string) => [formatBRL(Number(v)), name === 'income' ? 'Receitas' : 'Despesas']}
+                  contentStyle={{ background: '#0d0d14', border: '1px solid #1e1e2e', borderRadius: 12, fontSize: 12, color: '#fff' }}
+                  itemStyle={{ color: '#fff' }} labelStyle={{ color: '#fff', fontWeight: 600 }}
+                />
+                <Bar dataKey="income"   name="Receitas" fill="#00ff88" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="expenses" name="Despesas" fill="#ff4466" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
 
         {/* ── Transações Recorrentes ── */}
         <Card>
@@ -925,10 +1108,11 @@ export default function Cashflow() {
 
         {/* ── Regra 50/30/20 ── */}
         {(budgetData.fixed + budgetData.variable + budgetData.investment) > 0 && (() => {
+          const catTotal = (budgetData.fixed + budgetData.variable + budgetData.investment) || 1
           const segs = [
-            { label: 'Fixas',        pct: budgetData.fixedPct,      amt: budgetData.fixed,      color: '#3b82f6', ideal: 50 },
-            { label: 'Variáveis',    pct: budgetData.variablePct,   amt: budgetData.variable,   color: '#f59e0b', ideal: 30 },
-            { label: 'Investimento', pct: budgetData.investmentPct, amt: budgetData.investment, color: '#00ff88', ideal: 20 },
+            { label: 'Fixas',        pct: budgetData.fixed      / catTotal * 100, amt: budgetData.fixed,      color: '#3b82f6', ideal: 50 },
+            { label: 'Variáveis',    pct: budgetData.variable   / catTotal * 100, amt: budgetData.variable,   color: '#f59e0b', ideal: 30 },
+            { label: 'Investimento', pct: budgetData.investment / catTotal * 100, amt: budgetData.investment, color: '#00ff88', ideal: 20 },
           ]
           const ideal = [
             { label: 'Fixas',        pct: 50, color: '#3b82f6' },
@@ -954,45 +1138,48 @@ export default function Cashflow() {
                 <div>
                   <p className="text-[10px] uppercase tracking-wider text-[#55556a] mb-2">Atual</p>
                   <div className="h-10 flex rounded-xl overflow-hidden gap-px bg-[#1e1e2e]">
-                    {segs.map(seg => {
-                      const over = seg.pct > seg.ideal + 5
-                      return (
-                        <div key={seg.label}
-                          className="flex items-center justify-center transition-all duration-300 flex-shrink-0"
-                          style={{
-                            width: `${Math.min(seg.pct, 100)}%`,
-                            minWidth: seg.pct > 0 ? 2 : 0,
-                            background: over ? '#ff4466' : seg.color,
-                          }}
-                          title={`${seg.label}: ${seg.pct.toFixed(1)}% — ${formatBRL(seg.amt)}`}
-                        >
-                          {seg.pct > 7 && (
-                            <span className="text-[11px] font-bold text-black/75 select-none">
-                              {seg.pct.toFixed(0)}%
-                            </span>
-                          )}
-                        </div>
-                      )
-                    })}
+                    {segs.map(seg => (
+                      <div key={seg.label}
+                        className="flex items-center justify-center transition-all duration-300 flex-shrink-0"
+                        style={{
+                          width: `${Math.min(seg.pct, 100)}%`,
+                          minWidth: seg.pct > 0 ? 2 : 0,
+                          background: seg.color,
+                        }}
+                        title={`${seg.label}: ${seg.pct.toFixed(1)}% — ${formatBRL(seg.amt)}`}
+                      >
+                        <span className="text-[11px] font-bold text-black/75 select-none">
+                          {seg.pct.toFixed(0)}%
+                        </span>
+                      </div>
+                    ))}
                   </div>
                   <div className="flex flex-wrap gap-x-5 gap-y-1.5 mt-2.5">
                     {segs.map(seg => {
-                      const over  = seg.pct > seg.ideal + 5
-                      const under = seg.pct < seg.ideal - 5
+                      const isInvest  = seg.label === 'Investimento'
+                      const isFixed   = seg.label === 'Fixas'
+                      const isVar     = seg.label === 'Variáveis'
+                      const overIdeal = seg.pct > seg.ideal
                       return (
                         <div key={seg.label} className="flex items-center gap-1.5 text-xs">
-                          <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
-                            style={{ background: over ? '#ff4466' : seg.color }} />
+                          <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: seg.color }} />
                           <span className="text-[#8888aa]">{seg.label}</span>
-                          <span className="font-semibold" style={{ color: over ? '#ff4466' : seg.color }}>
+                          <span className="font-semibold" style={{ color: seg.color }}>
                             {seg.pct.toFixed(0)}%
                           </span>
                           <span className="text-[#55556a]">{formatBRL(seg.amt)}</span>
-                          {over  && <span className="text-[9px] font-bold text-[#ff4466]">▲ acima</span>}
-                          {!over && under && seg.label === 'Investimento' && (
-                            <span className="text-[9px] font-bold text-[#f59e0b]">▼ abaixo</span>
+                          {isInvest && overIdeal && (
+                            <span className="text-[9px] font-bold text-[#00ff88]">✓ acima da meta!</span>
                           )}
-                          {!over && !under && <span className="text-[9px] text-[#00ff88]">✓</span>}
+                          {isInvest && !overIdeal && (
+                            <span className="text-[9px] font-bold text-[#f59e0b]">▼ abaixo da meta</span>
+                          )}
+                          {(isFixed || isVar) && !overIdeal && (
+                            <span className="text-[9px] font-bold text-[#00ff88]">✓ dentro da meta!</span>
+                          )}
+                          {(isFixed || isVar) && overIdeal && (
+                            <span className="text-[9px] font-bold text-[#f59e0b]">▲ acima</span>
+                          )}
                         </div>
                       )
                     })}
@@ -1031,47 +1218,87 @@ export default function Cashflow() {
         })()}
 
         {/* ── Want Expenses ── */}
-        {wantedExpenses.length > 0 && (
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <span className="text-base">🛒</span>
-                <CardTitle>Despesas Desejadas</CardTitle>
-                <span className="text-[10px] text-[#55556a] ml-auto">{wantedExpenses.length} item{wantedExpenses.length !== 1 ? 's' : ''}</span>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2 mb-3">
-                {wantedExpenses.slice(0, 5).map(t => {
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <span className="text-base">🛒</span>
+              <CardTitle>Despesas Desejadas</CardTitle>
+              {allWishExpenses.length > 0 && (
+                <span className="text-[10px] text-[#55556a] ml-auto">
+                  {allWishExpenses.length - disabledWishIds.size} ativo{allWishExpenses.length - disabledWishIds.size !== 1 ? 's' : ''}
+                  {disabledWishIds.size > 0 && ` · ${disabledWishIds.size} desativado${disabledWishIds.size !== 1 ? 's' : ''}`}
+                </span>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {allWishExpenses.length === 0 ? (
+              <p className="text-xs text-[#55556a] py-6 text-center">Nenhuma despesa desejada ainda. Adicione transações como "desejada" para simular o impacto no seu orçamento.</p>
+            ) : (
+              <>
+              <div className="space-y-0.5 mb-3">
+                {allWishExpenses.map(t => {
                   const cat = allCategories.find(c => c.id === t.category)
+                  const isDisabled = disabledWishIds.has(t.id)
                   return (
-                    <div key={t.id} className="flex items-center justify-between text-xs py-1.5 border-b border-[#1e1e2e] last:border-0">
-                      <span className="flex items-center gap-1.5 text-[#8888aa]">
+                    <div key={t.id} className={clsx('flex items-center justify-between text-xs py-1.5 px-1 rounded-lg hover:bg-[#16161f] group border-b border-[#1e1e2e] last:border-0 transition-opacity', isDisabled && 'opacity-40')}>
+                      <span className="flex items-center gap-1.5 min-w-0" style={{ color: isDisabled ? '#55556a' : '#8888aa' }}>
                         <span>{cat?.icon ?? '🛒'}</span>
-                        <span className="truncate max-w-[160px]">{t.description}</span>
+                        <span className={clsx('truncate max-w-[160px]', isDisabled && 'line-through')}>{t.description}</span>
+                        {isDisabled && <span className="text-[10px] bg-[#1e1e2e] text-[#55556a] rounded px-1 py-0.5 flex-shrink-0">desativada</span>}
                       </span>
-                      <span className="text-[#e8e8f0] font-medium flex-shrink-0">
-                        {t.currency && t.currency !== 'BRL' ? `${t.currency === 'USD' ? '$' : '€'}${t.amount.toFixed(2)} ≈ ` : ''}{formatBRL(toBRL(t))}
+                      <span className="flex items-center gap-2 flex-shrink-0">
+                        <span className={clsx('font-medium', isDisabled ? 'text-[#55556a]' : 'text-[#e8e8f0]')}>
+                          {t.currency && t.currency !== 'BRL' ? `${t.currency === 'USD' ? '$' : '€'}${t.amount.toFixed(2)} ≈ ` : ''}{formatBRL(toBRL(t))}
+                        </span>
+                        <button
+                          title={isDisabled ? 'Ativar' : 'Desativar'}
+                          onClick={() => toggleWish(t.id)}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-[#1e1e2e]"
+                          style={{ color: isDisabled ? '#55556a' : '#00ff88' }}>
+                          {isDisabled ? <ToggleLeft className="w-3.5 h-3.5" /> : <ToggleRight className="w-3.5 h-3.5" />}
+                        </button>
+                        <button
+                          title="Editar"
+                          onClick={() => setEditTx(t)}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-[#1e1e2e] text-[#55556a] hover:text-[#e8e8f0]">
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          title="Excluir"
+                          onClick={() => deleteTransaction(t.id)}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-[#ff4466]/10 text-[#55556a] hover:text-[#ff4466]">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </span>
                     </div>
                   )
                 })}
               </div>
-              <div className="flex items-center justify-between p-3 rounded-xl bg-[#16161f]">
-                <span className="text-xs text-[#8888aa]">Total desejado:</span>
-                <div className="text-right">
+              <div className="flex flex-col gap-2 p-3 rounded-xl bg-[#16161f]">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-[#8888aa]">Total desejado no período:</span>
                   <span className="text-sm font-bold text-[#8b5cf6]">{formatBRL(wantedMonthlyBudget.wantedTotal)}</span>
-                  {wantedMonthlyBudget.mInc > 0 && (
-                    <p className="text-[10px] text-[#55556a] mt-0.5">
-                      = {(wantedMonthlyBudget.wantedTotal / wantedMonthlyBudget.mInc * 100).toFixed(0)}% da receita do período
-                      {wantedMonthlyBudget.fits ? ' ✓ Cabe no orçamento' : ' ⚠ Acima de 10% da receita'}
-                    </p>
-                  )}
+                </div>
+                {wantedMonthlyBudget.mInc > 0 && (
+                  <div className="flex items-center justify-between text-[11px] text-[#55556a]">
+                    <span>{(wantedMonthlyBudget.wantedTotal / wantedMonthlyBudget.mInc * 100).toFixed(0)}% da receita do período</span>
+                    <span className={wantedMonthlyBudget.fits ? 'text-[#00ff88]' : 'text-[#f59e0b]'}>
+                      {wantedMonthlyBudget.fits ? '✓ Cabe no orçamento' : '⚠ Acima de 10% da receita'}
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between border-t border-[#1e1e2e] pt-2 text-[11px]">
+                  <span className="text-[#8888aa]">Saldo se realizadas:</span>
+                  <span className={clsx('font-semibold', (netFlow - wantedMonthlyBudget.wantedTotal) >= 0 ? 'text-[#00ff88]' : 'text-[#ff4466]')}>
+                    {formatBRL(netFlow - wantedMonthlyBudget.wantedTotal)}
+                  </span>
                 </div>
               </div>
+              </>
+            )}
             </CardContent>
           </Card>
-        )}
 
         {/* Filtros */}
         <Card className="p-4">
@@ -1232,15 +1459,9 @@ export default function Cashflow() {
                         {t.notes && <p className="text-[10px] text-[#55556a] truncate">{t.notes}</p>}
                       </td>
                       <td className="px-4 py-3">
-                        {t.category === 'imposto' || (cat?.name ?? '').toLowerCase() === 'impostos' ? (
-                          <span className="inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-400 font-medium">
-                            <span>{cat?.icon ?? '🧾'}</span>{cat?.name ?? t.category}
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-1.5 text-xs text-[#8888aa]">
-                            <span>{cat?.icon ?? '📦'}</span>{cat?.name ?? t.category}
-                          </span>
-                        )}
+                        <span className="flex items-center gap-1.5 text-xs text-[#8888aa]">
+                          <span>{cat?.icon ?? '📦'}</span>{cat?.name ?? t.category}
+                        </span>
                       </td>
                       <td className="px-4 py-3 text-xs text-[#55556a]">{t.account}</td>
                       <td className="px-4 py-3">
