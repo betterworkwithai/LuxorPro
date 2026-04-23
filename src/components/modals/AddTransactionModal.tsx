@@ -353,11 +353,9 @@ export function AddTransactionModal({ open, onClose, prefill, initial }: Props) 
     })
 
     if (generateMonths === 'this-year') {
-      // Generate one transaction per month from January to the current month
-      const today = new Date()
-      const year  = today.getFullYear()
-      const currentMonth = today.getMonth() // 0-based
-      for (let m = 0; m <= currentMonth; m++) {
+      // Generate one transaction per month for every month of the current year (Jan–Dec)
+      const year  = new Date().getFullYear()
+      for (let m = 0; m < 12; m++) {
         const maxDay = new Date(year, m + 1, 0).getDate()
         const txDay  = Math.min(day, maxDay)
         const txDate = `${year}-${String(m + 1).padStart(2, '0')}-${String(txDay).padStart(2, '0')}`
@@ -429,8 +427,7 @@ export function AddTransactionModal({ open, onClose, prefill, initial }: Props) 
     onClose()
   }
 
-  const thisYearMonths = new Date().getMonth() + 1 // Jan=1 … Dec=12
-  const effectiveMonths = generateMonths === 'permanent' ? 36 : generateMonths === 'this-year' ? thisYearMonths : (generateMonths as number)
+  const effectiveMonths = generateMonths === 'permanent' ? 36 : generateMonths === 'this-year' ? 12 : (generateMonths as number)
 
   const saveLabel = (() => {
     if (saving) return 'Salvando…'
@@ -913,7 +910,7 @@ export function AddTransactionModal({ open, onClose, prefill, initial }: Props) 
                 <p className="text-[10px] text-[#55556a]">
                   Criará {effectiveMonths} lançamento{effectiveMonths !== 1 ? 's' : ''} no Fluxo de Caixa
                   {generateMonths === 'permanent' ? ' (Permanente = 36 meses)' : ''}
-                  {generateMonths === 'this-year' ? ` (Jan–${new Date().toLocaleString('pt-BR', { month: 'short' })} de ${new Date().getFullYear()})` : ''}
+                  {generateMonths === 'this-year' ? ` (Jan–Dez de ${new Date().getFullYear()})` : ''}
                 </p>
               )}
             </div>
