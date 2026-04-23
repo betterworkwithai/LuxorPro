@@ -16,7 +16,7 @@ import { formatDate, formatBRL } from '../lib/formatters'
 import { useAllCategories } from '../lib/useCategories'
 import { AccountSelect } from '../components/ui/AccountSelect'
 import type { Attachment } from '../lib/types'
-import { processInvoice } from '../lib/invoice/pipeline'
+import { processInvoiceAI } from '../lib/invoice/aiPipeline'
 import type { ParsedTransaction, PipelineResult, InvoiceMetadata } from '../lib/invoice/types'
 import { confidenceLabel } from '../lib/invoice/confidenceScorer'
 
@@ -392,8 +392,8 @@ export default function DocumentAI() {
           reader.readAsDataURL(entry.file)
         })
 
-        // Run full pipeline
-        const result = await processInvoice(entry.file, {
+        // Run AI pipeline
+        const result = await processInvoiceAI(entry.file, {
           onProgress: (step, pct) => updateEntry(entry.id, { progressStep: step, progressPct: pct }),
         })
 
@@ -467,7 +467,7 @@ export default function DocumentAI() {
     <div className="min-h-screen animate-fade-in">
       <PageHeader
         title="IA de Documentos"
-        subtitle="Envie faturas de cartão ou extratos — o sistema detecta texto nativo, reconstrói o layout e extrai os lançamentos automaticamente"
+        subtitle="Envie faturas de cartão ou extratos — o Claude AI extrai os lançamentos automaticamente com alta precisão"
       />
 
       <div className="p-4 sm:p-6 space-y-5">
@@ -526,7 +526,7 @@ export default function DocumentAI() {
           </div>
           <p className="text-xs text-[#55556a] flex items-center gap-1.5">
             <ShieldCheck className="w-3 h-3 text-[#00d4ff]" />
-            100% local · pdf.js + Tesseract.js · nenhum dado sai do seu navegador
+            Texto enviado ao Claude AI via servidor seguro · imagens processadas localmente
           </p>
         </div>
 
@@ -595,10 +595,10 @@ export default function DocumentAI() {
           <p className="text-xs font-semibold text-[#8888aa] mb-3 uppercase tracking-wider">Como funciona</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
-              { step: '1', icon: '🔍', title: 'Detecta texto nativo', desc: 'PDFs digitais são lidos diretamente — sem OCR.' },
-              { step: '2', icon: '📐', title: 'Reconstrói layout', desc: 'Fragmentos espaciais são agrupados em linhas visuais corretas.' },
-              { step: '3', icon: '🏷', title: 'Classifica linhas', desc: 'Totais, cabeçalhos e rodapés são descartados automaticamente.' },
-              { step: '4', icon: '✅', title: 'Score de confiança', desc: 'Cada lançamento recebe um indicador para facilitar a revisão.' },
+              { step: '1', icon: '📄', title: 'Extrai texto', desc: 'PDFs digitais são lidos pelo pdf.js. Imagens e PDFs escaneados usam OCR.' },
+              { step: '2', icon: '🤖', title: 'Claude AI analisa', desc: 'O texto é enviado ao Claude, que interpreta os lançamentos como um humano.' },
+              { step: '3', icon: '🏷', title: 'Categorização automática', desc: 'Cada lançamento recebe uma categoria sugerida pela IA.' },
+              { step: '4', icon: '✅', title: 'Revisão e importação', desc: 'Confira, ajuste se necessário e importe com um clique.' },
             ].map(s => (
               <div key={s.step} className="flex gap-3">
                 <span className="text-xl leading-tight">{s.icon}</span>
