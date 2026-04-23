@@ -70,6 +70,103 @@ function periodCutoff(p: PeriodOption): Date | null {
   return null
 }
 
+// ─── Benchmark monthly returns ───────────────────────────────────────
+const BENCH_DATA: { month: string; cdi: number; dolar: number; ibov: number; ipca: number }[] = [
+  { month:'2020-01', cdi:0.38, dolar:5.92,  ibov:-1.63,  ipca:0.21 },
+  { month:'2020-02', cdi:0.29, dolar:5.37,  ibov:-8.43,  ipca:0.25 },
+  { month:'2020-03', cdi:0.34, dolar:15.56, ibov:-29.90, ipca:0.07 },
+  { month:'2020-04', cdi:0.28, dolar:4.39,  ibov:10.25,  ipca:-0.31 },
+  { month:'2020-05', cdi:0.24, dolar:-0.01, ibov:8.57,   ipca:-0.38 },
+  { month:'2020-06', cdi:0.22, dolar:0.92,  ibov:8.76,   ipca:0.26 },
+  { month:'2020-07', cdi:0.19, dolar:-4.98, ibov:8.27,   ipca:0.36 },
+  { month:'2020-08', cdi:0.16, dolar:5.15,  ibov:-3.44,  ipca:0.24 },
+  { month:'2020-09', cdi:0.16, dolar:3.10,  ibov:-4.80,  ipca:0.64 },
+  { month:'2020-10', cdi:0.16, dolar:2.32,  ibov:-0.69,  ipca:0.86 },
+  { month:'2020-11', cdi:0.15, dolar:-7.63, ibov:15.90,  ipca:0.89 },
+  { month:'2020-12', cdi:0.16, dolar:-2.53, ibov:9.30,   ipca:1.35 },
+  { month:'2021-01', cdi:0.15, dolar:5.37,  ibov:-3.32,  ipca:0.25 },
+  { month:'2021-02', cdi:0.13, dolar:0.99,  ibov:-4.37,  ipca:0.86 },
+  { month:'2021-03', cdi:0.20, dolar:3.02,  ibov:6.00,   ipca:0.93 },
+  { month:'2021-04', cdi:0.21, dolar:-5.16, ibov:1.94,   ipca:0.31 },
+  { month:'2021-05', cdi:0.27, dolar:-3.17, ibov:6.16,   ipca:0.83 },
+  { month:'2021-06', cdi:0.30, dolar:-4.40, ibov:0.46,   ipca:0.53 },
+  { month:'2021-07', cdi:0.36, dolar:2.39,  ibov:-3.94,  ipca:0.96 },
+  { month:'2021-08', cdi:0.42, dolar:0.42,  ibov:-2.48,  ipca:0.87 },
+  { month:'2021-09', cdi:0.44, dolar:5.76,  ibov:-6.57,  ipca:1.16 },
+  { month:'2021-10', cdi:0.48, dolar:3.74,  ibov:-6.74,  ipca:1.25 },
+  { month:'2021-11', cdi:0.59, dolar:-0.41, ibov:-1.53,  ipca:0.95 },
+  { month:'2021-12', cdi:0.76, dolar:-0.70, ibov:2.85,   ipca:0.73 },
+  { month:'2022-01', cdi:0.73, dolar:-4.00, ibov:6.98,   ipca:0.54 },
+  { month:'2022-02', cdi:0.75, dolar:-4.07, ibov:0.89,   ipca:1.01 },
+  { month:'2022-03', cdi:0.92, dolar:-7.81, ibov:6.06,   ipca:1.62 },
+  { month:'2022-04', cdi:0.83, dolar:3.83,  ibov:-10.10, ipca:1.06 },
+  { month:'2022-05', cdi:1.03, dolar:-3.87, ibov:3.22,   ipca:0.47 },
+  { month:'2022-06', cdi:1.01, dolar:10.77, ibov:-11.50, ipca:0.67 },
+  { month:'2022-07', cdi:1.03, dolar:-0.95, ibov:4.69,   ipca:-0.68 },
+  { month:'2022-08', cdi:1.17, dolar:-0.18, ibov:6.16,   ipca:-0.36 },
+  { month:'2022-09', cdi:1.07, dolar:4.39,  ibov:0.47,   ipca:-0.29 },
+  { month:'2022-10', cdi:1.02, dolar:-2.77, ibov:5.45,   ipca:0.59 },
+  { month:'2022-11', cdi:1.02, dolar:0.71,  ibov:-3.06,  ipca:0.41 },
+  { month:'2022-12', cdi:1.12, dolar:-1.44, ibov:-2.45,  ipca:0.62 },
+  { month:'2023-01', cdi:1.12, dolar:-2.27, ibov:3.37,   ipca:0.53 },
+  { month:'2023-02', cdi:0.92, dolar:2.13,  ibov:-7.49,  ipca:0.84 },
+  { month:'2023-03', cdi:1.17, dolar:-2.45, ibov:-2.91,  ipca:0.71 },
+  { month:'2023-04', cdi:0.92, dolar:-1.57, ibov:2.50,   ipca:0.61 },
+  { month:'2023-05', cdi:1.12, dolar:1.90,  ibov:3.74,   ipca:0.23 },
+  { month:'2023-06', cdi:1.07, dolar:-5.43, ibov:9.00,   ipca:-0.08 },
+  { month:'2023-07', cdi:1.07, dolar:-1.61, ibov:3.27,   ipca:0.12 },
+  { month:'2023-08', cdi:1.14, dolar:3.80,  ibov:-5.09,  ipca:0.23 },
+  { month:'2023-09', cdi:0.97, dolar:1.74,  ibov:0.71,   ipca:0.26 },
+  { month:'2023-10', cdi:1.00, dolar:1.00,  ibov:-2.94,  ipca:0.24 },
+  { month:'2023-11', cdi:0.92, dolar:-2.41, ibov:12.54,  ipca:0.28 },
+  { month:'2023-12', cdi:0.90, dolar:-1.91, ibov:5.38,   ipca:0.56 },
+  { month:'2024-01', cdi:0.97, dolar:2.32,  ibov:-4.79,  ipca:0.42 },
+  { month:'2024-02', cdi:0.80, dolar:0.60,  ibov:0.99,   ipca:0.83 },
+  { month:'2024-03', cdi:0.83, dolar:0.26,  ibov:-0.71,  ipca:0.16 },
+  { month:'2024-04', cdi:0.89, dolar:3.51,  ibov:-1.70,  ipca:0.38 },
+  { month:'2024-05', cdi:0.83, dolar:1.35,  ibov:-3.04,  ipca:0.46 },
+  { month:'2024-06', cdi:0.79, dolar:6.05,  ibov:1.48,   ipca:0.21 },
+  { month:'2024-07', cdi:0.91, dolar:1.86,  ibov:3.02,   ipca:0.38 },
+  { month:'2024-08', cdi:0.87, dolar:-0.10, ibov:6.54,   ipca:-0.02 },
+  { month:'2024-09', cdi:0.83, dolar:-3.68, ibov:-3.08,  ipca:0.44 },
+  { month:'2024-10', cdi:0.93, dolar:6.05,  ibov:-1.60,  ipca:0.56 },
+  { month:'2024-11', cdi:0.79, dolar:4.77,  ibov:-3.12,  ipca:0.39 },
+  { month:'2024-12', cdi:0.93, dolar:2.29,  ibov:-4.28,  ipca:0.52 },
+  { month:'2025-01', cdi:1.01, dolar:-5.85, ibov:4.86,   ipca:0.16 },
+  { month:'2025-02', cdi:0.99, dolar:0.32,  ibov:-2.64,  ipca:1.31 },
+  { month:'2025-03', cdi:0.96, dolar:-1.82, ibov:6.08,   ipca:0.56 },
+  { month:'2025-04', cdi:1.06, dolar:-1.42, ibov:3.69,   ipca:0.43 },
+  { month:'2025-05', cdi:1.14, dolar:0.85,  ibov:1.45,   ipca:0.26 },
+  { month:'2025-06', cdi:1.10, dolar:-4.41, ibov:1.33,   ipca:0.24 },
+  { month:'2025-07', cdi:1.28, dolar:2.66,  ibov:-4.17,  ipca:0.26 },
+  { month:'2025-08', cdi:1.16, dolar:-3.14, ibov:6.28,   ipca:-0.11 },
+  { month:'2025-09', cdi:1.22, dolar:-1.99, ibov:3.40,   ipca:0.48 },
+  { month:'2025-10', cdi:1.28, dolar:1.24,  ibov:2.26,   ipca:0.09 },
+  { month:'2025-11', cdi:1.05, dolar:-0.94, ibov:6.37,   ipca:0.18 },
+  { month:'2025-12', cdi:1.22, dolar:3.16,  ibov:1.29,   ipca:0.33 },
+  { month:'2026-01', cdi:1.16, dolar:-4.95, ibov:12.56,  ipca:0.33 },
+  { month:'2026-02', cdi:1.00, dolar:-1.54, ibov:4.09,   ipca:0.70 },
+  { month:'2026-03', cdi:1.21, dolar:1.36,  ibov:-0.70,  ipca:0.88 },
+]
+
+type BenchKey = 'cdi' | 'dolar' | 'ibov' | 'ipca'
+
+function benchCumReturn(key: BenchKey, fromDate: Date, toDate: Date): number {
+  const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  const from = fmt(fromDate)
+  const to   = fmt(toDate)
+  return BENCH_DATA
+    .filter(r => r.month >= from && r.month <= to)
+    .reduce((acc, r) => acc * (1 + r[key] / 100), 1)
+}
+
+const BENCH_CONFIG: { key: BenchKey; label: string; color: string }[] = [
+  { key: 'cdi',   label: 'CDI',      color: '#00d4ff' },
+  { key: 'dolar', label: 'Dólar',    color: '#f59e0b' },
+  { key: 'ibov',  label: 'Ibovespa', color: '#00ff88' },
+  { key: 'ipca',  label: 'IPCA',     color: '#8b5cf6' },
+]
+
 /** Build performance series in the chosen base currency. Uses real
  *  priceHistory points if present, otherwise interpolates linearly
  *  from purchase date (avgCost) → today (currentPrice). */
@@ -316,12 +413,13 @@ function TreemapCell(props: any) {
 // ─── Main page ──────────────────────────────────────────────────────
 export default function Wealth() {
   const { investments, deleteInvestment, settings, saveSettings } = useStore()
-  const [showModal, setShowModal] = useState(false)
-  const [editing,   setEditing]   = useState<Investment | undefined>()
-  const [view,      setView]      = useState<ViewMode>('global')
-  const [period,    setPeriod]    = useState<PeriodOption>('1 ano')
-  const [showBenchmark, setShowBenchmark] = useState(false)
-  const [groupExpanded, setGroupExpanded] = useState<Record<string, boolean>>({})
+  const [showModal,        setShowModal]        = useState(false)
+  const [editing,          setEditing]          = useState<Investment | undefined>()
+  const [view,             setView]             = useState<ViewMode>('global')
+  const [period,           setPeriod]           = useState<PeriodOption>('1 ano')
+  const [activeBenchmarks, setActiveBenchmarks] = useState<Set<BenchKey>>(() => new Set(['cdi'] as BenchKey[]))
+  const [excludePhysRE,    setExcludePhysRE]    = useState(false)
+  const [groupExpanded,    setGroupExpanded]    = useState<Record<string, boolean>>({})
 
   const usdToBrl = settings.usdToBrl
   const eurToBrl = settings.eurToBrl ?? 5.50
@@ -341,12 +439,14 @@ export default function Wealth() {
     return formatBRL(v)
   }
 
-  // Filter investments per view
+  // Filter investments per view (optionally excluding physical real estate)
   const viewInvestments = useMemo(() => {
-    if (view === 'global') return investments
-    if (view === 'local')  return investments.filter(i => i.location === 'onshore' || i.location === 'physical-re')
-    return investments.filter(i => i.location === 'offshore')
-  }, [investments, view])
+    let base = investments
+    if (excludePhysRE) base = base.filter(i => i.location !== 'physical-re')
+    if (view === 'global') return base
+    if (view === 'local')  return base.filter(i => i.location === 'onshore' || (!excludePhysRE && i.location === 'physical-re'))
+    return base.filter(i => i.location === 'offshore')
+  }, [investments, view, excludePhysRE])
 
   // Liquid (excludes physical RE) — used for suitability
   const liquidInvestments = useMemo(
@@ -430,6 +530,34 @@ export default function Wealth() {
     [viewInvestments, cutoff, displayCurrency, usdToBrl, eurToBrl],
   )
 
+  // Benchmark series — same 30-sample time window as buildPerformance
+  const benchmarkSeries = useMemo(() => {
+    if (performance.length === 0) return null
+    let earliestMs = cutoff ? cutoff.getTime() : Infinity
+    if (!cutoff) {
+      viewInvestments.forEach(i => {
+        const d = i.purchaseDate ? new Date(i.purchaseDate).getTime() : NaN
+        if (!isNaN(d) && d < earliestMs) earliestMs = d
+      })
+      if (earliestMs === Infinity) {
+        const d = new Date(); d.setMonth(d.getMonth() - 12); earliestMs = d.getTime()
+      }
+    }
+    const start  = new Date(earliestMs)
+    const end    = new Date()
+    const pts    = 30
+    const stepMs = (end.getTime() - start.getTime()) / Math.max(1, pts - 1)
+    const base   = performance[0].value
+    const series: Record<BenchKey, number[]> = { cdi: [], dolar: [], ibov: [], ipca: [] }
+    for (let s = 0; s < pts; s++) {
+      const t = new Date(start.getTime() + stepMs * s)
+      for (const k of ['cdi', 'dolar', 'ibov', 'ipca'] as BenchKey[]) {
+        series[k].push(base * benchCumReturn(k, start, t))
+      }
+    }
+    return series
+  }, [performance, cutoff, viewInvestments])
+
   // Period delta
   const periodDelta = useMemo(() => {
     if (performance.length < 2) return { abs: 0, pct: 0 }
@@ -510,6 +638,7 @@ export default function Wealth() {
       <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto">
 
         {/* ─── View Switcher ─── */}
+        <div className="flex flex-col gap-2">
         <div className="grid grid-cols-3 gap-2 sm:gap-3">
           {VIEW_OPTIONS.map(opt => {
             const Icon = opt.icon
@@ -535,6 +664,20 @@ export default function Wealth() {
             )
           })}
         </div>
+        {/* Physical RE toggle */}
+        <div className="flex justify-end">
+          <button onClick={() => setExcludePhysRE(v => !v)}
+            className={clsx(
+              'px-3 py-1.5 rounded-lg text-xs font-medium border transition-all flex items-center gap-1.5',
+              excludePhysRE
+                ? 'bg-[#ff7a00]/15 border-[#ff7a00]/40 text-[#ff7a00]'
+                : 'bg-[#16161f] border-[#1e1e2e] text-[#8888aa] hover:text-[#e8e8f0]',
+            )}>
+            <Home className="w-3.5 h-3.5" />
+            {excludePhysRE ? 'Imóveis ocultos' : 'Ocultar Imóveis Físicos'}
+          </button>
+        </div>
+        </div>
 
         {/* ─── Suitability Profile Selector ─── */}
         <div className="rounded-xl bg-[#0d0d14] border border-[#1e1e2e] p-3 flex items-center gap-3 flex-wrap">
@@ -553,11 +696,10 @@ export default function Wealth() {
             ))}
           </div>
           <div className="flex items-center gap-2 pl-3 border-l border-[#1e1e2e]">
-            <span className="text-xs text-[#8888aa] uppercase tracking-wider">Exposição Offshore Recomendada</span>
-            <span className="text-sm font-bold text-[#8b5cf6]">
+            <span className="text-xs text-[#8888aa]">Exposição Global Recomendada</span>
+            <span className="text-xs font-bold text-[#8b5cf6]">
               {({ Conservador: 5, Moderado: 15, Arrojado: 30, Agressivo: 40 } as Record<SuitabilityProfile, number>)[profile]}%
             </span>
-            <span className="text-[10px] text-[#55556a]">do total global</span>
           </div>
         </div>
 
@@ -596,27 +738,39 @@ export default function Wealth() {
         {/* ─── Performance line chart ─── */}
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <CardTitle>Performance Consolidada</CardTitle>
-              <div className="flex items-center gap-2 flex-wrap">
-                <button onClick={() => setShowBenchmark(s => !s)}
-                  className={clsx(
-                    'px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-all',
-                    showBenchmark
-                      ? 'bg-[#3b82f6]/15 border-[#3b82f6]/40 text-[#3b82f6]'
-                      : 'bg-[#16161f] border-[#1e1e2e] text-[#55556a] hover:text-[#e8e8f0]',
-                  )}>
-                  vs Benchmark
-                </button>
+            <div className="flex flex-col gap-2 w-full">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <CardTitle>Performance Consolidada</CardTitle>
                 <div className="flex gap-1 bg-[#16161f] rounded-lg p-1 border border-[#1e1e2e]">
                   {PERIOD_OPTIONS.map(p => (
                     <button key={p} onClick={() => setPeriod(p)}
                       className={clsx('px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all',
-                        period === p ? 'bg-[#ff7a00] text-[#0a0a0f]' : 'text-[#55556a] hover:text-[#e8e8f0]')}>
+                        period === p ? 'bg-[#ff7a00] text-[#0a0a0f]' : 'text-[#8888aa] hover:text-[#e8e8f0]')}>
                       {p}
                     </button>
                   ))}
                 </div>
+              </div>
+              {/* Benchmark toggles */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] text-[#55556a] uppercase tracking-wider">vs</span>
+                {BENCH_CONFIG.map(b => {
+                  const active = activeBenchmarks.has(b.key)
+                  return (
+                    <button key={b.key}
+                      onClick={() => setActiveBenchmarks(prev => {
+                        const next = new Set(prev)
+                        if (next.has(b.key)) next.delete(b.key); else next.add(b.key)
+                        return next
+                      })}
+                      className="px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-all"
+                      style={active
+                        ? { color: b.color, borderColor: b.color + '55', background: b.color + '18' }
+                        : { color: '#8888aa', borderColor: '#1e1e2e', background: '#16161f' }}>
+                      {b.label}
+                    </button>
+                  )
+                })}
               </div>
             </div>
           </CardHeader>
@@ -627,14 +781,17 @@ export default function Wealth() {
               </div>
             ) : (
               <ResponsiveContainer width="100%" height={280}>
-                <LineChart data={performance.map((p, idx) => {
-                  if (!showBenchmark) return p
-                  // Synthetic benchmark: linear growth at 12% a.a. for visual comparison
-                  const months = (idx / (performance.length - 1 || 1)) * 12
-                  const base = performance[0].value
-                  const bench = base * Math.pow(1.12, months / 12)
-                  return { ...p, benchmark: bench }
-                })} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
+                <LineChart
+                  data={performance.map((p, idx) => {
+                    const row: Record<string, unknown> = { ...p }
+                    if (benchmarkSeries) {
+                      for (const b of BENCH_CONFIG) {
+                        if (activeBenchmarks.has(b.key)) row[b.key] = benchmarkSeries[b.key][idx]
+                      }
+                    }
+                    return row
+                  })}
+                  margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
                   <defs>
                     <linearGradient id="lineGrad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor={ORANGE} stopOpacity={0.4} />
@@ -646,14 +803,13 @@ export default function Wealth() {
                   <YAxis stroke="#55556a" fontSize={10}
                     tickFormatter={v => displayCurrency === 'USD' ? `$${(v / 1000).toFixed(0)}k` : `R$${(v / 1000).toFixed(0)}k`} />
                   <Tooltip contentStyle={tt} formatter={(v: number) => fmtBase(v)} />
-                  {showBenchmark && <Legend wrapperStyle={{ fontSize: 11, color: '#8888aa' }} />}
+                  {activeBenchmarks.size > 0 && <Legend wrapperStyle={{ fontSize: 11, color: '#8888aa' }} />}
                   <Line type="monotone" dataKey="value" name="Carteira" stroke={ORANGE} strokeWidth={2.5}
                     dot={false} activeDot={{ r: 4, fill: ORANGE }} fill="url(#lineGrad)" />
-                  {showBenchmark && (
-                    <Line type="monotone" dataKey="benchmark"
-                      name={view === 'international' ? 'S&P 500 (12% a.a.)' : 'CDI (12% a.a.)'}
-                      stroke={BLUE} strokeWidth={2} strokeDasharray="5 5" dot={false} />
-                  )}
+                  {BENCH_CONFIG.map(b => activeBenchmarks.has(b.key) && (
+                    <Line key={b.key} type="monotone" dataKey={b.key} name={b.label}
+                      stroke={b.color} strokeWidth={1.5} strokeDasharray="5 5" dot={false} />
+                  ))}
                 </LineChart>
               </ResponsiveContainer>
             )}
