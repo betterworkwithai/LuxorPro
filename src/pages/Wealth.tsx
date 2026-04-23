@@ -1059,7 +1059,7 @@ export default function Wealth() {
                                 </td>
                                 {/* col 7: Alocação */}
                                 <td className="px-3 py-2.5 text-right">
-                                  <span className="text-xs font-semibold text-[#8888aa]">{groupAlloc.toFixed(1)}%</span>
+                                  <span className="text-xs font-semibold text-[#e8e8f0]">{groupAlloc.toFixed(1)}%</span>
                                 </td>
                                 {/* col 8: actions placeholder */}
                                 <td />
@@ -1112,10 +1112,10 @@ export default function Wealth() {
                                     {/* PU / Cotação */}
                                     <td className={`${tdCls} text-right`}>{fmtNative(inv, inv.currentPrice)}</td>
                                     {/* Valor de Mercado */}
-                                    <td className={`${tdCls} text-right`}>{fmtNative(inv, mktVal)}</td>
+                                    <td className="px-3 py-2.5 text-right text-xs font-mono font-semibold text-[#ff7a00] whitespace-nowrap">{fmtNative(inv, mktVal)}</td>
                                     {/* Alocação */}
                                     <td className="px-3 py-2.5 text-right whitespace-nowrap">
-                                      <span className="text-xs font-semibold text-[#ff7a00]">{allocPct.toFixed(2)}%</span>
+                                      <span className="text-xs font-semibold text-[#e8e8f0]">{allocPct.toFixed(2)}%</span>
                                     </td>
                                     {/* Actions */}
                                     <td className="px-3 py-2.5">
