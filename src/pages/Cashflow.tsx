@@ -321,7 +321,6 @@ export default function Cashflow() {
   const [monthF,    setMonthF]    = useState('')
   const [sortField, setSortField] = useState<SortField>('date')
   const [sortDir,   setSortDir]   = useState<SortDir>('desc')
-  const [budgetNatureFilter, setBudgetNatureFilter] = useState<'all' | 'fixed' | 'variable' | 'investment'>('all')
 
   const [showSubModal, setShowSubModal] = useState(false)
   const [editSub,      setEditSub]      = useState<RecurringTransaction | undefined>()
@@ -786,92 +785,111 @@ export default function Cashflow() {
         </Card>
 
         {/* ── Regra 50/30/20 ── */}
-        {(budgetData.fixed + budgetData.variable + budgetData.investment) > 0 && (
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <span className="text-base">🎯</span>
-                <CardTitle>Regra 50/30/20</CardTitle>
-              </div>
-              <div className="flex gap-1 ml-auto">
-                {([
-                  { v: 'all',        l: 'Todas'   },
-                  { v: 'fixed',      l: '🔒 Fixas' },
-                  { v: 'variable',   l: '🌊 Var.'  },
-                  { v: 'investment', l: '📊 Invest.' },
-                ] as const).map(({ v, l }) => (
-                  <button key={v} onClick={() => setBudgetNatureFilter(v)}
-                    className={`px-2 py-1 rounded-lg text-[10px] font-semibold border transition-all ${
-                      budgetNatureFilter === v
-                        ? 'bg-[#ff7a00]/15 text-[#ff7a00] border-[#ff7a00]/30'
-                        : 'text-[#55556a] border-[#1e1e2e] hover:text-[#e8e8f0]'
-                    }`}>{l}</button>
-                ))}
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-                <ResponsiveContainer width="100%" height={200}>
-                  <PieChart>
-                    <Pie data={budgetData.pieData.filter(d => d.value > 0)} dataKey="value" nameKey="name"
-                      cx="50%" cy="50%" innerRadius={45} outerRadius={80} paddingAngle={2}>
-                      {budgetData.pieData.filter(d => d.value > 0).map((entry, i) => (
-                        <Cell key={i} fill={entry.color} stroke="#0a0a0f" strokeWidth={2} />
-                      ))}
-                    </Pie>
-                    <Tooltip {...pieTooltipStyle}
-                      formatter={(v: any, name: any) => {
-                        const total = budgetData.fixed + budgetData.variable + budgetData.investment
-                        const pct = total > 0 ? (Number(v) / total * 100).toFixed(1) : '0'
-                        return [`${formatBRL(v)} (${pct}%)`, name]
-                      }} />
-                    <Legend wrapperStyle={{ fontSize: 11, color: '#8888aa' }} />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="space-y-3">
-                  {[
-                    { label: 'Fixas',        color: '#3b82f6', cur: budgetData.fixedPct,      amt: budgetData.fixed,      ideal: 50 },
-                    { label: 'Variáveis',    color: '#f59e0b', cur: budgetData.variablePct,   amt: budgetData.variable,   ideal: 30 },
-                    { label: 'Investimento', color: '#00ff88', cur: budgetData.investmentPct, amt: budgetData.investment, ideal: 20 },
-                  ].map(row => {
-                    const over = row.cur > row.ideal + 5
-                    const under = row.cur < row.ideal - 5
-                    return (
-                      <div key={row.label}>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs text-[#8888aa] flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full" style={{ background: row.color }} />
-                            {row.label}
-                          </span>
-                          <span className="text-xs font-semibold flex items-center gap-1.5">
-                            <span style={{ color: over ? '#ff4466' : under && row.label === 'Investimento' ? '#ff4466' : row.color }}>
-                              {row.cur.toFixed(0)}%
-                            </span>
-                            <span className="text-[#55556a]">/ ideal {row.ideal}%</span>
-                            {over && <TrendingUp className="w-3 h-3 text-[#ff4466]" />}
-                            {!over && !under && <span className="text-[#00ff88] text-[10px]">✓</span>}
-                          </span>
-                        </div>
-                        <div className="h-2 bg-[#1e1e2e] rounded-full overflow-hidden relative">
-                          {/* ideal marker */}
-                          <div className="absolute top-0 bottom-0 w-px bg-[#55556a]" style={{ left: `${row.ideal}%` }} />
-                          <div className="h-full rounded-full transition-all"
-                            style={{ width: `${Math.min(100, row.cur)}%`, background: over ? '#ff4466' : row.color }} />
-                        </div>
-                        <p className="text-[10px] text-[#55556a] mt-0.5">{formatBRL(row.amt)}</p>
-                      </div>
-                    )
-                  })}
-                  {budgetData.income > 0 && (
-                    <p className="text-[10px] text-[#55556a] pt-1 border-t border-[#1e1e2e]">
-                      Base: receita do período {formatBRL(budgetData.income, true)}
-                    </p>
-                  )}
+        {(budgetData.fixed + budgetData.variable + budgetData.investment) > 0 && (() => {
+          const segs = [
+            { label: 'Fixas',        pct: budgetData.fixedPct,      amt: budgetData.fixed,      color: '#3b82f6', ideal: 50 },
+            { label: 'Variáveis',    pct: budgetData.variablePct,   amt: budgetData.variable,   color: '#f59e0b', ideal: 30 },
+            { label: 'Investimento', pct: budgetData.investmentPct, amt: budgetData.investment, color: '#00ff88', ideal: 20 },
+          ]
+          const ideal = [
+            { label: 'Fixas',        pct: 50, color: '#3b82f6' },
+            { label: 'Variáveis',    pct: 30, color: '#f59e0b' },
+            { label: 'Investimento', pct: 20, color: '#00ff88' },
+          ]
+          return (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <span className="text-base">🎯</span>
+                  <CardTitle>Regra 50/30/20</CardTitle>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+                {budgetData.income > 0 && (
+                  <span className="text-[10px] text-[#55556a] ml-auto">
+                    Base: {formatBRL(budgetData.income, true)}
+                  </span>
+                )}
+              </CardHeader>
+              <CardContent className="space-y-5">
+
+                {/* Current stacked bar */}
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-[#55556a] mb-2">Atual</p>
+                  <div className="h-10 flex rounded-xl overflow-hidden gap-px bg-[#1e1e2e]">
+                    {segs.map(seg => {
+                      const over = seg.pct > seg.ideal + 5
+                      return (
+                        <div key={seg.label}
+                          className="flex items-center justify-center transition-all duration-300 flex-shrink-0"
+                          style={{
+                            width: `${Math.min(seg.pct, 100)}%`,
+                            minWidth: seg.pct > 0 ? 2 : 0,
+                            background: over ? '#ff4466' : seg.color,
+                          }}
+                          title={`${seg.label}: ${seg.pct.toFixed(1)}% — ${formatBRL(seg.amt)}`}
+                        >
+                          {seg.pct > 7 && (
+                            <span className="text-[11px] font-bold text-black/75 select-none">
+                              {seg.pct.toFixed(0)}%
+                            </span>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <div className="flex flex-wrap gap-x-5 gap-y-1.5 mt-2.5">
+                    {segs.map(seg => {
+                      const over  = seg.pct > seg.ideal + 5
+                      const under = seg.pct < seg.ideal - 5
+                      return (
+                        <div key={seg.label} className="flex items-center gap-1.5 text-xs">
+                          <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
+                            style={{ background: over ? '#ff4466' : seg.color }} />
+                          <span className="text-[#8888aa]">{seg.label}</span>
+                          <span className="font-semibold" style={{ color: over ? '#ff4466' : seg.color }}>
+                            {seg.pct.toFixed(0)}%
+                          </span>
+                          <span className="text-[#55556a]">{formatBRL(seg.amt)}</span>
+                          {over  && <span className="text-[9px] font-bold text-[#ff4466]">▲ acima</span>}
+                          {!over && under && seg.label === 'Investimento' && (
+                            <span className="text-[9px] font-bold text-[#f59e0b]">▼ abaixo</span>
+                          )}
+                          {!over && !under && <span className="text-[9px] text-[#00ff88]">✓</span>}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Ideal reference bar */}
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-[#55556a] mb-2">Referência 50/30/20</p>
+                  <div className="h-6 flex rounded-xl overflow-hidden gap-px">
+                    {ideal.map(seg => (
+                      <div key={seg.label}
+                        className="flex items-center justify-center flex-shrink-0"
+                        style={{ width: `${seg.pct}%`, background: seg.color + '44' }}
+                        title={`${seg.label}: ${seg.pct}%`}
+                      >
+                        <span className="text-[10px] font-semibold text-[#e8e8f0]/60 select-none">
+                          {seg.pct}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap gap-x-5 gap-y-1 mt-2">
+                    {ideal.map(seg => (
+                      <div key={seg.label} className="flex items-center gap-1.5 text-xs text-[#55556a]">
+                        <span className="w-2.5 h-2.5 rounded-sm" style={{ background: seg.color + '44' }} />
+                        {seg.label} {seg.pct}%
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+              </CardContent>
+            </Card>
+          )
+        })()}
 
         {/* ── Want Expenses ── */}
         {wantedExpenses.length > 0 && (
