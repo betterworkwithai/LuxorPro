@@ -50,7 +50,7 @@ export const STRIPE_PLANS: StripePlan[] = [
   {
     id: 'annual',
     productId: 'prod_UO8JoR3CL1boBY',
-    paymentLink: 'https://buy.stripe.com/8x23cp6sodld3xR5bi3wQ01',
+    paymentLink: 'https://buy.stripe.com/fZu3cp3gc0yrb0j47e3wQ02',
     price: 200,
     pricePerMonth: 16.67,
     interval: 'year',

@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 
 const STRIPE_MONTHLY  = 'https://buy.stripe.com/eVqbIV9EAa91c4navC3wQ03'
-const STRIPE_ANNUAL   = 'https://buy.stripe.com/8x23cp6sodld3xR5bi3wQ01'
+const STRIPE_ANNUAL   = 'https://buy.stripe.com/fZu3cp3gc0yrb0j47e3wQ02'
 const STRIPE_LIFETIME = 'https://buy.stripe.com/8x23cp6sodld3xR5bi3wQ01'
 
 // ── Scroll-triggered fade-in ──────────────────────────────────────────────────
