@@ -18,7 +18,6 @@ import { AccountSelect } from '../components/ui/AccountSelect'
 import type { Attachment } from '../lib/types'
 import { processInvoiceAI } from '../lib/invoice/aiPipeline'
 import type { ParsedTransaction, PipelineResult, InvoiceMetadata } from '../lib/invoice/types'
-import { confidenceLabel } from '../lib/invoice/confidenceScorer'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -33,21 +32,6 @@ interface FileEntry {
   result?: PipelineResult
   progressStep?: string
   progressPct?: number
-}
-
-// ── Confidence Badge ─────────────────────────────────────────────────────────
-function ConfidenceBadge({ score }: { score: number }) {
-  const label = confidenceLabel(score)
-  const pct = Math.round(score * 100)
-  return (
-    <span className={clsx('text-[9px] font-semibold px-1.5 py-0.5 rounded border',
-      label === 'alta'  && 'border-[#00ff88]/30 text-[#00ff88] bg-[#00ff88]/5',
-      label === 'média' && 'border-[#f59e0b]/30 text-[#f59e0b] bg-[#f59e0b]/5',
-      label === 'baixa' && 'border-[#ff4466]/30 text-[#ff4466] bg-[#ff4466]/5',
-    )}>
-      {pct}%
-    </span>
-  )
 }
 
 // ── Invoice Metadata Card ─────────────────────────────────────────────────────
@@ -129,16 +113,11 @@ function ReviewTable({
   const totalExp  = selected.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0)
   const totalInc  = selected.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0)
   const allSel    = items.length > 0 && items.every(t => t.selected)
-  const lowConf   = items.filter(t => t.confidence < 0.4).length
 
   const update = (idx: number, patch: Partial<ParsedTransaction>) =>
     onChange(items.map((t, i) => i === idx ? { ...t, ...patch } : t))
   const remove = (idx: number) => onChange(items.filter((_, i) => i !== idx))
   const toggleAll = () => onChange(items.map(t => ({ ...t, selected: !allSel })))
-
-  // Invoice total discrepancy check
-  const parsedTotal = selected.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0)
-  const totalDiff = meta.totalAmount != null ? Math.abs(parsedTotal - meta.totalAmount) : null
 
   return (
     <Card className="overflow-hidden border-[#00d4ff]/20">
@@ -149,11 +128,6 @@ function ReviewTable({
           <div>
             <p className="text-sm font-semibold text-[#e8e8f0]">
               {items.length} lançamento{items.length !== 1 ? 's' : ''} encontrado{items.length !== 1 ? 's' : ''}
-              {lowConf > 0 && (
-                <span className="ml-2 text-[10px] font-normal text-[#f59e0b]">
-                  · {lowConf} com confiança baixa
-                </span>
-              )}
             </p>
             <p className="text-xs text-[#55556a]">
               {selected.length} selecionado{selected.length !== 1 ? 's' : ''}
@@ -189,21 +163,9 @@ function ReviewTable({
       {/* Metadata bar */}
       <MetadataCard meta={meta} issuer={issuer} usedOCR={usedOCR} />
 
-      {/* Invoice total discrepancy */}
-      {totalDiff != null && totalDiff > 0.50 && (
-        <div className="flex items-center gap-2 px-5 py-2 bg-[#f59e0b]/10 border-b border-[#f59e0b]/20 text-xs text-[#f59e0b]">
-          <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
-          <span>
-            Total da fatura: <strong>{formatBRL(meta.totalAmount!)}</strong> ·
-            Soma dos itens: <strong>{formatBRL(parsedTotal)}</strong> ·
-            Diferença: <strong>{formatBRL(totalDiff)}</strong> — verifique se há lançamentos faltando ou duplicados.
-          </span>
-        </div>
-      )}
-
       {/* Column labels */}
       <div className="grid items-center bg-[#0d0d15] border-b border-[#1e1e2e] px-3 py-2 text-[10px] uppercase tracking-wider text-[#55556a]"
-           style={{ gridTemplateColumns: '28px 90px 1fr 150px 80px 95px 46px 24px' }}>
+           style={{ gridTemplateColumns: '28px 90px 1fr 150px 80px 95px 24px' }}>
         <button onClick={toggleAll} className="flex items-center justify-center">
           {allSel ? <SquareCheck className="w-3.5 h-3.5 text-[#00d4ff]" /> : <Square className="w-3.5 h-3.5 text-[#55556a]" />}
         </button>
@@ -212,7 +174,6 @@ function ReviewTable({
         <span>Categoria</span>
         <span>Tipo</span>
         <span className="text-right">Valor (R$)</span>
-        <span className="text-center">Conf.</span>
         <span />
       </div>
 
@@ -224,9 +185,8 @@ function ReviewTable({
             className={clsx(
               'grid items-center px-3 py-2 gap-2 group transition-colors',
               tx.selected ? 'hover:bg-[#16161f]/60' : 'opacity-40 hover:opacity-60',
-              tx.confidence < 0.4 && tx.selected && 'bg-[#ff4466]/3',
             )}
-            style={{ gridTemplateColumns: '28px 90px 1fr 150px 80px 95px 46px 24px' }}
+            style={{ gridTemplateColumns: '28px 90px 1fr 150px 80px 95px 24px' }}
           >
             <button onClick={() => update(idx, { selected: !tx.selected })} className="flex items-center justify-center">
               {tx.selected
@@ -276,10 +236,6 @@ function ReviewTable({
               onChange={e => update(idx, { amount: parseFloat(e.target.value) || 0 })}
             />
 
-            <div className="flex justify-center">
-              <ConfidenceBadge score={tx.confidence} />
-            </div>
-
             <button
               onClick={() => remove(idx)}
               className="w-5 h-5 flex items-center justify-center rounded text-[#55556a] hover:text-[#ff4466] hover:bg-[#ff4466]/10 opacity-0 group-hover:opacity-100 transition-all"
@@ -297,12 +253,10 @@ function ReviewTable({
             <span className="text-[#ff4466] font-semibold">{selected.filter(t => t.type === 'expense').length} despesas</span>
             {' '}· {selected.filter(t => t.type === 'income').length} receitas
           </span>
-          {totalExp > 0 && <span>Total: <span className="text-[#ff4466] font-semibold">{formatBRL(totalExp)}</span></span>}
-        </div>
-        <div className="flex items-center gap-3 text-[10px] text-[#55556a]">
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#00ff88]/50" /> alta confiança</span>
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#f59e0b]/50" /> média</span>
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#ff4466]/50" /> baixa — revise</span>
+          {totalExp > 0 && <span>Total despesas: <span className="text-[#ff4466] font-semibold">{formatBRL(totalExp)}</span></span>}
+          {meta.totalAmount != null && (
+            <span>Fatura: <span className="text-[#e8e8f0] font-semibold">{formatBRL(meta.totalAmount)}</span></span>
+          )}
         </div>
       </div>
     </Card>

@@ -130,53 +130,88 @@ export async function processInvoiceAI(
     body: { text: rawText },
   })
 
+  let result: PipelineResult
+
   if (error || !data || !data.transacoes) {
-    // Edge function not available yet — fall back to the regex-based pipeline
+    // Edge function not available — fall back to the regex-based pipeline
     console.warn('[aiPipeline] AI unavailable, falling back to regex pipeline:', error?.message)
-    return processInvoice(file, opts)
+    result = await processInvoice(file, opts)
+  } else {
+    // ── 3. Map to ParsedTransaction[] ─────────────────────────────────────
+    onProgress?.('Processando resultados', 88)
+
+    const metadata: InvoiceMetadata = {
+      issuer:      data.banco           ?? undefined,
+      period:      data.mes_referencia  ?? undefined,
+      totalAmount: typeof data.total_fatura === 'number' ? data.total_fatura : undefined,
+    }
+
+    const transactions: ParsedTransaction[] = (data.transacoes ?? [])
+      .filter((t: any) => t.descricao && typeof t.valor === 'number' && t.valor > 0)
+      .map((t: any): ParsedTransaction => {
+        const type: 'expense' | 'income' = t.tipo === 'receita' ? 'income' : 'expense'
+        return {
+          id:          nanoid(),
+          date:        parseDate(t.data ?? ''),
+          merchant:    String(t.descricao),
+          amount:      Number(t.valor),
+          installment: t.parcela && t.parcela !== 'null' ? String(t.parcela) : undefined,
+          type,
+          category:    mapCategory(t.categoria_sugerida ?? '', t.descricao, type),
+          rawText:     String(t.descricao),
+          confidence:  0.88,
+          sourcePage:  1,
+          sourceLine:  String(t.descricao),
+          selected:    true,
+          account:     defaultAccount,
+        }
+      })
+
+    result = {
+      transactions,
+      metadata,
+      usedOCR,
+      nativeTextResult,
+      issuerDetected: data.banco ?? undefined,
+      logs: [
+        { step: 'ai', message: `Claude extraiu ${transactions.length} lançamento(s)`, level: 'info' },
+        ...(usedOCR ? [{ step: 'ocr', message: 'Texto extraído via OCR — revise com atenção', level: 'warn' as const }] : []),
+      ],
+    }
   }
 
-  // ── 3. Map to ParsedTransaction[] ───────────────────────────────────────
-  onProgress?.('Processando resultados', 88)
+  // ── 4. Auto-balance to invoice total ────────────────────────────────────
+  // If the invoice total is known and the parsed expenses don't sum to it,
+  // append an adjustment line so the import always balances exactly.
+  if (result.metadata.totalAmount != null && result.transactions.length > 0) {
+    const invoiceTotal = result.metadata.totalAmount
+    const expSum = Math.round(
+      result.transactions
+        .filter(t => t.type === 'expense')
+        .reduce((s, t) => s + t.amount, 0) * 100,
+    ) / 100
+    const diff = Math.round((invoiceTotal - expSum) * 100) / 100
 
-  const metadata: InvoiceMetadata = {
-    issuer:      data.banco           ?? undefined,
-    period:      data.mes_referencia  ?? undefined,
-    totalAmount: typeof data.total_fatura === 'number' ? data.total_fatura : undefined,
+    if (Math.abs(diff) > 0.01) {
+      const refDate = result.transactions.find(t => t.type === 'expense')?.date
+        ?? new Date().toISOString().slice(0, 10)
+      result.transactions.push({
+        id:         nanoid(),
+        date:       refDate,
+        merchant:   diff > 0 ? 'Outros lançamentos não detalhados' : 'Estorno / crédito na fatura',
+        amount:     Math.abs(diff),
+        type:       diff > 0 ? 'expense' : 'income',
+        category:   diff > 0 ? 'outros' : 'other_income',
+        rawText:    'ajuste automático',
+        confidence: 0.6,
+        sourcePage: 1,
+        sourceLine: '',
+        selected:   true,
+        account:    defaultAccount,
+      })
+    }
   }
-
-  const transactions: ParsedTransaction[] = (data.transacoes ?? [])
-    .filter((t: any) => t.descricao && typeof t.valor === 'number' && t.valor > 0)
-    .map((t: any): ParsedTransaction => {
-      const type: 'expense' | 'income' = t.tipo === 'receita' ? 'income' : 'expense'
-      return {
-        id:          nanoid(),
-        date:        parseDate(t.data ?? ''),
-        merchant:    String(t.descricao),
-        amount:      Number(t.valor),
-        installment: t.parcela && t.parcela !== 'null' ? String(t.parcela) : undefined,
-        type,
-        category:    mapCategory(t.categoria_sugerida ?? '', t.descricao, type),
-        rawText:     String(t.descricao),
-        confidence:  0.88,
-        sourcePage:  1,
-        sourceLine:  String(t.descricao),
-        selected:    true,
-        account:     defaultAccount,
-      }
-    })
 
   onProgress?.('Concluído', 100)
-
-  return {
-    transactions,
-    metadata,
-    usedOCR,
-    nativeTextResult,
-    issuerDetected: data.banco ?? undefined,
-    logs: [
-      { step: 'ai', message: `Claude extraiu ${transactions.length} lançamento(s)`, level: 'info' },
-      ...(usedOCR ? [{ step: 'ocr', message: 'Texto extraído via OCR — revise com atenção', level: 'warn' as const }] : []),
-    ],
-  }
+  return result
 }
