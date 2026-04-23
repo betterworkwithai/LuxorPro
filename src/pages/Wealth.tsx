@@ -153,12 +153,24 @@ const BENCH_DATA: { month: string; cdi: number; dolar: number; ibov: number; ipc
 type BenchKey = 'cdi' | 'dolar' | 'ibov' | 'ipca'
 
 function benchCumReturn(key: BenchKey, fromDate: Date, toDate: Date): number {
-  const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-  const from = fmt(fromDate)
-  const to   = fmt(toDate)
-  return BENCH_DATA
-    .filter(r => r.month >= from && r.month <= to)
+  const fmtM = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  const fromMonth = fmtM(fromDate)
+  const toMonth   = fmtM(toDate)
+
+  // Compound all complete months up to (but not including) the current month
+  let cum = BENCH_DATA
+    .filter(r => r.month >= fromMonth && r.month < toMonth)
     .reduce((acc, r) => acc * (1 + r[key] / 100), 1)
+
+  // Linearly interpolate within the current (partial) month based on day-of-month
+  const endRow = BENCH_DATA.find(r => r.month === toMonth)
+  if (endRow) {
+    const daysInMonth = new Date(toDate.getFullYear(), toDate.getMonth() + 1, 0).getDate()
+    const frac = toDate.getDate() / daysInMonth
+    cum *= (1 + (endRow[key] / 100) * frac)
+  }
+
+  return cum
 }
 
 const BENCH_CONFIG: { key: BenchKey; label: string; color: string }[] = [
@@ -176,6 +188,7 @@ function buildPerformance(
   toBase: (amount: number, from: 'BRL' | 'USD' | 'EUR') => number,
   cutoff: Date | null,
 ): { date: string; value: number }[] {
+  const BENCH_START = new Date('2020-01-01').getTime()
   // Find global window
   let earliest = cutoff ? cutoff.getTime() : Infinity
   if (!cutoff) {
@@ -187,6 +200,8 @@ function buildPerformance(
       const d = new Date(); d.setMonth(d.getMonth() - 12); earliest = d.getTime()
     }
   }
+  // Never start before benchmark data begins
+  earliest = Math.max(earliest, BENCH_START)
   const start = new Date(earliest)
   const end   = new Date()
   // Sample ~30 points
@@ -544,6 +559,8 @@ export default function Wealth() {
         const d = new Date(); d.setMonth(d.getMonth() - 12); earliestMs = d.getTime()
       }
     }
+    // Match the same floor used in buildPerformance
+    earliestMs = Math.max(earliestMs, new Date('2020-01-01').getTime())
     const start  = new Date(earliestMs)
     const end    = new Date()
     const pts    = 30
