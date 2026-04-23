@@ -1,8 +1,5 @@
-// Base path where the Luxor app is mounted in the host site.
-export const PF_BASE = '/luxor'
-
-// Build an absolute route under the Luxor base. Pass '/' for the index.
+// Standalone app — routes live at the root.
 export const pfPath = (p: string) => {
-  if (!p || p === '/') return PF_BASE
-  return PF_BASE + (p.startsWith('/') ? p : `/${p}`)
+  if (!p || p === '/') return '/'
+  return p.startsWith('/') ? p : `/${p}`
 }

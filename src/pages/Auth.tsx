@@ -202,7 +202,7 @@ function SignupForm() {
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/luxor`,
+        emailRedirectTo: `${window.location.origin}/`,
         data: { full_name: trimmedName, name: trimmedName, suitability },
       },
     })

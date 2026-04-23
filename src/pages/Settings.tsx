@@ -287,7 +287,7 @@ export default function Settings() {
         try { localStorage.removeItem('gaara_local_auth') } catch {}
       }
       // Hard reload back to auth screen
-      window.location.href = '/luxor'
+      window.location.href = '/'
     } catch (e) {
       console.error('delete-account failed', e)
       setDeleteAccountStatus('error')
