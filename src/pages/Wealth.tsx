@@ -493,7 +493,11 @@ export default function Wealth() {
       .reduce((s, i) => s + convert(i.quantity * i.currentPrice, i.currency, 'BRL', usdToBrl, eurToBrl), 0)
     const offshorePct = liquidValueBrl > 0 ? (offshoreValue / liquidValueBrl) * 100 : 0
 
-    return { totalValue, totalCost, totalGain, totalRet, gainPct, retPct, totalDivs, totalIntr, offshorePct }
+    const liquidTotalValue = viewInvestments
+      .filter(i => i.location !== 'physical-re')
+      .reduce((s, i) => s + toBase(i.quantity * i.currentPrice, i.currency), 0)
+
+    return { totalValue, totalCost, totalGain, totalRet, gainPct, retPct, totalDivs, totalIntr, offshorePct, liquidTotalValue }
   }, [viewInvestments, investments, usdToBrl, eurToBrl, displayCurrency])
 
   // Investments scoped to the main view (Global / Local / Internacional), excluding physical RE
@@ -1028,7 +1032,7 @@ export default function Wealth() {
                         {groupedAssets.map(group => {
                           const expanded = groupExpanded[group.cls] ?? true
                           const hasPhysical = group.items.some(i => i.location === 'physical-re')
-                          const groupAlloc = metrics.totalValue > 0 ? (group.total / metrics.totalValue) * 100 : 0
+                          const groupAlloc = metrics.liquidTotalValue > 0 ? (group.total / metrics.liquidTotalValue) * 100 : 0
                           return (
                             <React.Fragment key={group.cls}>
                               {/* ── Group header row ── */}
@@ -1070,7 +1074,7 @@ export default function Wealth() {
                                 const cost      = inv.quantity * inv.avgCost
                                 const mktVal    = inv.quantity * inv.currentPrice
                                 const bVal      = toBase(mktVal, inv.currency)
-                                const allocPct  = metrics.totalValue > 0 ? (bVal / metrics.totalValue) * 100 : 0
+                                const allocPct  = metrics.liquidTotalValue > 0 ? (bVal / metrics.liquidTotalValue) * 100 : 0
                                 const tax       = TAX_BADGES[inv.taxTreatment ?? 'taxable']
                                 const isLast    = rowIdx === group.items.length - 1
                                 const rowBorder = isLast ? 'border-b border-[#1e1e2e]' : 'border-b border-[#16161f]'
