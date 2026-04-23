@@ -6,6 +6,7 @@ import React, { useState, useMemo } from 'react'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, Treemap, Legend, CartesianGrid,
+  ComposedChart, Area,
 } from 'recharts'
 import {
   Plus, Globe, Building2, Home, Trash2, Edit3, ChevronDown, ChevronRight, ChevronUp,
@@ -780,37 +781,59 @@ export default function Wealth() {
                 Adicione ativos para visualizar a performance.
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height={280}>
-                <LineChart
-                  data={performance.map((p, idx) => {
-                    const row: Record<string, unknown> = { ...p }
-                    if (benchmarkSeries) {
-                      for (const b of BENCH_CONFIG) {
-                        if (activeBenchmarks.has(b.key)) row[b.key] = benchmarkSeries[b.key][idx]
+              <ResponsiveContainer width="100%" height={320}>
+                <ComposedChart
+                  data={(() => {
+                    const base = performance[0]?.value ?? 1
+                    return performance.map((p, idx) => {
+                      const row: Record<string, unknown> = {
+                        date: p.date,
+                        value: parseFloat(((p.value / base - 1) * 100).toFixed(2)),
                       }
-                    }
-                    return row
-                  })}
-                  margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
+                      if (benchmarkSeries) {
+                        for (const b of BENCH_CONFIG) {
+                          if (activeBenchmarks.has(b.key)) {
+                            const bBase = benchmarkSeries[b.key][0] ?? base
+                            row[b.key] = parseFloat(((benchmarkSeries[b.key][idx] / bBase - 1) * 100).toFixed(2))
+                          }
+                        }
+                      }
+                      return row
+                    })
+                  })()}
+                  margin={{ top: 12, right: 20, left: 0, bottom: 8 }}>
                   <defs>
-                    <linearGradient id="lineGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={ORANGE} stopOpacity={0.4} />
-                      <stop offset="100%" stopColor={ORANGE} stopOpacity={0} />
+                    <linearGradient id="portfolioGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={ORANGE} stopOpacity={0.35} />
+                      <stop offset="100%" stopColor={ORANGE} stopOpacity={0.02} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e1e2e" />
-                  <XAxis dataKey="date" stroke="#55556a" fontSize={10} />
-                  <YAxis stroke="#55556a" fontSize={10}
-                    tickFormatter={v => displayCurrency === 'USD' ? `$${(v / 1000).toFixed(0)}k` : `R$${(v / 1000).toFixed(0)}k`} />
-                  <Tooltip contentStyle={tt} formatter={(v: number) => fmtBase(v)} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e1e2e" vertical={false} />
+                  <XAxis dataKey="date" stroke="#55556a" fontSize={10} tickLine={false} axisLine={false} />
+                  <YAxis
+                    stroke="#55556a" fontSize={10} tickLine={false} axisLine={false}
+                    domain={['auto', 'auto']}
+                    tickFormatter={v => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`}
+                  />
+                  <Tooltip
+                    contentStyle={tt}
+                    formatter={(v: number, name: string) => [`${v >= 0 ? '+' : ''}${v.toFixed(2)}%`, name]}
+                    labelStyle={{ color: '#8888aa', fontSize: 11 }}
+                  />
                   {activeBenchmarks.size > 0 && <Legend wrapperStyle={{ fontSize: 11, color: '#8888aa' }} />}
-                  <Line type="monotone" dataKey="value" name="Carteira" stroke={ORANGE} strokeWidth={2.5}
-                    dot={false} activeDot={{ r: 4, fill: ORANGE }} fill="url(#lineGrad)" />
+                  {/* Benchmark lines rendered first so portfolio sits on top */}
                   {BENCH_CONFIG.map(b => activeBenchmarks.has(b.key) && (
                     <Line key={b.key} type="monotone" dataKey={b.key} name={b.label}
-                      stroke={b.color} strokeWidth={1.5} strokeDasharray="5 5" dot={false} />
+                      stroke={b.color} strokeWidth={1.5} strokeDasharray="6 4"
+                      strokeOpacity={0.65} dot={false} legendType="line" />
                   ))}
-                </LineChart>
+                  {/* Portfolio — area fill + bold stroke on top */}
+                  <Area type="monotone" dataKey="value" name="Carteira"
+                    stroke={ORANGE} strokeWidth={3}
+                    fill="url(#portfolioGrad)"
+                    dot={false} activeDot={{ r: 5, fill: ORANGE, stroke: '#0a0a0f', strokeWidth: 2 }}
+                    legendType="line" />
+                </ComposedChart>
               </ResponsiveContainer>
             )}
           </CardContent>
