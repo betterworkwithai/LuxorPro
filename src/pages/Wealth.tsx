@@ -365,13 +365,14 @@ export default function Wealth() {
     const gainPct    = totalCost > 0 ? (totalGain / totalCost) * 100 : 0
     const retPct     = totalCost > 0 ? (totalRet  / totalCost) * 100 : 0
 
-    // Offshore exposure (only meaningful in global view)
+    // Offshore exposure as % of liquid assets (excludes physical real estate)
     const offshoreValue = investments
       .filter(i => i.location === 'offshore')
       .reduce((s, i) => s + convert(i.quantity * i.currentPrice, i.currency, 'BRL', usdToBrl, eurToBrl), 0)
-    const allValueBrl = investments
+    const liquidValueBrl = investments
+      .filter(i => i.location !== 'physical-re')
       .reduce((s, i) => s + convert(i.quantity * i.currentPrice, i.currency, 'BRL', usdToBrl, eurToBrl), 0)
-    const offshorePct = allValueBrl > 0 ? (offshoreValue / allValueBrl) * 100 : 0
+    const offshorePct = liquidValueBrl > 0 ? (offshoreValue / liquidValueBrl) * 100 : 0
 
     return { totalValue, totalCost, totalGain, totalRet, gainPct, retPct, totalDivs, totalIntr, offshorePct }
   }, [viewInvestments, investments, usdToBrl, eurToBrl, displayCurrency])
@@ -586,7 +587,7 @@ export default function Wealth() {
           <StatCard
             title="Alocação Offshore"
             value={`${metrics.offshorePct.toFixed(1)}%`}
-            subtitle={view === 'global' ? 'Total global' : 'Carteira inteira'}
+            subtitle="% dos ativos líquidos"
             icon={<Globe className="w-4 h-4" />}
             color="purple"
           />

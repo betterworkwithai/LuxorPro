@@ -36,6 +36,11 @@ function formatRelativeDate(iso?: string): string {
 
 type PeriodMode = 'monthly' | 'ytd' | 'yearly'
 
+const INC_PALETTE = [
+  '#00ff88', '#00d4ff', '#8b5cf6', '#f59e0b',
+  '#ff7a00', '#06b6d4', '#a78bfa', '#34d399',
+]
+
 // Default budget nature per category (for 50/30/20 rule)
 const CATEGORY_NATURE: Record<string, 'fixed' | 'variable' | 'investment'> = {
   moradia: 'fixed', saude: 'fixed', educacao: 'fixed',
@@ -587,7 +592,7 @@ export default function Cashflow() {
             ] as { v: PeriodMode; l: string }[]).map(({ v, l }) => (
               <button key={v} onClick={() => setPeriodMode(v)}
                 className={clsx('px-3 py-1.5 rounded-lg text-xs font-semibold transition-all',
-                  periodMode === v ? 'bg-[#1e1e2e] text-[#e8e8f0]' : 'text-[#55556a] hover:text-[#e8e8f0]')}>
+                  periodMode === v ? 'bg-[#1e1e2e] text-[#e8e8f0]' : 'text-[#8888aa] hover:text-[#e8e8f0]')}>
                 {l}
               </button>
             ))}
@@ -719,8 +724,8 @@ export default function Cashflow() {
                       <PieChart>
                         <Pie data={incByCategory} dataKey="amount" nameKey="name"
                           cx="50%" cy="50%" innerRadius={50} outerRadius={85} paddingAngle={2}>
-                          {incByCategory.map(entry => (
-                            <Cell key={entry.id} fill={entry.color} stroke="#0a0a0f" strokeWidth={2} />
+                          {incByCategory.map((entry, i) => (
+                            <Cell key={entry.id} fill={INC_PALETTE[i % INC_PALETTE.length]} stroke="#0a0a0f" strokeWidth={2} />
                           ))}
                         </Pie>
                         <Tooltip {...pieTooltipStyle}
@@ -733,13 +738,13 @@ export default function Cashflow() {
                       </PieChart>
                     </ResponsiveContainer>
                     <div className="space-y-1 mt-1">
-                      {incByCategory.map(cat => {
+                      {incByCategory.map((cat, i) => {
                         const total = incByCategory.reduce((s, c) => s + c.amount, 0)
                         const pct = total > 0 ? (cat.amount / total * 100).toFixed(0) : '0'
                         return (
                           <div key={cat.id} className="flex items-center justify-between text-xs">
                             <span className="flex items-center gap-1.5 text-[#8888aa]">
-                              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: cat.color }} />
+                              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: INC_PALETTE[i % INC_PALETTE.length] }} />
                               {cat.icon} {cat.name}
                             </span>
                             <span className="text-[#e8e8f0] font-medium">{formatBRL(cat.amount)} <span className="text-[#55556a]">{pct}%</span></span>
@@ -777,12 +782,12 @@ export default function Cashflow() {
             </div>
           </CardHeader>
           {subscriptions.length > 0 && (
-            <div className="flex items-center gap-2 px-5 pb-3 flex-wrap">
+            <div className="flex items-center gap-2 px-5 pt-3 pb-3 flex-wrap">
               <div className="flex gap-1 bg-[#16161f] rounded-lg p-0.5 border border-[#1e1e2e]">
                 {(['all', 'income', 'expense'] as const).map(f => (
                   <button key={f} onClick={() => setRecFilter(f)}
                     className={`px-2.5 py-1 rounded-md text-[10px] font-medium transition-all ${
-                      recFilter === f ? 'bg-[#ff7a00]/15 text-[#ff7a00]' : 'text-[#55556a] hover:text-[#e8e8f0]'
+                      recFilter === f ? 'bg-[#ff7a00]/15 text-[#ff7a00]' : 'text-[#8888aa] hover:text-[#e8e8f0]'
                     }`}>
                     {f === 'all' ? 'Todas' : f === 'income' ? 'Receitas' : 'Despesas'}
                   </button>
@@ -1050,7 +1055,7 @@ export default function Cashflow() {
               ] as const).map(({ v, l }) => (
                 <button key={v} onClick={() => setTypeF(v)}
                   className={clsx('px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
-                    typeF === v ? 'bg-[#1e1e2e] text-[#e8e8f0]' : 'text-[#55556a] hover:text-[#e8e8f0]')}>
+                    typeF === v ? 'bg-[#1e1e2e] text-[#e8e8f0]' : 'text-[#8888aa] hover:text-[#e8e8f0]')}>
                   {l}
                 </button>
               ))}
@@ -1064,100 +1069,6 @@ export default function Cashflow() {
             <AccountSelect className="input-dark w-auto text-xs" value={accountF} onChange={setAccountF} allLabel="Todas as contas" />
           </div>
         </Card>
-
-        {/* Insights + Anomaly Alerts */}
-        {(() => {
-          const expTx = filtered.filter(t => t.type === 'expense' && !t.isWanted)
-          const hasAnomalies = anomalyAlerts.length > 0 && (!monthF || monthF === `${curYear}-${String(curMonth).padStart(2, '0')}`)
-          if (expTx.length < 2 && !hasAnomalies) return null
-
-          const totalExp = expTx.reduce((s, t) => s + toBRL(t), 0)
-          const insights: { icon: string; text: string; badge?: string; isAlert?: boolean }[] = []
-
-          // Anomaly alerts first
-          if (hasAnomalies) {
-            anomalyAlerts.forEach(a => {
-              insights.push({
-                icon: '⚠️',
-                text: `${a.catIcon} ${a.catName} subiu ${a.pct.toFixed(0)}% vs mês anterior — ${formatBRL(a.cur, true)} vs ${formatBRL(a.prev, true)}.`,
-                badge: `+${a.pct.toFixed(0)}%`,
-                isAlert: true,
-              })
-            })
-          }
-
-          if (expTx.length >= 2) {
-            const catMap = new Map<string, number>()
-            expTx.forEach(t => catMap.set(t.category, (catMap.get(t.category) ?? 0) + toBRL(t)))
-            const sortedCats = [...catMap.entries()].sort((a, b) => b[1] - a[1])
-            const [topCatId, topCatAmt] = sortedCats[0]
-            const topCatName = allCategories.find(c => c.id === topCatId)?.name ?? topCatId
-            const topCatPct = totalExp > 0 ? (topCatAmt / totalExp * 100).toFixed(0) : '0'
-            const biggestTx = [...expTx].sort((a, b) => toBRL(b) - toBRL(a))[0]
-
-            const descCount = new Map<string, { count: number; total: number }>()
-            expTx.forEach(t => {
-              const key = t.description.toLowerCase().slice(0, 20)
-              const cur = descCount.get(key) ?? { count: 0, total: 0 }
-              descCount.set(key, { count: cur.count + 1, total: cur.total + toBRL(t) })
-            })
-            const recurring = [...descCount.entries()].filter(([, v]) => v.count >= 2).sort((a, b) => b[1].total - a[1].total)
-
-            const streamTx    = expTx.filter(t => t.category === 'streaming')
-            const streamTotal = streamTx.reduce((s, t) => s + toBRL(t), 0)
-
-            insights.push({ icon: '📊', text: `Maior categoria: ${topCatName} = ${formatBRL(topCatAmt, true)} (${topCatPct}% das despesas)`, badge: parseFloat(topCatPct) > 40 ? 'Concentrada' : undefined })
-            insights.push({ icon: '💸', text: `Maior gasto único: "${biggestTx.description}" — ${formatBRL(toBRL(biggestTx), true)} em ${formatDate(biggestTx.date)}` })
-
-            if (streamTx.length >= 2)
-              insights.push({ icon: '📺', text: `${streamTx.length} serviços de streaming — ${formatBRL(streamTotal, true)}/mês. Avalie quais realmente usa.`, badge: 'Otimizar' })
-
-            if (recurring.length > 0) {
-              const [, { count, total }] = recurring[0]
-              insights.push({ icon: '🔁', text: `Descrição recorrente aparece ${count}× no período — total ${formatBRL(total, true)}. Considere tornar recorrente.` })
-            }
-
-            if (sortedCats.length >= 3) {
-              const top3Total = sortedCats.slice(0, 3).reduce((s, [, v]) => s + v, 0)
-              const top3Pct   = totalExp > 0 ? (top3Total / totalExp * 100).toFixed(0) : '0'
-              insights.push({ icon: '📈', text: `Top 3 categorias representam ${top3Pct}% das despesas. Concentração pode limitar flexibilidade.` })
-            }
-          }
-
-          if (insights.length === 0) return null
-
-          return (
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <span className="text-base">💡</span>
-                  <CardTitle>Insights de Otimização</CardTitle>
-                  <span className="text-[10px] text-[#55556a] ml-auto">{expTx.length} despesas analisadas</span>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-0">
-                {insights.map((ins, i) => (
-                  <div key={i} className={clsx(
-                    'flex items-start gap-2.5 text-xs py-2.5 border-b border-[#1e1e2e] last:border-0',
-                    ins.isAlert ? 'text-[#f59e0b]' : 'text-[#8888aa]'
-                  )}>
-                    <span className="flex-shrink-0 text-sm">{ins.icon}</span>
-                    <span className="flex-1">{ins.text}</span>
-                    {ins.badge && (
-                      <span className={clsx('flex-shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded border',
-                        ins.isAlert
-                          ? 'bg-[#ff4466]/15 text-[#ff4466] border-[#ff4466]/25'
-                          : 'bg-[#ff7a00]/15 text-[#ff7a00] border-[#ff7a00]/25'
-                      )}>
-                        {ins.badge}
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )
-        })()}
 
         {/* Lançamentos */}
         <Card className="overflow-hidden">
@@ -1377,6 +1288,99 @@ export default function Cashflow() {
             )}
           </div>
         </Card>
+        {/* Insights + Anomaly Alerts */}
+        {(() => {
+          const expTx = filtered.filter(t => t.type === 'expense' && !t.isWanted)
+          const hasAnomalies = anomalyAlerts.length > 0 && periodMode === 'monthly' && periodMonth === `${curYear}-${String(curMonth).padStart(2, '0')}`
+          if (expTx.length < 2 && !hasAnomalies) return null
+
+          const totalExp = expTx.reduce((s, t) => s + toBRL(t), 0)
+          const insights: { icon: string; text: string; badge?: string; isAlert?: boolean }[] = []
+
+          if (hasAnomalies) {
+            anomalyAlerts.forEach(a => {
+              insights.push({
+                icon: '⚠️',
+                text: `${a.catIcon} ${a.catName} subiu ${a.pct.toFixed(0)}% vs mês anterior — ${formatBRL(a.cur, true)} vs ${formatBRL(a.prev, true)}.`,
+                badge: `+${a.pct.toFixed(0)}%`,
+                isAlert: true,
+              })
+            })
+          }
+
+          if (expTx.length >= 2) {
+            const catMap = new Map<string, number>()
+            expTx.forEach(t => catMap.set(t.category, (catMap.get(t.category) ?? 0) + toBRL(t)))
+            const sortedCats = [...catMap.entries()].sort((a, b) => b[1] - a[1])
+            const [topCatId, topCatAmt] = sortedCats[0]
+            const topCatName = allCategories.find(c => c.id === topCatId)?.name ?? topCatId
+            const topCatPct = totalExp > 0 ? (topCatAmt / totalExp * 100).toFixed(0) : '0'
+            const biggestTx = [...expTx].sort((a, b) => toBRL(b) - toBRL(a))[0]
+
+            const descCount = new Map<string, { count: number; total: number }>()
+            expTx.forEach(t => {
+              const key = t.description.toLowerCase().slice(0, 20)
+              const cur = descCount.get(key) ?? { count: 0, total: 0 }
+              descCount.set(key, { count: cur.count + 1, total: cur.total + toBRL(t) })
+            })
+            const recurring = [...descCount.entries()].filter(([, v]) => v.count >= 2).sort((a, b) => b[1].total - a[1].total)
+
+            const streamTx    = expTx.filter(t => t.category === 'streaming')
+            const streamTotal = streamTx.reduce((s, t) => s + toBRL(t), 0)
+
+            insights.push({ icon: '📊', text: `Maior categoria: ${topCatName} = ${formatBRL(topCatAmt, true)} (${topCatPct}% das despesas)`, badge: parseFloat(topCatPct) > 40 ? 'Concentrada' : undefined })
+            insights.push({ icon: '💸', text: `Maior gasto único: "${biggestTx.description}" — ${formatBRL(toBRL(biggestTx), true)} em ${formatDate(biggestTx.date)}` })
+
+            if (streamTx.length >= 2)
+              insights.push({ icon: '📺', text: `${streamTx.length} serviços de streaming — ${formatBRL(streamTotal, true)}/mês. Avalie quais realmente usa.`, badge: 'Otimizar' })
+
+            if (recurring.length > 0) {
+              const [, { count, total }] = recurring[0]
+              insights.push({ icon: '🔁', text: `Descrição recorrente aparece ${count}× no período — total ${formatBRL(total, true)}. Considere tornar recorrente.` })
+            }
+
+            if (sortedCats.length >= 3) {
+              const top3Total = sortedCats.slice(0, 3).reduce((s, [, v]) => s + v, 0)
+              const top3Pct   = totalExp > 0 ? (top3Total / totalExp * 100).toFixed(0) : '0'
+              insights.push({ icon: '📈', text: `Top 3 categorias representam ${top3Pct}% das despesas. Concentração pode limitar flexibilidade.` })
+            }
+          }
+
+          if (insights.length === 0) return null
+
+          return (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <span className="text-base">💡</span>
+                  <CardTitle>Insights de Otimização</CardTitle>
+                  <span className="text-[10px] text-[#55556a] ml-auto">{expTx.length} despesas analisadas</span>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-0">
+                {insights.map((ins, i) => (
+                  <div key={i} className={clsx(
+                    'flex items-start gap-2.5 text-xs py-2.5 border-b border-[#1e1e2e] last:border-0',
+                    ins.isAlert ? 'text-[#f59e0b]' : 'text-[#8888aa]'
+                  )}>
+                    <span className="flex-shrink-0 text-sm">{ins.icon}</span>
+                    <span className="flex-1">{ins.text}</span>
+                    {ins.badge && (
+                      <span className={clsx('flex-shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded border',
+                        ins.isAlert
+                          ? 'bg-[#ff4466]/15 text-[#ff4466] border-[#ff4466]/25'
+                          : 'bg-[#ff7a00]/15 text-[#ff7a00] border-[#ff7a00]/25'
+                      )}>
+                        {ins.badge}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )
+        })()}
+
       </div>
 
       {/* Modals */}
