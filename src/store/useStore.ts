@@ -3,7 +3,7 @@
 // ─────────────────────────────────────────────
 import { create } from 'zustand'
 import { db, seedDemoData } from '../lib/db'
-import type { GaaraBackup } from '../lib/db'
+import type { LuxorBackup } from '../lib/db'
 import type {
   Transaction, Investment, TaxDeductible,
   Attachment, RecurringTransaction, AppSettings, FinancialGoal, Category,
@@ -123,7 +123,7 @@ interface AppState {
 
   // backup / restore
   exportData: () => Promise<void>
-  importData: (backup: GaaraBackup) => Promise<void>
+  importData: (backup: LuxorBackup) => Promise<void>
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -308,12 +308,12 @@ export const useStore = create<AppState>((set, get) => ({
     const date   = new Date().toISOString().split('T')[0]
     const a      = document.createElement('a')
     a.href       = url
-    a.download   = `gaara-backup-${date}.json`
+    a.download   = `luxorpro-backup-${date}.json`
     a.click()
     URL.revokeObjectURL(url)
   },
 
-  importData: async (backup: GaaraBackup) => {
+  importData: async (backup: LuxorBackup) => {
     await db.importData(backup)
     set({
       transactions:  backup.transactions,

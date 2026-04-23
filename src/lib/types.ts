@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────
-//  Gaara Wealth — Core Type Definitions
+//  Luxor Pro — Core Type Definitions
 // ─────────────────────────────────────────────
 
 export type TransactionType = 'income' | 'expense'
@@ -151,7 +151,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   preferredCurrency: 'BRL',
   monthlyIncomeGoal: 30000,
   savingsRateGoal: 30,
-  name: 'Gaara',
+  name: 'Luxor Pro',
   customCategories: [],
   customInstitutions: [],
   customPaymentMethods: [],

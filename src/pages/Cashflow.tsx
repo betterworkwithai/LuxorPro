@@ -493,7 +493,7 @@ export default function Cashflow() {
     const blob = new Blob([header + rows], { type: 'text/csv' })
     const url  = URL.createObjectURL(blob)
     const a    = document.createElement('a')
-    a.href = url; a.download = 'gaara-fluxo-de-caixa.csv'; a.click()
+    a.href = url; a.download = 'luxorpro-fluxo-de-caixa.csv'; a.click()
     URL.revokeObjectURL(url)
   }
 

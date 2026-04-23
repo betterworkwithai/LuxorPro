@@ -519,7 +519,7 @@ export default function Dashboard() {
         actions={
           <div className="flex items-center gap-2">
             <a
-              href="https://www.gaara.pro/"
+              href="https://www.luxorpro.com.br/"
               target="_blank"
               rel="noopener noreferrer"
               className="hidden md:flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium

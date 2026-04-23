@@ -13,7 +13,7 @@ import type {
 } from './types'
 import { DEFAULT_SETTINGS } from './types'
 
-export interface GaaraBackup {
+export interface LuxorBackup {
   version: number
   exportedAt: string
   transactions:  Transaction[]
@@ -34,7 +34,7 @@ let attachmentStore: LocalForage = buildAttachmentStore('anon')
 
 function buildAttachmentStore(userId: string): LocalForage {
   return localforage.createInstance({
-    name: `gaara_${userId}`,
+    name: `luxorpro_${userId}`,
     storeName: 'attachments',
   })
 }
@@ -185,7 +185,7 @@ export const db = {
   },
 
   /** Export all data as a serialisable backup object. */
-  exportData: async (): Promise<GaaraBackup> => {
+  exportData: async (): Promise<LuxorBackup> => {
     const [transactions, investments, taxItems, attachments, subscriptions, goals, settings] =
       await Promise.all([
         cloudGetAll<Transaction>('luxor_transactions'),
@@ -205,7 +205,7 @@ export const db = {
   },
 
   /** Wipe everything for the current user and restore from a backup object. */
-  importData: async (backup: GaaraBackup): Promise<void> => {
+  importData: async (backup: LuxorBackup): Promise<void> => {
     await db.clearAll(backup.settings)
     const writes: Promise<unknown>[] = []
     for (const t of backup.transactions)  writes.push(cloudUpsert('luxor_transactions', t))

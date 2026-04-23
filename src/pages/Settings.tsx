@@ -10,7 +10,7 @@ import { formatBRL } from '../lib/formatters'
 import { SUGGESTED_CATEGORIES } from '../lib/types'
 import { AccountSelect } from '../components/ui/AccountSelect'
 import type { Category } from '../lib/types'
-import type { GaaraBackup } from '../lib/db'
+import type { LuxorBackup } from '../lib/db'
 import { useAllCategories } from '../lib/useCategories'
 import { clsx } from 'clsx'
 import { supabase, SUPABASE_CONFIGURED } from '../lib/supabase'
@@ -284,7 +284,7 @@ export default function Settings() {
         if (error) throw error
         await supabase.auth.signOut()
       } else {
-        try { localStorage.removeItem('gaara_local_auth') } catch {}
+        try { localStorage.removeItem('luxorpro_local_auth') } catch {}
       }
       // Hard reload back to auth screen
       window.location.href = '/app'
@@ -303,7 +303,7 @@ export default function Settings() {
     setImportStatus('idle')
     try {
       const text   = await file.text()
-      const backup = JSON.parse(text) as GaaraBackup
+      const backup = JSON.parse(text) as LuxorBackup
       if (!backup.version || !Array.isArray(backup.transactions)) throw new Error('Arquivo inválido')
       await importData(backup)
       setImportStatus('ok')
@@ -443,7 +443,7 @@ export default function Settings() {
           <CardContent className="space-y-4">
             <div>
               <label className="text-xs text-[#8888aa] mb-1.5 block">Seu Nome</label>
-              <input className="input-dark" placeholder="Gaara" value={form.name} onChange={e => upd('name', e.target.value)} />
+              <input className="input-dark" placeholder="Seu nome" value={form.name} onChange={e => upd('name', e.target.value)} />
             </div>
           </CardContent>
         </Card>
@@ -598,7 +598,7 @@ export default function Settings() {
                       onKeyDown={e => {
                         if (e.key === 'Enter') {
                           if (SUPABASE_CONFIGURED) handleEmailChange()
-                          else { alert('Para alterar seu e-mail, entre em contato com suporte@gaara.pro'); setNewEmail('') }
+                          else { alert('Para alterar seu e-mail, entre em contato com suporte@luxorpro.com.br'); setNewEmail('') }
                         }
                       }}
                     />
@@ -607,7 +607,7 @@ export default function Settings() {
                         if (SUPABASE_CONFIGURED) {
                           handleEmailChange()
                         } else {
-                          alert('Para alterar seu e-mail, entre em contato com suporte@gaara.pro')
+                          alert('Para alterar seu e-mail, entre em contato com suporte@luxorpro.com.br')
                           setNewEmail('')
                         }
                       }}
@@ -677,7 +677,7 @@ export default function Settings() {
                     if (SUPABASE_CONFIGURED) {
                       handlePasswordChange()
                     } else {
-                      alert('Para alterar sua senha, entre em contato com suporte@gaara.pro')
+                      alert('Para alterar sua senha, entre em contato com suporte@luxorpro.com.br')
                       setCurrentPasswordInput('')
                       setNewPassword('')
                       setConfirmPassword('')
