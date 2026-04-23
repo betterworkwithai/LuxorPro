@@ -112,7 +112,8 @@ Deno.serve(async (req) => {
           subscription_status:             sub.status,
           subscription_plan:               plan,
           subscription_current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
-          trial_end: sub.trial_end ? new Date(sub.trial_end * 1000).toISOString() : null,
+          trial_end:           sub.trial_end ? new Date(sub.trial_end * 1000).toISOString() : null,
+          cancel_at_period_end: sub.cancel_at_period_end,
         })
         break
       }
@@ -126,6 +127,7 @@ Deno.serve(async (req) => {
         await upsertProfile(userId, {
           subscription_status:             'canceled',
           subscription_current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
+          cancel_at_period_end:            false,
         })
         break
       }

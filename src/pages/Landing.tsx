@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import {
   Check, ChevronDown, TrendingUp, Target, FileSearch,
-  Calculator, Zap, Shield, Star, ArrowRight, Lock,
+  Calculator, Zap, Shield, ArrowRight, Lock,
   BarChart3, Wallet, Globe, Users,
 } from 'lucide-react'
 
@@ -23,31 +23,6 @@ function useFadeIn(threshold = 0.12) {
     return () => obs.disconnect()
   }, [threshold])
   return { ref, visible }
-}
-
-// ── Animated number counter ───────────────────────────────────────────────────
-function Counter({ to, prefix = '', suffix = '', decimals = 0 }: { to: number; prefix?: string; suffix?: string; decimals?: number }) {
-  const [n, setN] = useState(0)
-  const spanRef = useRef<HTMLSpanElement>(null)
-  const started = useRef(false)
-  useEffect(() => {
-    const el = spanRef.current; if (!el) return
-    const obs = new IntersectionObserver(([e]) => {
-      if (!e.isIntersecting || started.current) return
-      started.current = true
-      const dur = 1800, t0 = Date.now()
-      const factor = Math.pow(10, decimals)
-      const tick = () => {
-        const p = Math.min((Date.now() - t0) / dur, 1)
-        setN(Math.floor((1 - Math.pow(1 - p, 3)) * to * factor) / factor)
-        if (p < 1) requestAnimationFrame(tick)
-      }
-      requestAnimationFrame(tick)
-    }, { threshold: 0.5 })
-    obs.observe(el)
-    return () => obs.disconnect()
-  }, [to, decimals])
-  return <span ref={spanRef}>{prefix}{n.toLocaleString('pt-BR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}{suffix}</span>
 }
 
 // ── Dashboard Mockup (hero visual) ────────────────────────────────────────────
@@ -210,11 +185,9 @@ export default function Landing() {
   }, [])
 
   const hero    = useFadeIn(0)
-  const trust   = useFadeIn(0.1)
   const problem = useFadeIn(0.1)
   const benefits= useFadeIn(0.1)
   const howto   = useFadeIn(0.1)
-  const testi   = useFadeIn(0.1)
   const pricing = useFadeIn(0.1)
   const faq     = useFadeIn(0.1)
   const finalCta= useFadeIn(0.1)
@@ -309,11 +282,6 @@ export default function Landing() {
 
             {/* Left: Copy */}
             <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#ff7a00]/10 border border-[#ff7a00]/25 text-[#ff7a00] text-xs font-bold mb-6 uppercase tracking-wider"
-                style={{ animation: 'lxPulse 3s ease-in-out infinite' }}>
-                🔥 Mais de 2.800 investidores já confiam
-              </div>
-
               <h1 className="text-4xl sm:text-5xl lg:text-[56px] font-bold leading-[1.08] tracking-tight mb-6">
                 <span className="gradient-text-white">Pare de perder dinheiro</span><br />
                 <span className="gradient-text">por falta de controle.</span>
@@ -353,27 +321,6 @@ export default function Landing() {
             <div className="hidden lg:block">
               <DashboardMockup />
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ════════════════════════════════════════════════════════════
-          TRUST BAR
-      ════════════════════════════════════════════════════════════ */}
-      <section className="border-y border-[#1e1e2e] bg-[#080810] py-10 px-6">
-        <div ref={trust.ref} className={`max-w-5xl mx-auto lx-fade ${trust.visible ? 'visible' : ''}`}>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-            {[
-              { label: 'Investidores ativos', value: <Counter to={2847} suffix="+" /> },
-              { label: 'Em patrimônio gerenciado', value: <><span className="text-[#ff7a00]">R$</span> <Counter to={890} suffix="M+" /></> },
-              { label: 'Avaliação média', value: <><Counter to={4.9} decimals={1} /><span className="text-[#f59e0b]">★</span> / 5</> },
-              { label: 'Uptime garantido', value: <><Counter to={99.9} decimals={1} suffix="%" /></> },
-            ].map(({ label, value }, i) => (
-              <div key={i}>
-                <p className="text-2xl sm:text-3xl font-bold text-[#e8e8f0] mb-1">{value}</p>
-                <p className="text-xs text-[#55556a] uppercase tracking-wider">{label}</p>
-              </div>
-            ))}
           </div>
         </div>
       </section>
@@ -559,71 +506,6 @@ export default function Landing() {
                 <p className="text-[10px] font-bold text-[#55556a] uppercase tracking-widest mb-2">Passo {step}</p>
                 <h3 className="text-base font-bold text-[#e8e8f0] mb-2">{title}</h3>
                 <p className="text-sm text-[#8888aa] leading-relaxed">{desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ════════════════════════════════════════════════════════════
-          TESTIMONIALS
-      ════════════════════════════════════════════════════════════ */}
-      <section className="py-24 px-6 bg-[#080810]">
-        <div ref={testi.ref} className={`max-w-5xl mx-auto lx-fade ${testi.visible ? 'visible' : ''}`}>
-          <div className="text-center mb-14">
-            <p className="text-xs text-[#ff7a00] uppercase tracking-widest font-bold mb-3">O que nossos usuários dizem</p>
-            <h2 className="text-3xl sm:text-4xl font-bold">Resultados reais de pessoas reais.</h2>
-          </div>
-          <div className="grid md:grid-cols-3 gap-6">
-            {[
-              {
-                stars: 5,
-                quote: '"Tinha 3 planilhas diferentes para controlar meus investimentos. Hoje uso só o Luxor Pro e economizo pelo menos 4 horas por mês. A importação de extratos por IA é simplesmente incrível."',
-                name: 'Bruno Almeida',
-                role: 'Engenheiro de Software · São Paulo',
-                avatar: 'BA',
-                color: '#3b82f6',
-              },
-              {
-                stars: 5,
-                featured: true,
-                quote: '"Finalmente consegui visualizar meu patrimônio total — ativos no Brasil e nos EUA — em um único lugar. O painel de rebalanceamento me ajudou a descobrir que estava 40% mal alocada."',
-                name: 'Fernanda Castro',
-                role: 'Médica · Rio de Janeiro',
-                avatar: 'FC',
-                color: '#00d4ff',
-              },
-              {
-                stars: 5,
-                quote: '"Assino o plano vitalício. O ROI já pagou 10 vezes o investimento só com as realocações que o app me sugeriu. Melhor decisão financeira que tomei no ano."',
-                name: 'Marcelo Tavares',
-                role: 'Empresário · Belo Horizonte',
-                avatar: 'MT',
-                color: '#00ff88',
-              },
-            ].map(({ stars, featured, quote, name, role, avatar, color }) => (
-              <div
-                key={name}
-                className={`relative p-6 rounded-2xl border transition-all card-glow ${featured ? 'bg-[#ff7a00]/5 border-[#ff7a00]/30 shadow-[0_0_40px_rgba(255,122,0,0.08)]' : 'bg-[#0d0d14] border-[#1e1e2e]'}`}
-              >
-                {featured && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-[#ff7a00] text-[#0a0a0f] text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">
-                    ⭐ Mais votado
-                  </div>
-                )}
-                <div className="flex gap-0.5 mb-4">
-                  {Array(stars).fill(0).map((_, i) => <Star key={i} className="w-3.5 h-3.5 fill-[#f59e0b] text-[#f59e0b]" />)}
-                </div>
-                <p className="text-sm text-[#c8c8d8] leading-relaxed mb-5 italic">{quote}</p>
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold" style={{ background: `${color}20`, color }}>
-                    {avatar}
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-[#e8e8f0]">{name}</p>
-                    <p className="text-[11px] text-[#55556a]">{role}</p>
-                  </div>
-                </div>
               </div>
             ))}
           </div>
@@ -825,7 +707,7 @@ export default function Landing() {
             <ArrowRight className="w-5 h-5" />
           </a>
           <div className="flex flex-wrap justify-center gap-5 text-xs text-[#55556a]">
-            {['Sem cartão de crédito', '7 dias grátis', 'Cancele quando quiser', '30 dias de garantia'].map(t => (
+            {['7 dias grátis', 'Cancele quando quiser', '30 dias de garantia'].map(t => (
               <span key={t} className="flex items-center gap-1.5">
                 <Check className="w-3.5 h-3.5 text-[#00ff88]" />{t}
               </span>

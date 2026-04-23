@@ -15,7 +15,7 @@ import { PageHeader } from '../components/ui/PageHeader'
 import { formatBRL, formatDate, monthName, currentMonthYear } from '../lib/formatters'
 import { useAllCategories } from '../lib/useCategories'
 import { AddTransactionModal } from '../components/modals/AddTransactionModal'
-import { LOCAL_CLASSES, INTL_CLASSES, canonicalLocalClass, canonicalIntlClass } from '../lib/suitability'
+import { LOCAL_CLASSES, INTL_CLASSES, canonicalLocalClass, canonicalIntlClass, convert } from '../lib/suitability'
 import { pfPath } from '../constants'
 import { clsx } from 'clsx'
 
@@ -230,6 +230,12 @@ export default function Dashboard() {
   // ── KPIs ──────────────────────────────────
   const income      = useMemo(() => periodTx.filter(t => t.type === 'income').reduce((a, t) => a + txToBRL(t), 0),  [periodTx, settings.usdToBrl, settings.eurToBrl])
   const expenses    = useMemo(() => periodTx.filter(t => t.type === 'expense').reduce((a, t) => a + txToBRL(t), 0), [periodTx, settings.usdToBrl, settings.eurToBrl])
+  const expensesExInvest = useMemo(() => periodTx.filter(t => t.type === 'expense' && t.category !== 'investimento').reduce((a, t) => a + txToBRL(t), 0), [periodTx, settings.usdToBrl, settings.eurToBrl])
+  const investAportes  = useMemo(() => periodTx.filter(t => t.type === 'expense' && t.category === 'investimento').reduce((a, t) => a + txToBRL(t), 0), [periodTx, settings.usdToBrl, settings.eurToBrl])
+  const investResgates = useMemo(() => periodTx.filter(t => t.type === 'income'  && t.category === 'investimento').reduce((a, t) => a + txToBRL(t), 0), [periodTx, settings.usdToBrl, settings.eurToBrl])
+  const netInvestment  = investAportes - investResgates
+  const cleanIncome    = income   - investResgates
+  const cleanExpenses  = expenses - investAportes
   const netFlow     = income - expenses
   const savingsRate = income > 0 ? ((income - expenses) / income) * 100 : 0
 
@@ -283,23 +289,28 @@ export default function Dashboard() {
   const liquidPct      = netWorth > 0 ? (liquidValue / netWorth) * 100 : 0
 
   // ── Portfolio summary (consolidated/global view) ───
-  const portfolioToBrl = (inv: typeof investments[number], price: number) => {
-    const v = inv.quantity * price
-    return inv.currency === 'USD' ? v * settings.usdToBrl
-         : inv.currency === 'EUR' ? v * eurRate
-         : v
-  }
   const portfolioMetrics = useMemo(() => {
-    const liquid = investments.filter(i => i.location !== 'physical-re')
-    const totalValue = liquid.reduce((s, i) => s + portfolioToBrl(i, i.currentPrice), 0)
-    const totalCost  = liquid.reduce((s, i) => s + portfolioToBrl(i, i.avgCost),      0)
+    const usd = settings.usdToBrl
+    const eur = eurRate
+    const toBrl = (i: typeof investments[number], price: number) =>
+      convert(i.quantity * price, i.currency as 'BRL' | 'USD' | 'EUR', 'BRL', usd, eur)
+    const liquid     = investments.filter(i => i.location !== 'physical-re')
+    const totalValue = liquid.reduce((s, i) => s + toBrl(i, i.currentPrice), 0)
+    const totalCost  = liquid.reduce((s, i) => s + toBrl(i, i.avgCost),      0)
     const totalGain  = totalValue - totalCost
     const gainPct    = totalCost > 0 ? (totalGain / totalCost) * 100 : 0
-    const offshore   = liquid.filter(i => i.location === 'offshore')
-      .reduce((s, i) => s + portfolioToBrl(i, i.currentPrice), 0)
-    const offshorePct = totalValue > 0 ? (offshore / totalValue) * 100 : 0
+    // Offshore % = offshore / all-liquid (same formula as Wealth tab)
+    const offshoreValue  = investments.filter(i => i.location === 'offshore')
+      .reduce((s, i) => s + toBrl(i, i.currentPrice), 0)
+    const liquidValueBrl = investments.filter(i => i.location !== 'physical-re')
+      .reduce((s, i) => s + toBrl(i, i.currentPrice), 0)
+    const offshorePct = liquidValueBrl > 0 ? (offshoreValue / liquidValueBrl) * 100 : 0
     return { totalValue, totalCost, totalGain, gainPct, offshorePct }
   }, [investments, settings.usdToBrl, eurRate])
+
+  // Currency converter used by chart breakdowns
+  const portfolioToBrl = (i: typeof investments[number], price: number) =>
+    convert(i.quantity * price, i.currency as 'BRL' | 'USD' | 'EUR', 'BRL', settings.usdToBrl, eurRate)
 
   // Scope filter for portfolio summary charts
   const scopedLiquid = useMemo(() => {
@@ -474,10 +485,10 @@ export default function Dashboard() {
   }, [periodTx, allCategories])
 
   const monthlyAvgExpenses = useMemo(() => {
-    if (periodMode === 'monthly') return expenses
-    if (periodMode === 'ytd')    return expenses / Math.max(todayMonth, 1)
-    return expenses / 12
-  }, [periodMode, expenses, todayMonth])
+    if (periodMode === 'monthly') return expensesExInvest
+    if (periodMode === 'ytd')    return expensesExInvest / Math.max(todayMonth, 1)
+    return expensesExInvest / 12
+  }, [periodMode, expensesExInvest, todayMonth])
 
   const reserveCoverage = monthlyAvgExpenses > 0 ? liquidValue / monthlyAvgExpenses : 0
 
@@ -574,9 +585,9 @@ export default function Dashboard() {
         />
 
         {/* ── Linha 1: Patrimônio + Stats ── */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
           {/* Patrimônio card — spans 2 cols */}
-          <div className="md:col-span-2 lg:col-span-2 card p-5 flex flex-col justify-between relative overflow-hidden">
+          <div className="col-span-2 card p-5 flex flex-col justify-between relative overflow-hidden">
             <div className="absolute inset-0 opacity-5 pointer-events-none"
               style={{ background: 'radial-gradient(circle at 80% 50%, #ff7a00, transparent 60%)' }} />
             <div>
@@ -609,18 +620,25 @@ export default function Dashboard() {
           </div>
 
           <StatCard
-            title={`Renda ${kpiLabel}`}
-            value={formatBRL(income, true)}
+            title={`Receitas ${kpiLabel}`}
+            value={formatBRL(cleanIncome, true)}
             icon={<TrendingUp className="w-4 h-4" />}
             color="green"
-            secondary={kpiSecondary(income)}
+            secondary={kpiSecondary(cleanIncome)}
           />
           <StatCard
             title={`Despesas ${kpiLabel}`}
-            value={formatBRL(expenses, true)}
+            value={formatBRL(cleanExpenses, true)}
             icon={<TrendingDown className="w-4 h-4" />}
             color="red"
-            secondary={kpiSecondary(expenses)}
+            secondary={kpiSecondary(cleanExpenses)}
+          />
+          <StatCard
+            title={`Investimentos ${kpiLabel}`}
+            value={formatBRL(netInvestment, true)}
+            icon={<Wallet className="w-4 h-4" />}
+            color="cyan"
+            secondary={kpiSecondary(netInvestment)}
           />
           <StatCard
             title={`Saldo ${kpiLabel}`}

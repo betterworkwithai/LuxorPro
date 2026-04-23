@@ -621,10 +621,6 @@ export default function Wealth() {
     return entries
   }, [viewInvestments, displayCurrency, usdToBrl, eurToBrl])
 
-  const handleProfile = async (p: SuitabilityProfile) => {
-    await saveSettings({ ...settings, suitability: p })
-  }
-
   const VIEW_OPTIONS: { value: ViewMode; label: string; icon: typeof Globe; color: string; sub: string }[] = [
     { value: 'global',        label: 'Global',                 icon: Layers,    color: ORANGE, sub: 'Consolidado em BRL' },
     { value: 'local',         label: 'Brasil',                 icon: Building2, color: CYAN,   sub: 'Onshore (BRL)' },
@@ -689,8 +685,14 @@ export default function Wealth() {
             )
           })}
         </div>
-        {/* Physical RE toggle */}
-        <div className="flex justify-end">
+        {/* Physical RE toggle + Exposição Global Recomendada */}
+        <div className="flex items-center justify-end gap-4">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-[#8888aa]">Exposição Global Recomendada</span>
+            <span className="text-xs font-bold text-[#8b5cf6]">
+              {({ Conservador: 5, Moderado: 15, Arrojado: 30, Agressivo: 40 } as Record<SuitabilityProfile, number>)[profile]}%
+            </span>
+          </div>
           <button onClick={() => setExcludePhysRE(v => !v)}
             className={clsx(
               'px-3 py-1.5 rounded-lg text-xs font-medium border transition-all flex items-center gap-1.5',
@@ -702,30 +704,6 @@ export default function Wealth() {
             {excludePhysRE ? 'Imóveis ocultos' : 'Ocultar Imóveis Físicos'}
           </button>
         </div>
-        </div>
-
-        {/* ─── Suitability Profile Selector ─── */}
-        <div className="rounded-xl bg-[#0d0d14] border border-[#1e1e2e] p-3 flex items-center gap-3 flex-wrap">
-          <span className="text-xs text-[#8888aa] font-medium uppercase tracking-wider">Perfil de Investidor</span>
-          <div className="flex gap-1 flex-1 flex-wrap">
-            {SUITABILITY_PROFILES.map(p => (
-              <button key={p} onClick={() => handleProfile(p)}
-                className={clsx(
-                  'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all',
-                  profile === p
-                    ? 'bg-[#ff7a00] text-[#0a0a0f]'
-                    : 'bg-[#16161f] text-[#55556a] hover:text-[#e8e8f0]',
-                )}>
-                {p}
-              </button>
-            ))}
-          </div>
-          <div className="flex items-center gap-2 pl-3 border-l border-[#1e1e2e]">
-            <span className="text-xs text-[#8888aa]">Exposição Global Recomendada</span>
-            <span className="text-xs font-bold text-[#8b5cf6]">
-              {({ Conservador: 5, Moderado: 15, Arrojado: 30, Agressivo: 40 } as Record<SuitabilityProfile, number>)[profile]}%
-            </span>
-          </div>
         </div>
 
         {/* ─── Summary Header ─── */}
@@ -1009,14 +987,14 @@ export default function Wealth() {
                   inv.currency === 'USD' ? formatUSD(v)
                   : inv.currency === 'EUR' ? `€ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
                   : formatBRL(v)
-                const thCls = 'px-3 py-2.5 text-left text-[10px] font-semibold text-[#55556a] uppercase tracking-wider whitespace-nowrap'
+                const thCls = 'px-3 py-2.5 text-left text-[10px] font-semibold text-[#55556a] uppercase tracking-wider whitespace-nowrap bg-[#0a0a0f]'
                 const tdCls = 'px-3 py-2.5 text-xs text-[#e8e8f0] font-mono whitespace-nowrap'
                 const tdMuted = 'px-3 py-2.5 text-xs text-[#8888aa] whitespace-nowrap'
 
                 return (
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto overflow-y-auto max-h-[600px]">
                     <table className="w-full border-collapse">
-                      <thead>
+                      <thead className="sticky top-0 z-10">
                         <tr className="border-b border-[#1e1e2e]">
                           <th className={thCls}>Ativo</th>
                           <th className={`${thCls} text-right`}>Vencimento</th>
@@ -1117,7 +1095,7 @@ export default function Wealth() {
                                     {/* PU / Cotação */}
                                     <td className={`${tdCls} text-right`}>{fmtNative(inv, inv.currentPrice)}</td>
                                     {/* Valor de Mercado */}
-                                    <td className="px-3 py-2.5 text-right text-xs font-mono font-semibold text-[#ff7a00] whitespace-nowrap">{fmtNative(inv, mktVal)}</td>
+                                    <td className="px-3 py-2.5 text-right text-xs font-mono font-semibold text-[#e8e8f0] whitespace-nowrap">{fmtNative(inv, mktVal)}</td>
                                     {/* Alocação */}
                                     <td className="px-3 py-2.5 text-right whitespace-nowrap">
                                       {inv.location !== 'physical-re'

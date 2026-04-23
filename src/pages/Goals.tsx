@@ -1,11 +1,11 @@
-import React, { useState, useMemo, useEffect } from 'react'
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceLine,
 } from 'recharts'
 import {
   Plus, Pencil, Trash2, Target, TrendingUp, TrendingDown,
-  CheckCircle2, Clock, AlertCircle,
+  CheckCircle2, Clock, AlertCircle, Eye, EyeOff,
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { PageHeader } from '../components/ui/PageHeader'
@@ -86,16 +86,16 @@ function buildProjection(
   goals: FinancialGoal[],
   currentNetWorth: number,
   monthlyContributionBase: number,
-  annualGrowthPct: number,   // e.g. 6 for 6% per year
-  monthlyExpenses = 0,       // recurring monthly outflow that drags projection down
+  annualGrowthPct: number,
+  monthlyCashflow = 0,        // net monthly cashflow adjustment (+income / −expense)
   horizonYears = 10,
+  hiddenIds: Set<string> = new Set(),
 ): ProjectionPoint[] {
   const today = new Date()
   const points: ProjectionPoint[] = []
-  const activeGoals = goals.filter(g => !g.isCompleted)
+  const activeGoals = goals.filter(g => !g.isCompleted && !hiddenIds.has(g.id))
   const horizonMonths = horizonYears * 12
 
-  // Convert annual rate to monthly compounding rate
   const r = annualGrowthPct === 0 ? 0 : Math.pow(1 + annualGrowthPct / 100, 1 / 12) - 1
 
   const fv = (principal: number, months: number) =>
@@ -108,16 +108,16 @@ function buildProjection(
     const date = new Date(today)
     date.setMonth(date.getMonth() + m)
 
-    const withoutGoals = fv(currentNetWorth, m) + fvContrib(monthlyContributionBase - monthlyExpenses, m)
+    const baseMonthly = monthlyContributionBase + monthlyCashflow
+    const withoutGoals = fv(currentNetWorth, m) + fvContrib(baseMonthly, m)
 
     let withGoals = fv(currentNetWorth, m)
-    let addedContribs = monthlyContributionBase - monthlyExpenses
+    let addedContribs = baseMonthly
     for (const g of activeGoals) {
       if (g.impactType === 'savings') {
         addedContribs += g.monthlyContribution
         continue
       }
-      // Apply each occurrence (recurring or single) that has happened by month m
       const occurrences = expandOccurrences(g, today, horizonMonths)
       for (const occ of occurrences) {
         const monthsToOcc = monthsBetween(today, occ)
@@ -351,11 +351,13 @@ function GoalModal({ open, onClose, initial }: {
 }
 
 // ─── Goal Card ──────────────────────────────
-function GoalCard({ goal, onEdit, onDelete, onToggle }: {
+function GoalCard({ goal, onEdit, onDelete, onToggle, isHidden, onEyeToggle }: {
   goal: FinancialGoal
   onEdit: () => void
   onDelete: () => void
   onToggle: () => void
+  isHidden: boolean
+  onEyeToggle: () => void
 }) {
   const pct = progressPct(goal.currentAmount, goal.targetAmount)
   const today = new Date()
@@ -437,6 +439,11 @@ function GoalCard({ goal, onEdit, onDelete, onToggle }: {
           {goal.impactType === 'savings' && <><Target        className="w-3.5 h-3.5 text-[#00d4ff]" /><span className="text-[10px] text-[#55556a]">Acumulação mensal</span></>}
         </div>
         <div className="flex items-center gap-1">
+          <button onClick={onEyeToggle} title={isHidden ? 'Mostrar no gráfico' : 'Ocultar do gráfico'}
+            className={clsx('w-7 h-7 rounded-lg flex items-center justify-center transition-colors',
+              isHidden ? 'text-[#55556a] hover:bg-[#8888aa]/15 hover:text-[#8888aa]' : 'text-[#8888aa] hover:bg-[#8888aa]/15')}>
+            {isHidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+          </button>
           <button onClick={onToggle} title={goal.isCompleted ? 'Reabrir' : 'Concluir'}
             className={clsx('w-7 h-7 rounded-lg flex items-center justify-center transition-colors',
               goal.isCompleted ? 'text-[#00ff88] hover:bg-[#00ff88]/15' : 'text-[#55556a] hover:bg-[#00ff88]/15 hover:text-[#00ff88]')}>
@@ -471,29 +478,122 @@ function ProjectionTooltip({ active, payload, label }: any) {
   )
 }
 
+// ─── Chart layout constants (must match AreaChart margin + YAxis width) ───────
+const PLOT_MARGIN_LEFT  = 10  // AreaChart margin.left
+const PLOT_MARGIN_RIGHT = 10  // AreaChart margin.right
+const PLOT_MARGIN_TOP   = 36  // AreaChart margin.top
+const YAXIS_WIDTH       = 70
+
 // ─── Main Page ──────────────────────────────
 export default function Goals() {
   const { goals, investments, updateGoal, deleteGoal, settings } = useStore()
   const [showModal,   setShowModal]   = useState(false)
   const [editTarget,  setEditTarget]  = useState<FinancialGoal | undefined>()
   const [filter,      setFilter]      = useState<'all' | 'active' | 'completed'>('active')
-  const [growthRate,  setGrowthRate]  = useState(6) // % per year, default 6%
-  const [monthlyExpenses, setMonthlyExpenses] = useState(0) // R$/month drag on projection
-  const [horizonYears, setHorizonYears] = useState(10) // projection horizon
+  const [growthRate,  setGrowthRate]  = useState(6)
+  const [monthlyExpenses, setMonthlyExpenses] = useState(0)
+  const [horizonYears, setHorizonYears] = useState(10)
 
-  // Logarithmic mapping for expenses slider (0..1 → R$ 0..1.000.000)
-  // Uses log1p so the slider has fine control at low values
-  const EXPENSES_MAX = 1_000_000
-  const expensesSliderPos = monthlyExpenses <= 0
-    ? 0
-    : Math.log1p(monthlyExpenses) / Math.log1p(EXPENSES_MAX)
-  const setExpensesFromSlider = (pos: number) => {
-    if (pos <= 0) { setMonthlyExpenses(0); return }
-    const raw = Math.expm1(pos * Math.log1p(EXPENSES_MAX))
-    // Snap to nice steps
-    const step = raw < 1000 ? 10 : raw < 10000 ? 100 : raw < 100000 ? 500 : 1000
-    setMonthlyExpenses(Math.min(EXPENSES_MAX, Math.round(raw / step) * step))
+  // Eye toggle: goals excluded from projection chart
+  const [hiddenGoalIds, setHiddenGoalIds] = useState<Set<string>>(new Set())
+  const toggleHidden = (id: string) =>
+    setHiddenGoalIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+
+  // Draft dates: overrides during emoji drag (goal id → ISO date string)
+  const [draftDates, setDraftDates] = useState<Record<string, string>>({})
+
+  // Chart container ref for drag position calculations
+  const chartWrapRef = useRef<HTMLDivElement>(null)
+  const [chartWidth, setChartWidth] = useState(700)
+  useEffect(() => {
+    const el = chartWrapRef.current
+    if (!el) return
+    const obs = new ResizeObserver(e => setChartWidth(e[0].contentRect.width))
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [])
+
+  // Drag state
+  const draggingIdRef = useRef<string | null>(null)
+
+  const idxToDate = useCallback((idx: number): string => {
+    const d = new Date()
+    d.setMonth(d.getMonth() + idx * 3)
+    return d.toISOString().split('T')[0]
+  }, [])
+
+  const dateToIdx = useCallback((dateStr: string, totalPoints: number): number => {
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+    const d = new Date(dateStr)
+    const months = Math.max(0, (d.getFullYear() - today.getFullYear()) * 12 + (d.getMonth() - today.getMonth()))
+    return Math.max(0, Math.min(totalPoints - 1, Math.round(months / 3)))
+  }, [])
+
+  const xToIdx = useCallback((clientX: number, totalPoints: number): number => {
+    const rect = chartWrapRef.current?.getBoundingClientRect()
+    if (!rect) return 0
+    const plotLeft  = PLOT_MARGIN_LEFT + YAXIS_WIDTH
+    const plotRight = chartWidth - PLOT_MARGIN_RIGHT
+    const plotW     = plotRight - plotLeft
+    const relX      = clientX - rect.left - plotLeft
+    const rawIdx    = (relX / plotW) * (totalPoints - 1)
+    return Math.max(0, Math.min(totalPoints - 1, Math.round(rawIdx)))
+  }, [chartWidth])
+
+  // Global mouse handlers for drag
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      const id = draggingIdRef.current
+      if (!id) return
+      // We need projectionData length — use a data attribute on the container
+      const el = chartWrapRef.current
+      const n = el ? parseInt(el.dataset.points ?? '0') : 0
+      if (n === 0) return
+      const idx  = xToIdx(e.clientX, n)
+      const date = idxToDate(idx)
+      setDraftDates(prev => ({ ...prev, [id]: date }))
+    }
+    const onUp = async (e: MouseEvent) => {
+      const id = draggingIdRef.current
+      if (!id) return
+      draggingIdRef.current = null
+      const el = chartWrapRef.current
+      const n = el ? parseInt(el.dataset.points ?? '0') : 0
+      if (n > 0) {
+        const idx  = xToIdx(e.clientX, n)
+        const date = idxToDate(idx)
+        // Persist to store
+        const goal = goals.find(g => g.id === id)
+        if (goal) await updateGoal({ ...goal, targetDate: date })
+      }
+      setDraftDates(prev => { const n = { ...prev }; delete n[id]; return n })
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup',   onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup',   onUp)
+    }
+  }, [goals, updateGoal, xToIdx, idxToDate])
+
+  // Bidirectional exponential cashflow slider: -1M to +1M, center = 0
+  const CF_MAX = 1_000_000
+  const cfLogMax = Math.log1p(CF_MAX)
+  const cashflowToPos = (v: number): number => {
+    if (v === 0) return 0.5
+    if (v > 0) return 0.5 + Math.log1p(v) / (2 * cfLogMax)
+    return 0.5 - Math.log1p(-v) / (2 * cfLogMax)
   }
+  const posToCashflow = (pos: number): number => {
+    const delta = pos - 0.5
+    if (Math.abs(delta) < 0.001) return 0
+    const raw = Math.expm1(Math.abs(delta) * 2 * cfLogMax) * Math.sign(delta)
+    const abs = Math.abs(raw)
+    const step = abs < 1000 ? 10 : abs < 10000 ? 100 : abs < 100000 ? 500 : 1000
+    return Math.sign(raw) * Math.min(CF_MAX, Math.round(abs / step) * step)
+  }
+  const cfSliderPos = cashflowToPos(monthlyExpenses)
+  const setCfFromSlider = (pos: number) => setMonthlyExpenses(posToCashflow(pos))
 
   // Current net worth (simplified — sum of investment portfolio in BRL)
   const currentNetWorth = useMemo(() => {
@@ -510,10 +610,15 @@ export default function Goals() {
     goals.filter(g => !g.isCompleted && g.impactType === 'savings').reduce((s, g) => s + g.monthlyContribution, 0),
     [goals])
 
-  // Projection data
+  // Goals with draft date overrides applied (for live drag preview)
+  const goalsWithDrafts = useMemo(() =>
+    goals.map(g => draftDates[g.id] ? { ...g, targetDate: draftDates[g.id] } : g),
+    [goals, draftDates])
+
+  // Projection data — uses draft-overridden goals and excludes hidden
   const projectionData = useMemo(() =>
-    buildProjection(goals, currentNetWorth, totalMonthlyContrib, growthRate, monthlyExpenses, horizonYears),
-    [goals, currentNetWorth, totalMonthlyContrib, growthRate, monthlyExpenses, horizonYears])
+    buildProjection(goalsWithDrafts, currentNetWorth, totalMonthlyContrib, growthRate, monthlyExpenses, horizonYears, hiddenGoalIds),
+    [goalsWithDrafts, currentNetWorth, totalMonthlyContrib, growthRate, monthlyExpenses, horizonYears, hiddenGoalIds])
 
   // Filtered goals
   const filteredGoals = useMemo(() => {
@@ -535,13 +640,13 @@ export default function Goals() {
     if (confirm('Excluir esta meta?')) await deleteGoal(id)
   }
 
-  // Goal event markers for the chart — expand recurring occurrences
+  // Goal event markers — uses draft overrides, excludes hidden
   const goalEvents = useMemo(() => {
     const today = new Date()
     const horizonMonths = horizonYears * 12
     const events: { idx: number; goal: FinancialGoal; date: Date; occurrenceIndex: number; total: number }[] = []
-    for (const g of goals) {
-      if (g.isCompleted || g.impactType === 'savings') continue
+    for (const g of goalsWithDrafts) {
+      if (g.isCompleted || g.impactType === 'savings' || hiddenGoalIds.has(g.id)) continue
       const occs = expandOccurrences(g, today, horizonMonths)
       occs.forEach((d, i) => {
         const monthsAhead = monthsBetween(today, d)
@@ -552,7 +657,7 @@ export default function Goals() {
       })
     }
     return events
-  }, [goals, projectionData.length, horizonYears])
+  }, [goalsWithDrafts, projectionData.length, horizonYears, hiddenGoalIds])
 
   return (
     <div className="min-h-screen animate-fade-in">
@@ -627,7 +732,7 @@ export default function Goals() {
             <div className="mt-4 flex items-center gap-4">
               <div className="flex-1">
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs text-[#8888aa]">Taxa de crescimento real anual</label>
+                  <label className="text-xs text-[#8888aa]">Taxa de Crescimento Real Anual (Acima da Inflação)</label>
                   <span className="text-sm font-bold" style={{ color: growthRate === 0 ? '#55556a' : growthRate <= 3 ? '#f59e0b' : '#00d4ff' }}>
                     {growthRate === 0 ? '0% (sem juros)' : `${growthRate.toFixed(1)}% a.a.`}
                   </span>
@@ -651,73 +756,132 @@ export default function Goals() {
               </div>
             </div>
 
-            {/* Monthly expenses slider — logarithmic */}
+            {/* Monthly cashflow slider — bidirectional exponential, center = 0 */}
             <div className="mt-4 flex items-center gap-4">
               <div className="flex-1">
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs text-[#8888aa]">Despesas mensais</label>
-                  <span className="text-sm font-bold" style={{ color: monthlyExpenses === 0 ? '#55556a' : '#ff4466' }}>
-                    {monthlyExpenses === 0 ? 'R$ 0' : `−${formatBRL(monthlyExpenses, true)}/mês`}
+                  <label className="text-xs text-[#8888aa]">Fluxo de caixa mensal adicional</label>
+                  <span className="text-sm font-bold" style={{
+                    color: monthlyExpenses === 0 ? '#55556a' : monthlyExpenses > 0 ? '#00ff88' : '#ff4466',
+                  }}>
+                    {monthlyExpenses === 0
+                      ? 'Neutro'
+                      : `${monthlyExpenses > 0 ? '+' : '−'}${formatBRL(Math.abs(monthlyExpenses), true)}/mês`}
                   </span>
                 </div>
-                <input
-                  type="range" min="0" max="1" step="0.001"
-                  value={expensesSliderPos}
-                  onChange={e => setExpensesFromSlider(parseFloat(e.target.value))}
-                  className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
-                  style={{
-                    background: `linear-gradient(to right, #ff4466 ${expensesSliderPos * 100}%, #1e1e2e ${expensesSliderPos * 100}%)`,
-                  }}
-                />
+                <div className="relative">
+                  <input
+                    type="range" min="0" max="1" step="0.001"
+                    value={cfSliderPos}
+                    onChange={e => setCfFromSlider(parseFloat(e.target.value))}
+                    className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
+                    style={{
+                      background: monthlyExpenses === 0
+                        ? '#1e1e2e'
+                        : monthlyExpenses > 0
+                          ? `linear-gradient(to right, #1e1e2e 50%, #00ff88 50%, #00ff88 ${cfSliderPos * 100}%, #1e1e2e ${cfSliderPos * 100}%)`
+                          : `linear-gradient(to right, #1e1e2e ${cfSliderPos * 100}%, #ff4466 ${cfSliderPos * 100}%, #ff4466 50%, #1e1e2e 50%)`,
+                    }}
+                  />
+                  <div className="absolute top-0 bottom-0 left-1/2 w-px bg-[#2a2a3e] pointer-events-none" />
+                </div>
                 <div className="flex justify-between text-[10px] text-[#55556a] mt-1">
-                  <span>R$ 0</span>
-                  <span>R$ 1k</span>
-                  <span>R$ 10k</span>
-                  <span>R$ 100k</span>
-                  <span>R$ 1M</span>
+                  <span>−R$ 1M</span>
+                  <span>−R$ 10k</span>
+                  <span className="text-[#2a2a3e]">0</span>
+                  <span>+R$ 10k</span>
+                  <span>+R$ 1M</span>
                 </div>
               </div>
             </div>
           </CardHeader>
           <CardContent className="pt-2 pb-4 px-2">
-            <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={projectionData} margin={{ top: 36, right: 10, bottom: 0, left: 10 }}>
-                <defs>
-                  <linearGradient id="goalGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="#00d4ff" stopOpacity={0.15} />
-                    <stop offset="95%" stopColor="#00d4ff" stopOpacity={0}    />
-                  </linearGradient>
-                  <linearGradient id="baseGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="#8888aa" stopOpacity={0.08} />
-                    <stop offset="95%" stopColor="#8888aa" stopOpacity={0}    />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e1e2e" vertical={false} />
-                <XAxis dataKey="label" tick={{ fill: '#55556a', fontSize: 10 }} tickLine={false} axisLine={false}
-                       interval={3} />
-                <YAxis tick={{ fill: '#55556a', fontSize: 10 }} tickLine={false} axisLine={false}
-                       tickFormatter={v => formatBRL(v, true)} width={70} />
-                <Tooltip content={<ProjectionTooltip />} />
+            <div
+              ref={chartWrapRef}
+              data-points={String(projectionData.length)}
+              className="relative select-none"
+            >
+              <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={projectionData} margin={{ top: 36, right: 10, bottom: 0, left: 10 }}>
+                  <defs>
+                    <linearGradient id="goalGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor="#00d4ff" stopOpacity={0.15} />
+                      <stop offset="95%" stopColor="#00d4ff" stopOpacity={0}    />
+                    </linearGradient>
+                    <linearGradient id="baseGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor="#8888aa" stopOpacity={0.08} />
+                      <stop offset="95%" stopColor="#8888aa" stopOpacity={0}    />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e1e2e" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fill: '#55556a', fontSize: 10 }} tickLine={false} axisLine={false}
+                         interval={3} />
+                  <YAxis tick={{ fill: '#55556a', fontSize: 10 }} tickLine={false} axisLine={false}
+                         tickFormatter={v => formatBRL(v, true)} width={YAXIS_WIDTH} />
+                  <Tooltip content={<ProjectionTooltip />} />
 
-                {/* Goal event markers */}
-                {goalEvents.map(({ goal, idx, occurrenceIndex }) => (
-                  <ReferenceLine
-                    key={`${goal.id}-${occurrenceIndex}`}
-                    x={projectionData[idx]?.label}
-                    stroke={goal.impactType === 'expense' ? '#ff4466' : '#00ff88'}
-                    strokeDasharray="4 2"
-                    label={{ value: goal.emoji, position: 'top', fill: '#e8e8f0', fontSize: 16 }}
-                  />
-                ))}
+                  {/* Reference lines — first occurrences have no label (overlaid by draggable div) */}
+                  {goalEvents.map(({ goal, idx, occurrenceIndex }) => (
+                    <ReferenceLine
+                      key={`${goal.id}-${occurrenceIndex}`}
+                      x={projectionData[idx]?.label}
+                      stroke={goal.impactType === 'expense' ? '#ff4466' : '#00ff88'}
+                      strokeDasharray="4 2"
+                      label={occurrenceIndex > 0
+                        ? { value: goal.emoji, position: 'top', fill: '#e8e8f0', fontSize: 14 }
+                        : undefined}
+                    />
+                  ))}
 
-                <Area type="monotone" dataKey="withoutGoals" name="Sem Metas"
-                      stroke="#55556a" strokeWidth={1.5} strokeDasharray="5 3"
-                      fill="url(#baseGrad)" dot={false} />
-                <Area type="monotone" dataKey="withGoals" name="Com Metas"
-                      stroke="#00d4ff" strokeWidth={2}
-                      fill="url(#goalGrad)" dot={false} />
-              </AreaChart>
-            </ResponsiveContainer>
+                  <Area type="monotone" dataKey="withoutGoals" name="Sem Metas"
+                        stroke="#55556a" strokeWidth={1.5} strokeDasharray="5 3"
+                        fill="url(#baseGrad)" dot={false} />
+                  <Area type="monotone" dataKey="withGoals" name="Com Metas"
+                        stroke="#00d4ff" strokeWidth={2}
+                        fill="url(#goalGrad)" dot={false} />
+                </AreaChart>
+              </ResponsiveContainer>
+
+              {/* Draggable emoji overlays for first occurrences */}
+              {goalEvents
+                .filter(e => e.occurrenceIndex === 0)
+                .map(({ goal, idx }) => {
+                  const N = projectionData.length - 1
+                  const plotLeft  = PLOT_MARGIN_LEFT + YAXIS_WIDTH
+                  const plotRight = chartWidth - PLOT_MARGIN_RIGHT
+                  const plotW     = plotRight - plotLeft
+                  const xPx       = plotLeft + (N > 0 ? idx / N : 0) * plotW
+                  const isDragging = draggingIdRef.current === goal.id
+                  return (
+                    <div
+                      key={goal.id}
+                      title={`Arrastar para mudar data: ${goal.name}`}
+                      className="absolute flex flex-col items-center gap-0.5 cursor-grab active:cursor-grabbing"
+                      style={{ left: xPx, top: PLOT_MARGIN_TOP - 30, transform: 'translateX(-50%)' }}
+                      onMouseDown={e => {
+                        e.preventDefault()
+                        draggingIdRef.current = goal.id
+                      }}
+                    >
+                      <span
+                        className="text-base leading-none transition-transform"
+                        style={{
+                          filter: isDragging ? 'drop-shadow(0 0 6px #00d4ff)' : undefined,
+                          transform: isDragging ? 'scale(1.3)' : undefined,
+                        }}
+                      >
+                        {goal.emoji}
+                      </span>
+                      {draftDates[goal.id] && (
+                        <span className="text-[9px] text-[#00d4ff] whitespace-nowrap bg-[#0d0d14] px-1 rounded">
+                          {formatDate(draftDates[goal.id])}
+                        </span>
+                      )}
+                    </div>
+                  )
+                })
+              }
+            </div>
 
             {/* Legend for goal events */}
             {goalEvents.length > 0 && (
@@ -780,6 +944,8 @@ export default function Goals() {
                   onEdit={() => { setEditTarget(goal); setShowModal(true) }}
                   onDelete={() => handleDelete(goal.id)}
                   onToggle={() => handleToggle(goal)}
+                  isHidden={hiddenGoalIds.has(goal.id)}
+                  onEyeToggle={() => toggleHidden(goal.id)}
                 />
               ))}
             </div>

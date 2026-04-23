@@ -520,6 +520,12 @@ export default function Cashflow() {
   const totalExpenses = filtered.filter(t => t.type === 'expense' && !t.isWanted).reduce((s, t) => s + toBRL(t), 0)
   const netFlow       = totalIncome - totalExpenses
 
+  const investAportes  = filtered.filter(t => t.type === 'expense' && !t.isWanted && t.category === 'investimento').reduce((s, t) => s + toBRL(t), 0)
+  const investResgates = filtered.filter(t => t.type === 'income' && !t.isWanted && t.category === 'investimento').reduce((s, t) => s + toBRL(t), 0)
+  const netInvestment  = investAportes - investResgates
+  const cleanIncome    = totalIncome - investResgates
+  const cleanExpenses  = totalExpenses - investAportes
+
   const activeRec = subscriptions.filter(s => s.isActive)
   const monthlyRecIncome  = activeRec.filter(s => s.type === 'income')
     .reduce((sum, s) => {
@@ -634,15 +640,20 @@ export default function Cashflow() {
         </div>
 
         {/* Resumo */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="card p-4 text-center">
             <p className="text-[10px] text-[#8888aa] uppercase tracking-wider mb-1">Receitas</p>
-            <p className="text-lg font-bold text-[#00ff88]">{formatBRL(totalIncome, true)}</p>
+            <p className="text-lg font-bold text-[#00ff88]">{formatBRL(cleanIncome, true)}</p>
             <p className="text-[10px] text-[#55556a] mt-1">{periodLabel}</p>
           </div>
           <div className="card p-4 text-center">
             <p className="text-[10px] text-[#8888aa] uppercase tracking-wider mb-1">Despesas</p>
-            <p className="text-lg font-bold text-[#ff4466]">{formatBRL(totalExpenses, true)}</p>
+            <p className="text-lg font-bold text-[#ff4466]">{formatBRL(cleanExpenses, true)}</p>
+            <p className="text-[10px] text-[#55556a] mt-1">{periodLabel}</p>
+          </div>
+          <div className="card p-4 text-center">
+            <p className="text-[10px] text-[#8888aa] uppercase tracking-wider mb-1">Investimentos</p>
+            <p className="text-lg font-bold text-[#00d4ff]">{formatBRL(netInvestment, true)}</p>
             <p className="text-[10px] text-[#55556a] mt-1">{periodLabel}</p>
           </div>
           <div className="card p-4 text-center">
@@ -687,20 +698,32 @@ export default function Cashflow() {
                         <Legend wrapperStyle={{ fontSize: 11, color: '#8888aa' }} />
                       </PieChart>
                     </ResponsiveContainer>
-                    <div className="space-y-1 mt-1">
-                      {expByCategory.map(cat => {
-                        const total = expByCategory.reduce((s, c) => s + c.amount, 0)
-                        const pct = total > 0 ? (cat.amount / total * 100).toFixed(0) : '0'
-                        return (
-                          <div key={cat.id} className="flex items-center justify-between text-xs">
-                            <span className="flex items-center gap-1.5 text-[#8888aa]">
-                              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: cat.color }} />
-                              {cat.icon} {cat.name}
-                            </span>
-                            <span className="text-[#e8e8f0] font-medium">{formatBRL(cat.amount)} <span className="text-[#55556a]">{pct}%</span></span>
-                          </div>
-                        )
-                      })}
+                    <div className="mt-2">
+                      <table className="w-full text-xs border-separate" style={{ borderSpacing: '0 2px' }}>
+                        <tbody>
+                          {expByCategory.map(cat => {
+                            const total = expByCategory.reduce((s, c) => s + c.amount, 0)
+                            const pct = total > 0 ? (cat.amount / total * 100).toFixed(1) : '0'
+                            return (
+                              <tr key={cat.id}>
+                                <td className="text-left py-0.5">
+                                  <span className="flex items-center gap-1.5 text-[#8888aa]">
+                                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: cat.color }} />
+                                    {cat.icon} {cat.name}
+                                  </span>
+                                </td>
+                                <td className="text-center text-[#e8e8f0] font-medium px-2">{formatBRL(cat.amount)}</td>
+                                <td className="text-right text-[#55556a] font-semibold w-12">{pct}%</td>
+                              </tr>
+                            )
+                          })}
+                          <tr className="border-t border-[#1e1e2e]">
+                            <td className="text-left text-[#55556a] font-semibold pt-1.5">Total</td>
+                            <td className="text-center text-[#e8e8f0] font-semibold pt-1.5 px-2">{formatBRL(expByCategory.reduce((s, c) => s + c.amount, 0))}</td>
+                            <td className="text-right text-[#55556a] font-semibold pt-1.5 w-12">100%</td>
+                          </tr>
+                        </tbody>
+                      </table>
                     </div>
                   </>
                 )}
@@ -737,20 +760,32 @@ export default function Cashflow() {
                         <Legend wrapperStyle={{ fontSize: 11, color: '#8888aa' }} />
                       </PieChart>
                     </ResponsiveContainer>
-                    <div className="space-y-1 mt-1">
-                      {incByCategory.map((cat, i) => {
-                        const total = incByCategory.reduce((s, c) => s + c.amount, 0)
-                        const pct = total > 0 ? (cat.amount / total * 100).toFixed(0) : '0'
-                        return (
-                          <div key={cat.id} className="flex items-center justify-between text-xs">
-                            <span className="flex items-center gap-1.5 text-[#8888aa]">
-                              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: INC_PALETTE[i % INC_PALETTE.length] }} />
-                              {cat.icon} {cat.name}
-                            </span>
-                            <span className="text-[#e8e8f0] font-medium">{formatBRL(cat.amount)} <span className="text-[#55556a]">{pct}%</span></span>
-                          </div>
-                        )
-                      })}
+                    <div className="mt-2">
+                      <table className="w-full text-xs border-separate" style={{ borderSpacing: '0 2px' }}>
+                        <tbody>
+                          {incByCategory.map((cat, i) => {
+                            const total = incByCategory.reduce((s, c) => s + c.amount, 0)
+                            const pct = total > 0 ? (cat.amount / total * 100).toFixed(1) : '0'
+                            return (
+                              <tr key={cat.id}>
+                                <td className="text-left py-0.5">
+                                  <span className="flex items-center gap-1.5 text-[#8888aa]">
+                                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: INC_PALETTE[i % INC_PALETTE.length] }} />
+                                    {cat.icon} {cat.name}
+                                  </span>
+                                </td>
+                                <td className="text-center text-[#e8e8f0] font-medium px-2">{formatBRL(cat.amount)}</td>
+                                <td className="text-right text-[#55556a] font-semibold w-12">{pct}%</td>
+                              </tr>
+                            )
+                          })}
+                          <tr className="border-t border-[#1e1e2e]">
+                            <td className="text-left text-[#55556a] font-semibold pt-1.5">Total</td>
+                            <td className="text-center text-[#e8e8f0] font-semibold pt-1.5 px-2">{formatBRL(incByCategory.reduce((s, c) => s + c.amount, 0))}</td>
+                            <td className="text-right text-[#55556a] font-semibold pt-1.5 w-12">100%</td>
+                          </tr>
+                        </tbody>
+                      </table>
                     </div>
                   </>
                 )}

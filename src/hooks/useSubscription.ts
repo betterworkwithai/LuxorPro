@@ -44,14 +44,30 @@ export function useSubscription(): SubscriptionInfo & { refresh: () => void } {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { setLoading(false); return }
 
-      const { data: row, error } = await supabase
+      // Try full query (including cancel_at_period_end if migration has run)
+      let row: Record<string, unknown> | null = null
+      let cancelAtPeriodEnd = false
+
+      const { data: fullRow, error: fullError } = await supabase
         .from('profiles')
         .select('subscription_status, subscription_plan, subscription_current_period_end, trial_end, cancel_at_period_end')
         .eq('id', user.id)
         .single()
 
-      if (error || !row) {
-        // Fallback to optimistic localStorage value
+      if (!fullError && fullRow) {
+        row = fullRow
+        cancelAtPeriodEnd = (fullRow.cancel_at_period_end as boolean) ?? false
+      } else {
+        // Migration may not have run yet — retry without the new column
+        const { data: partialRow } = await supabase
+          .from('profiles')
+          .select('subscription_status, subscription_plan, subscription_current_period_end, trial_end')
+          .eq('id', user.id)
+          .single()
+        if (partialRow) row = partialRow
+      }
+
+      if (!row) {
         const stored = getStoredSubscription()
         setData({
           status:            stored ? 'active' : 'none',
@@ -65,15 +81,15 @@ export function useSubscription(): SubscriptionInfo & { refresh: () => void } {
         return
       }
 
-      const status = (row.subscription_status ?? 'none') as SubscriptionStatus
+      const status = ((row.subscription_status as string) ?? 'none') as SubscriptionStatus
       setData({
         status,
-        plan:              row.subscription_plan ?? null,
-        trialEnd:          row.trial_end ? new Date(row.trial_end) : null,
+        plan:              (row.subscription_plan as string) ?? null,
+        trialEnd:          row.trial_end ? new Date(row.trial_end as string) : null,
         periodEnd:         row.subscription_current_period_end
-          ? new Date(row.subscription_current_period_end)
+          ? new Date(row.subscription_current_period_end as string)
           : null,
-        cancelAtPeriodEnd: row.cancel_at_period_end ?? false,
+        cancelAtPeriodEnd,
         isActive:          status === 'active' || status === 'trialing',
       })
     } catch {

@@ -80,6 +80,14 @@ export interface Investment {
   grossUpRate?: number        // default 0.15 for tax-exempt
   /** Optional manual price history (for performance charts / TWR) */
   priceHistory?: PricePoint[]
+  // Product type (new structured form)
+  productType?: 'titulo' | 'fundo' | 'acao' | 'coe'
+  tituloType?: string        // CDB, LCI, LCA, etc.
+  fundType?: string          // FI, FIA, FIM, FII, etc.
+  paymentFrequency?: string  // Mensal, Trimestral, etc.
+  custodyFee?: number        // taxa de custódia % a.a. (Título)
+  holding?: string           // holding company
+  gestora?: string           // fund manager
 }
 
 export const LIQUIDITY_OPTIONS = ['D+0', 'D+1', 'D+2', 'D+3', 'D+5', 'D+7', 'D+10', 'D+15', 'D+30', 'D+60', 'D+90', 'D+180', 'D+360', 'Vencimento']

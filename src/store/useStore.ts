@@ -138,34 +138,39 @@ export const useStore = create<AppState>((set, get) => ({
   activeModal:   null,
 
   init: async () => {
-    await seedDemoData()
-    const [transactions, investments, taxItems, attachments, subscriptions, goals, loadedSettings, hadSettingsRow] =
-      await Promise.all([
-        db.transactions.getAll(),
-        db.investments.getAll(),
-        db.tax.getAll(),
-        db.attachments.getAll(),
-        db.subscriptions.getAll(),
-        db.goals.getAll(),
-        db.settings.get(),
-        db.settings.exists(),
-      ])
+    try {
+      await seedDemoData()
+      const [transactions, investments, taxItems, attachments, subscriptions, goals, loadedSettings, hadSettingsRow] =
+        await Promise.all([
+          db.transactions.getAll(),
+          db.investments.getAll(),
+          db.tax.getAll(),
+          db.attachments.getAll(),
+          db.subscriptions.getAll(),
+          db.goals.getAll(),
+          db.settings.get(),
+          db.settings.exists(),
+        ])
 
-    // Only apply signup metadata when the user has NEVER saved settings
-    // (i.e. first ever load). Otherwise we would overwrite their explicit
-    // choices every time the saved value happens to match the default.
-    let settings = loadedSettings
-    if (!hadSettingsRow) {
-      const [signupName, signupSuitability] = await Promise.all([
-        resolveSignupName(),
-        resolveSignupSuitability(),
-      ])
-      if (signupName)        settings = { ...settings, name: signupName }
-      if (signupSuitability) settings = { ...settings, suitability: signupSuitability }
-      if (settings !== loadedSettings) await db.settings.save(settings)
+      // Only apply signup metadata when the user has NEVER saved settings
+      // (i.e. first ever load). Otherwise we would overwrite their explicit
+      // choices every time the saved value happens to match the default.
+      let settings = loadedSettings
+      if (!hadSettingsRow) {
+        const [signupName, signupSuitability] = await Promise.all([
+          resolveSignupName(),
+          resolveSignupSuitability(),
+        ])
+        if (signupName)        settings = { ...settings, name: signupName }
+        if (signupSuitability) settings = { ...settings, suitability: signupSuitability }
+        if (settings !== loadedSettings) await db.settings.save(settings)
+      }
+
+      set({ transactions, investments, taxItems, attachments, subscriptions, goals, settings, isLoading: false })
+    } catch (err) {
+      console.error('[init] failed to load data:', err)
+      set({ isLoading: false })
     }
-
-    set({ transactions, investments, taxItems, attachments, subscriptions, goals, settings, isLoading: false })
   },
 
   setModal: (id) => set({ activeModal: id }),

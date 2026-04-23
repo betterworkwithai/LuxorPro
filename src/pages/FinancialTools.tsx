@@ -384,7 +384,9 @@ function LoanCalc() {
   const [loanAmt,   setLoanAmt]   = useState('')
   const [entrada,   setEntrada]   = useState('')
   const [rate,      setRate]      = useState('')
+  const [rateUnit,  setRateUnit]  = useState<'am' | 'aa'>('am')
   const [prazo,     setPrazo]     = useState('')
+  const [prazoUnit, setPrazoUnit] = useState<'meses' | 'anos'>('meses')
   const [residual,  setResidual]  = useState('')
   const [tipo,      setTipo]      = useState<'SAC' | 'Price'>('Price')
   const [expanded,  setExpanded]  = useState(false)
@@ -393,11 +395,13 @@ function LoanCalc() {
     const loan    = parseFloat(loanAmt.replace(',', '.'))
     const down    = parseFloat(entrada.replace(',', '.') || '0')
     const r       = parseFloat(rate.replace(',', '.'))
-    const n       = parseInt(prazo)
+    const prazoN  = parseInt(prazo)
     const balloon = parseFloat(residual.replace(',', '.') || '0')
-    if (isNaN(loan) || isNaN(r) || isNaN(n) || loan <= 0 || r <= 0 || n <= 0) return null
+    if (isNaN(loan) || isNaN(r) || isNaN(prazoN) || loan <= 0 || r <= 0 || prazoN <= 0) return null
     const pv     = loan - (isNaN(down) ? 0 : down)
-    const mrate  = r / 100
+    // Always work in months — convert inputs as needed
+    const mrate  = rateUnit === 'aa' ? Math.pow(1 + r / 100, 1 / 12) - 1 : r / 100
+    const n      = prazoUnit === 'anos' ? prazoN * 12 : prazoN
     const residPV = balloon > 0 ? balloon / Math.pow(1 + mrate, n) : 0
 
     const schedule: AmortRow[] = []
@@ -446,7 +450,7 @@ function LoanCalc() {
     const cet = cetMonthly !== null ? cetMonthly : null
 
     return { schedule, totalPago, totalJuros, primeira, ultima, cet }
-  }, [loanAmt, entrada, rate, prazo, residual, tipo])
+  }, [loanAmt, entrada, rate, rateUnit, prazo, prazoUnit, residual, tipo])
 
   const visibleRows = result
     ? (expanded ? result.schedule : result.schedule.slice(0, 12))
@@ -464,12 +468,34 @@ function LoanCalc() {
           <input className={inputCls} placeholder="0" value={entrada} onChange={e => setEntrada(e.target.value)} />
         </div>
         <div>
-          <label className={labelCls}>Taxa de Juros Mensais (%)</label>
-          <input className={inputCls} placeholder="1.2" value={rate} onChange={e => setRate(e.target.value)} />
+          <div className="flex items-center justify-between mb-1.5">
+            <label className={labelCls + ' mb-0'}>Taxa de Juros (%)</label>
+            <div className="flex rounded-lg overflow-hidden border border-[#1e1e2e] text-[10px] font-semibold">
+              {(['am', 'aa'] as const).map(u => (
+                <button key={u} onClick={() => setRateUnit(u)}
+                  className={clsx('px-2 py-1 transition-colors',
+                    rateUnit === u ? 'bg-[#ff7a00] text-white' : 'bg-[#12121a] text-[#55556a] hover:text-[#e8e8f0]')}>
+                  {u === 'am' ? '% a.m.' : '% a.a.'}
+                </button>
+              ))}
+            </div>
+          </div>
+          <input className={inputCls} placeholder={rateUnit === 'am' ? '1.2' : '14.5'} value={rate} onChange={e => setRate(e.target.value)} />
         </div>
         <div>
-          <label className={labelCls}>Prazo (meses)</label>
-          <input className={inputCls} placeholder="360" value={prazo} onChange={e => setPrazo(e.target.value)} />
+          <div className="flex items-center justify-between mb-1.5">
+            <label className={labelCls + ' mb-0'}>Prazo</label>
+            <div className="flex rounded-lg overflow-hidden border border-[#1e1e2e] text-[10px] font-semibold">
+              {(['meses', 'anos'] as const).map(u => (
+                <button key={u} onClick={() => setPrazoUnit(u)}
+                  className={clsx('px-2 py-1 transition-colors',
+                    prazoUnit === u ? 'bg-[#ff7a00] text-white' : 'bg-[#12121a] text-[#55556a] hover:text-[#e8e8f0]')}>
+                  {u === 'meses' ? 'Meses' : 'Anos'}
+                </button>
+              ))}
+            </div>
+          </div>
+          <input className={inputCls} placeholder={prazoUnit === 'meses' ? '360' : '30'} value={prazo} onChange={e => setPrazo(e.target.value)} />
         </div>
         <div>
           <label className={labelCls}>Valor Residual / Balloon (R$, opcional)</label>
