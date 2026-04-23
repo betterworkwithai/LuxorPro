@@ -517,7 +517,9 @@ export default function Dashboard() {
 
   // ── Recent transactions ───────────────────
   const recentTx = useMemo(() =>
-    [...transactions].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6),
+    [...transactions]
+      .sort((a, b) => (b.createdAt ?? b.date).localeCompare(a.createdAt ?? a.date))
+      .slice(0, 6),
     [transactions])
 
   // ── Upcoming recurring transactions ───────
