@@ -20,8 +20,19 @@ import { useAllCategories } from '../lib/useCategories'
 import type { RecurringTransaction, Transaction } from '../lib/types'
 import { clsx } from 'clsx'
 
-type SortField = 'date' | 'amount' | 'description' | 'category'
+type SortField = 'date' | 'amount' | 'description' | 'category' | 'createdAt'
 type SortDir   = 'asc' | 'desc'
+
+function formatRelativeDate(iso?: string): string {
+  if (!iso) return '—'
+  const d    = new Date(iso)
+  const now  = new Date()
+  const diff = Math.floor((now.getTime() - d.getTime()) / 86400000)
+  if (diff === 0) return `hoje ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+  if (diff === 1) return 'ontem'
+  if (diff < 7)  return `${diff}d atrás`
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })
+}
 
 const MONTHS_BACK = 12
 
@@ -361,6 +372,7 @@ export default function Cashflow() {
       else if (sortField === 'amount')      cmp = a.amount - b.amount
       else if (sortField === 'description') cmp = a.description.localeCompare(b.description)
       else if (sortField === 'category')    cmp = a.category.localeCompare(b.category)
+      else if (sortField === 'createdAt')   cmp = (a.createdAt ?? '').localeCompare(b.createdAt ?? '')
       return sortDir === 'asc' ? cmp : -cmp
     })
     return list
@@ -1105,8 +1117,9 @@ export default function Cashflow() {
                     { label: 'Categoria', field: 'category'    as SortField },
                     { label: 'Conta',     field: null },
                     { label: 'Valor',     field: 'amount'      as SortField },
-                    { label: 'Tipo',      field: null },
-                    { label: '',          field: null },
+                    { label: 'Tipo',       field: null },
+                    { label: 'Adicionado', field: 'createdAt' as SortField },
+                    { label: '',           field: null },
                   ]).map(({ label, field }) => (
                     <th key={label}
                       className={clsx('px-4 py-3 text-left text-[10px] font-medium uppercase tracking-wider text-[#55556a]',
@@ -1122,7 +1135,7 @@ export default function Cashflow() {
               </thead>
               <tbody className="divide-y divide-[#1e1e2e]">
                 {filtered.length === 0 && (
-                  <tr><td colSpan={8} className="px-4 py-12 text-center text-[#55556a] text-sm">Nenhuma transação encontrada</td></tr>
+                  <tr><td colSpan={9} className="px-4 py-12 text-center text-[#55556a] text-sm">Nenhuma transação encontrada</td></tr>
                 )}
                 {filtered.map(t => {
                   const cat = allCategories.find(c => c.id === t.category)
@@ -1170,6 +1183,9 @@ export default function Cashflow() {
                         <Badge variant={t.type === 'income' ? 'income' : 'expense'}>
                           {t.type === 'income' ? 'receita' : 'despesa'}
                         </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-[11px] text-[#55556a] whitespace-nowrap font-mono">
+                        {formatRelativeDate(t.createdAt)}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

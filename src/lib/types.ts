@@ -24,6 +24,8 @@ export interface Transaction {
   installmentNumber?: number   // e.g. 3 (this is the 3rd installment)
   installmentCount?: number    // e.g. 12 (total installments)
   installmentGroupId?: string  // links all installments of one purchase
+  // When this record was created (ISO timestamp)
+  createdAt?: string
   // Planned/desired expense (not yet made)
   isWanted?: boolean
   // Budget classification for 50/30/20 rule

@@ -172,7 +172,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   // ── Transactions ───────────────────────────
   addTransaction: async (data) => {
-    const t: Transaction = { ...data, id: nanoid() }
+    const t: Transaction = { ...data, id: nanoid(), createdAt: new Date().toISOString() }
     await db.transactions.upsert(t)
     set(s => ({ transactions: [t, ...s.transactions] }))
   },
