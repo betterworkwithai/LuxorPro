@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { Modal, ModalFooter } from '../ui/Modal'
 import { useStore } from '../../store/useStore'
 import { PAYMENT_METHODS, SUGGESTED_CATEGORIES } from '../../lib/types'
-import { Plus, X, Scissors } from 'lucide-react'
+import { Plus, X, Scissors, TrendingUp, TrendingDown } from 'lucide-react'
 import { AccountSelect } from '../ui/AccountSelect'
 import type { Transaction } from '../../lib/types'
 import { useCategoriesForType, useAllCategories } from '../../lib/useCategories'
@@ -49,10 +49,18 @@ const emptyRecForm = (defaultAccount = '') => ({
 
 const PRESET_MONTHS = [3, 6, 12, 24, 36]
 
+const emptyInvForm = () => ({
+  investmentId: '',
+  operation:    'aporte' as 'aporte' | 'resgate',
+  amount:       '',
+  date:         todayISO(),
+  account:      '',
+})
+
 export function AddTransactionModal({ open, onClose, prefill, initial }: Props) {
   const {
-    addTransaction, updateTransaction, addSubscription, settings,
-    addCustomCategory, transactions, saveCustomPaymentMethod,
+    addTransaction, updateTransaction, addSubscription, updateInvestment,
+    settings, addCustomCategory, transactions, investments, saveCustomPaymentMethod,
   } = useStore()
   const isEdit = !!initial
 
@@ -67,7 +75,7 @@ export function AddTransactionModal({ open, onClose, prefill, initial }: Props) 
     return best || settings.defaultInstitutionBRL || ''
   }, [transactions, settings.defaultInstitutionBRL])
 
-  const [mode, setMode] = useState<'one-time' | 'recurring'>('one-time')
+  const [mode, setMode] = useState<'one-time' | 'recurring' | 'investment'>('one-time')
   const [form, setForm] = useState(() =>
     initial
       ? { type: initial.type, description: initial.description,
@@ -85,8 +93,12 @@ export function AddTransactionModal({ open, onClose, prefill, initial }: Props) 
 
   // Recurring form state
   const [recForm, setRecForm] = useState(() => emptyRecForm(defaultAccount))
-  const [generateMonths, setGenerateMonths] = useState<number | 'permanent'>(0)
+  const [generateMonths, setGenerateMonths] = useState<number | 'permanent' | 'this-year'>(0)
   const [customMonths, setCustomMonths] = useState('')
+
+  // Investment form state
+  const [invForm, setInvForm] = useState(emptyInvForm)
+  const updInv = (k: string, v: string) => setInvForm(f => ({ ...f, [k]: v }))
 
   // Smart categorization suggestion
   const [smartCatSuggestion, setSmartCatSuggestion] = useState<string | null>(null)
@@ -108,6 +120,7 @@ export function AddTransactionModal({ open, onClose, prefill, initial }: Props) 
     setMode('one-time')
     setGenerateMonths(0)
     setCustomMonths('')
+    setInvForm(emptyInvForm())
     setInstallMode(false)
     setInstallCount('2')
     setSplitMode(false)
@@ -339,26 +352,39 @@ export function AddTransactionModal({ open, onClose, prefill, initial }: Props) 
       weeklyInterval: parseInt(recForm.weeklyInterval) || 1,
     })
 
-    const months = generateMonths === 'permanent' ? 36 : (generateMonths as number)
-    if (months > 0) {
-      const base = new Date(todayISO() + 'T12:00:00')
-      const isWeekly = recForm.frequency === 'weekly'
-      const weekInterval = parseInt(recForm.weeklyInterval) || 1
-      if (isWeekly) {
-        const endDate = new Date(base.getFullYear(), base.getMonth() + months, base.getDate())
-        let cur = new Date(base)
-        while (cur <= endDate) {
-          const txDate = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}-${String(cur.getDate()).padStart(2, '0')}`
-          await addTransaction({ date: txDate, description: recForm.description.trim(), category: recForm.category, amount, type: recForm.type, account: recForm.account, attachmentIds: [], currency: recForm.currency })
-          cur = new Date(cur.getTime() + weekInterval * 7 * 24 * 3600 * 1000)
-        }
-      } else {
-        for (let m = 0; m < months; m++) {
-          const d = new Date(base.getFullYear(), base.getMonth() + m, 1)
-          const maxDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
-          const txDay  = Math.min(day, maxDay)
-          const txDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(txDay).padStart(2, '0')}`
-          await addTransaction({ date: txDate, description: recForm.description.trim(), category: recForm.category, amount, type: recForm.type, account: recForm.account, attachmentIds: [], currency: recForm.currency })
+    if (generateMonths === 'this-year') {
+      // Generate one transaction per month from January to the current month
+      const today = new Date()
+      const year  = today.getFullYear()
+      const currentMonth = today.getMonth() // 0-based
+      for (let m = 0; m <= currentMonth; m++) {
+        const maxDay = new Date(year, m + 1, 0).getDate()
+        const txDay  = Math.min(day, maxDay)
+        const txDate = `${year}-${String(m + 1).padStart(2, '0')}-${String(txDay).padStart(2, '0')}`
+        await addTransaction({ date: txDate, description: recForm.description.trim(), category: recForm.category, amount, type: recForm.type, account: recForm.account, attachmentIds: [], currency: recForm.currency })
+      }
+    } else {
+      const months = generateMonths === 'permanent' ? 36 : (generateMonths as number)
+      if (months > 0) {
+        const base = new Date(todayISO() + 'T12:00:00')
+        const isWeekly = recForm.frequency === 'weekly'
+        const weekInterval = parseInt(recForm.weeklyInterval) || 1
+        if (isWeekly) {
+          const endDate = new Date(base.getFullYear(), base.getMonth() + months, base.getDate())
+          let cur = new Date(base)
+          while (cur <= endDate) {
+            const txDate = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}-${String(cur.getDate()).padStart(2, '0')}`
+            await addTransaction({ date: txDate, description: recForm.description.trim(), category: recForm.category, amount, type: recForm.type, account: recForm.account, attachmentIds: [], currency: recForm.currency })
+            cur = new Date(cur.getTime() + weekInterval * 7 * 24 * 3600 * 1000)
+          }
+        } else {
+          for (let m = 0; m < months; m++) {
+            const d = new Date(base.getFullYear(), base.getMonth() + m, 1)
+            const maxDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
+            const txDay  = Math.min(day, maxDay)
+            const txDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(txDay).padStart(2, '0')}`
+            await addTransaction({ date: txDate, description: recForm.description.trim(), category: recForm.category, amount, type: recForm.type, account: recForm.account, attachmentIds: [], currency: recForm.currency })
+          }
         }
       }
     }
@@ -366,7 +392,45 @@ export function AddTransactionModal({ open, onClose, prefill, initial }: Props) 
     onClose()
   }
 
-  const effectiveMonths = generateMonths === 'permanent' ? 36 : (generateMonths as number)
+  // ── Investment save ──
+  const handleSaveInvestment = async () => {
+    const amount = parseFloat(invForm.amount.replace(',', '.'))
+    if (!invForm.investmentId || isNaN(amount) || amount <= 0) return
+    const inv = investments.find(i => i.id === invForm.investmentId)
+    if (!inv) return
+    setSaving(true)
+
+    const isAporte = invForm.operation === 'aporte'
+    const price    = inv.currentPrice > 0 ? inv.currentPrice : 1
+    const units    = amount / price
+
+    if (isAporte) {
+      const newQty     = inv.quantity + units
+      const newAvgCost = ((inv.quantity * inv.avgCost) + amount) / newQty
+      await updateInvestment({ ...inv, quantity: newQty, avgCost: newAvgCost })
+    } else {
+      const newQty = Math.max(0, inv.quantity - units)
+      await updateInvestment({ ...inv, quantity: newQty })
+    }
+
+    await addTransaction({
+      date:         invForm.date || todayISO(),
+      description:  `${isAporte ? 'Aporte' : 'Resgate'} — ${inv.name}`,
+      category:     'investimentos',
+      amount,
+      type:         isAporte ? 'expense' : 'income',
+      account:      invForm.account || inv.institution,
+      attachmentIds: [],
+      currency:     inv.currency,
+      expenseNature: 'investment',
+    })
+
+    setSaving(false)
+    onClose()
+  }
+
+  const thisYearMonths = new Date().getMonth() + 1 // Jan=1 … Dec=12
+  const effectiveMonths = generateMonths === 'permanent' ? 36 : generateMonths === 'this-year' ? thisYearMonths : (generateMonths as number)
 
   const saveLabel = (() => {
     if (saving) return 'Salvando…'
@@ -394,14 +458,14 @@ export function AddTransactionModal({ open, onClose, prefill, initial }: Props) 
         {/* Mode toggle — only for new transactions */}
         {!isEdit && (
           <div className="flex gap-2">
-            {(['one-time', 'recurring'] as const).map(m => (
+            {(['one-time', 'recurring', 'investment'] as const).map(m => (
               <button key={m} type="button" onClick={() => setMode(m)}
                 className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border transition-all ${
                   mode === m
                     ? 'bg-[#ff7a00]/15 text-[#ff7a00] border-[#ff7a00]/30'
                     : 'bg-[#16161f] text-[#55556a] border-[#1e1e2e] hover:text-[#e8e8f0]'
                 }`}>
-                {m === 'one-time' ? 'Pontual' : 'Recorrente'}
+                {m === 'one-time' ? 'Pontual' : m === 'recurring' ? 'Recorrente' : '📈 Investimento'}
               </button>
             ))}
           </div>
@@ -826,6 +890,12 @@ export function AddTransactionModal({ open, onClose, prefill, initial }: Props) 
                         : 'bg-[#16161f] text-[#55556a] border-[#1e1e2e] hover:text-[#e8e8f0]'
                     }`}>{n}m</button>
                 ))}
+                <button type="button" onClick={() => { setGenerateMonths('this-year'); setCustomMonths('') }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                    generateMonths === 'this-year'
+                      ? 'bg-[#ff7a00]/10 text-[#ff7a00] border-[#ff7a00]/30'
+                      : 'bg-[#16161f] text-[#55556a] border-[#1e1e2e] hover:text-[#e8e8f0]'
+                  }`}>Este ano</button>
                 <button type="button" onClick={() => { setGenerateMonths('permanent'); setCustomMonths('') }}
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
                     generateMonths === 'permanent'
@@ -843,9 +913,98 @@ export function AddTransactionModal({ open, onClose, prefill, initial }: Props) 
                 <p className="text-[10px] text-[#55556a]">
                   Criará {effectiveMonths} lançamento{effectiveMonths !== 1 ? 's' : ''} no Fluxo de Caixa
                   {generateMonths === 'permanent' ? ' (Permanente = 36 meses)' : ''}
+                  {generateMonths === 'this-year' ? ` (Jan–${new Date().toLocaleString('pt-BR', { month: 'short' })} de ${new Date().getFullYear()})` : ''}
                 </p>
               )}
             </div>
+          </>
+        )}
+
+        {/* ── INVESTMENT FORM ── */}
+        {!isEdit && mode === 'investment' && (
+          <>
+            {/* Aporte / Resgate toggle */}
+            <div className="flex gap-2">
+              {(['aporte', 'resgate'] as const).map(op => (
+                <button key={op} type="button"
+                  onClick={() => updInv('operation', op)}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border transition-all flex items-center justify-center gap-2 ${
+                    invForm.operation === op
+                      ? op === 'aporte'
+                        ? 'bg-[#00ff88]/10 text-[#00ff88] border-[#00ff88]/30'
+                        : 'bg-[#ff4466]/10 text-[#ff4466] border-[#ff4466]/30'
+                      : 'bg-[#16161f] text-[#55556a] border-[#1e1e2e] hover:text-[#e8e8f0]'
+                  }`}>
+                  {op === 'aporte'
+                    ? <><TrendingUp className="w-4 h-4" /> Aporte</>
+                    : <><TrendingDown className="w-4 h-4" /> Resgate</>}
+                </button>
+              ))}
+            </div>
+
+            {/* Investment selector */}
+            <div>
+              <label className="text-xs text-[#8888aa] mb-1.5 block">Investimento</label>
+              {investments.length === 0 ? (
+                <p className="text-xs text-[#55556a] py-2">Nenhum investimento cadastrado ainda.</p>
+              ) : (
+                <select
+                  className="input-dark"
+                  value={invForm.investmentId}
+                  onChange={e => updInv('investmentId', e.target.value)}
+                >
+                  <option value="">Selecione…</option>
+                  {investments.map(inv => {
+                    const total = (inv.quantity * inv.currentPrice).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+                    return (
+                      <option key={inv.id} value={inv.id}>
+                        {inv.name}{inv.institution ? ` — ${inv.institution}` : ''} ({total})
+                      </option>
+                    )
+                  })}
+                </select>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-[#8888aa] mb-1.5 block">
+                  Valor ({invForm.operation === 'aporte' ? 'aportado' : 'resgatado'})
+                </label>
+                <FormulaInput value={invForm.amount} onChange={v => updInv('amount', v)} placeholder="0,00" />
+              </div>
+              <div>
+                <label className="text-xs text-[#8888aa] mb-1.5 block">Data</label>
+                <input type="date" className="input-dark" value={invForm.date} onChange={e => updInv('date', e.target.value)} />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs text-[#8888aa] mb-1.5 block">Conta / Instituição</label>
+              <input className="input-dark" placeholder="Ex: XP, Clear, NuInvest…"
+                value={invForm.account} onChange={e => updInv('account', e.target.value)} />
+            </div>
+
+            {invForm.investmentId && invForm.amount && (
+              <div className="p-3 rounded-xl text-xs text-[#55556a] space-y-0.5"
+                style={{ background: 'rgba(255,122,0,0.04)', border: '1px solid rgba(255,122,0,0.1)' }}>
+                {(() => {
+                  const inv = investments.find(i => i.id === invForm.investmentId)
+                  const amt = parseFloat(invForm.amount.replace(',', '.'))
+                  if (!inv || isNaN(amt)) return null
+                  const price = inv.currentPrice > 0 ? inv.currentPrice : 1
+                  const units = amt / price
+                  const newQty = invForm.operation === 'aporte'
+                    ? inv.quantity + units
+                    : Math.max(0, inv.quantity - units)
+                  const newVal = newQty * inv.currentPrice
+                  return <>
+                    <p>Novo saldo: <span className="text-[#e8e8f0] font-semibold">{newVal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span></p>
+                    <p>Uma transação de <span className="text-[#e8e8f0] font-semibold">{invForm.operation === 'aporte' ? 'despesa' : 'receita'}</span> será registrada no fluxo de caixa.</p>
+                  </>
+                })()}
+              </div>
+            )}
           </>
         )}
       </div>
@@ -855,6 +1014,11 @@ export function AddTransactionModal({ open, onClose, prefill, initial }: Props) 
         {(isEdit || mode === 'one-time') ? (
           <button className="btn-primary" onClick={handleSave} disabled={saving}>
             {saveLabel}
+          </button>
+        ) : mode === 'investment' ? (
+          <button className="btn-primary" onClick={handleSaveInvestment}
+            disabled={saving || !invForm.investmentId || !invForm.amount}>
+            {saving ? 'Salvando…' : invForm.operation === 'aporte' ? '↑ Registrar Aporte' : '↓ Registrar Resgate'}
           </button>
         ) : (
           <button className="btn-primary" onClick={handleSaveRecurring}
