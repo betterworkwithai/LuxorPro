@@ -539,11 +539,11 @@ export default function Wealth() {
     )
   }, [liquidInvestments, view, profile, usdToBrl, eurToBrl, displayCurrency])
 
-  // Performance series
+  // Performance series — liquid assets only (physical RE excluded)
   const cutoff = useMemo(() => periodCutoff(period), [period])
   const performance = useMemo(
-    () => buildPerformance(viewInvestments, toBase, cutoff),
-    [viewInvestments, cutoff, displayCurrency, usdToBrl, eurToBrl],
+    () => buildPerformance(liquidInvestments, toBase, cutoff),
+    [liquidInvestments, cutoff, displayCurrency, usdToBrl, eurToBrl],
   )
 
   // Benchmark series — same 30-sample time window as buildPerformance
@@ -551,7 +551,7 @@ export default function Wealth() {
     if (performance.length === 0) return null
     let earliestMs = cutoff ? cutoff.getTime() : Infinity
     if (!cutoff) {
-      viewInvestments.forEach(i => {
+      liquidInvestments.forEach(i => {
         const d = i.purchaseDate ? new Date(i.purchaseDate).getTime() : NaN
         if (!isNaN(d) && d < earliestMs) earliestMs = d
       })
