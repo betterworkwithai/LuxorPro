@@ -551,12 +551,11 @@ export default function Dashboard() {
               href="https://gaara.pro"
               target="_blank"
               rel="noopener noreferrer"
-              className="hidden md:flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium
-                         bg-[#ff7a00]/10 text-[#ff7a00] border border-[#ff7a00]/25
-                         hover:bg-[#ff7a00]/20 transition-all"
+              className="hidden md:flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-[0.98]"
+              style={{ background: 'linear-gradient(135deg, #ff7a00, #ff4500)', boxShadow: '0 0 18px rgba(255,122,0,0.35)' }}
             >
-              <ExternalLink className="w-3.5 h-3.5 flex-shrink-0" />
-              <span>Precisa de Ajuda Profissional? <span className="font-semibold">Fale com nossos Advisors</span></span>
+              <ExternalLink className="w-4 h-4 flex-shrink-0" />
+              <span>Precisa de Ajuda Profissional? <span className="opacity-90 font-medium">Fale com nossos Advisors</span></span>
             </a>
           </div>
         }
