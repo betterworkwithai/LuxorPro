@@ -11,6 +11,7 @@ import { extractRawText } from './pdfExtractor'
 import { runOCROnPDF, runOCROnImage } from './ocrEngine'
 import { autoCategorize } from './autoCategorize'
 import { supabase } from '../supabase'
+import { processInvoice } from './pipeline'
 import type { ParsedTransaction, PipelineResult, PipelineOptions, InvoiceMetadata } from './types'
 
 // ── Category mapping: Claude's Portuguese label → app category ID ────────────
@@ -129,11 +130,10 @@ export async function processInvoiceAI(
     body: { text: rawText },
   })
 
-  if (error || !data) {
-    return {
-      ...noText,
-      logs: [{ step: 'ai', message: error?.message ?? 'Resposta inválida da IA', level: 'error' }],
-    }
+  if (error || !data || !data.transacoes) {
+    // Edge function not available yet — fall back to the regex-based pipeline
+    console.warn('[aiPipeline] AI unavailable, falling back to regex pipeline:', error?.message)
+    return processInvoice(file, opts)
   }
 
   // ── 3. Map to ParsedTransaction[] ───────────────────────────────────────
