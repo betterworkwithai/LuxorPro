@@ -187,6 +187,13 @@ export default function Dashboard() {
     localStorage.setItem(PERIOD_LS_KEY, JSON.stringify({ mode: periodMode, selMonth, selYear }))
   }, [periodMode, selMonth, selYear])
 
+  // ── Donut chart period (independent from bar chart) ──
+  const [donutMonth, setDonutMonth] = useState<number>(todayMonth)
+  const [donutYear,  setDonutYear]  = useState<number>(todayYear)
+  const prevDonutMonth = () => { if (donutMonth === 1) { setDonutMonth(12); setDonutYear(y => y - 1) } else setDonutMonth(m => m - 1) }
+  const nextDonutMonth = () => { if (donutMonth === 12) { setDonutMonth(1);  setDonutYear(y => y + 1) } else setDonutMonth(m => m + 1) }
+  const isDonutFuture = donutYear > todayYear || (donutYear === todayYear && donutMonth > todayMonth)
+
   // ── Expanded category state ───────────────
   const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set())
 
@@ -397,22 +404,44 @@ export default function Dashboard() {
     })
   }, [transactions, periodMode, selMonth, selYear, todayMonth, todayYear])
 
-  // ── Category breakdown ────────────────────
+  // ── Donut transactions (filtered to donut period month) ──
+  const donutTx = useMemo(() =>
+    transactions.filter(t => {
+      const [y, m] = t.date.split('-').map(Number)
+      return y === donutYear && m === donutMonth
+    }),
+  [transactions, donutMonth, donutYear])
+
+  // ── Category breakdown (uses donut period, always distinct palette colors) ──
   const expByCategory = useMemo(() => {
     const map = new Map<string, number>()
-    periodTx.filter(t => t.type === 'expense').forEach(t => {
+    donutTx.filter(t => t.type === 'expense').forEach(t => {
       map.set(t.category, (map.get(t.category) ?? 0) + txToBRL(t))
     })
     return Array.from(map.entries())
-      .map(([id, amount], i) => {
+      .map(([id, amount]) => {
         const cat = allCategories.find(c => c.id === id)
-        const catName = cat?.name ?? id
-        const color = CATEGORY_COLORS[id] ?? CATEGORY_COLORS[catName] ?? CHART_PALETTE[i % CHART_PALETTE.length]
-        return { id, name: catName, icon: cat?.icon ?? '📦', amount, color }
+        return { id, name: cat?.name ?? id, icon: cat?.icon ?? '📦', amount }
       })
       .sort((a, b) => b.amount - a.amount)
-      .slice(0, 6)
-  }, [periodTx, allCategories, settings.usdToBrl, settings.eurToBrl])
+      .slice(0, 8)
+      .map((item, i) => ({ ...item, color: CHART_PALETTE[i % CHART_PALETTE.length] }))
+  }, [donutTx, allCategories, settings.usdToBrl, settings.eurToBrl])
+
+  const incByCategory = useMemo(() => {
+    const map = new Map<string, number>()
+    donutTx.filter(t => t.type === 'income').forEach(t => {
+      map.set(t.category, (map.get(t.category) ?? 0) + txToBRL(t))
+    })
+    return Array.from(map.entries())
+      .map(([id, amount]) => {
+        const cat = allCategories.find(c => c.id === id)
+        return { id, name: cat?.name ?? id, icon: cat?.icon ?? '📦', amount }
+      })
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 8)
+      .map((item, i) => ({ ...item, color: CHART_PALETTE[i % CHART_PALETTE.length] }))
+  }, [donutTx, allCategories, settings.usdToBrl, settings.eurToBrl])
 
   // ── Period insight metrics ────────────────
   const periodDays = useMemo(() => {
@@ -671,118 +700,182 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* ── Linha 2: Gráfico de barras + Donut ── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <Card className="lg:col-span-2">
-            <CardHeader><CardTitle>{chartTitle}</CardTitle></CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={cashflowChart} barCategoryGap="30%">
-                  <XAxis
-                    dataKey="month"
-                    tick={({ x, y, payload, index }: any) => {
-                      const isCurrent = cashflowChart[index]?.current
-                      return (
-                        <text x={x} y={y + 12} textAnchor="middle" fill={isCurrent ? '#00d4ff' : '#55556a'} fontSize={11} fontWeight={isCurrent ? 700 : 400}>
-                          {payload.value}
-                        </text>
-                      )
-                    }}
-                    axisLine={false} tickLine={false}
-                  />
-                  <YAxis tickFormatter={v => `R$${(v / 1000).toFixed(0)}k`} tick={{ fill: '#55556a', fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <Tooltip content={<CurrencyTooltip />} />
-                  <Bar dataKey="income"   name="Receitas" fill="#00ff88" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="expenses" name="Despesas" fill="#ff4466" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
+        {/* ── Bar chart ── */}
+        <Card>
+          <CardHeader><CardTitle>{chartTitle}</CardTitle></CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={cashflowChart} barCategoryGap="30%">
+                <XAxis
+                  dataKey="month"
+                  tick={({ x, y, payload, index }: any) => {
+                    const isCurrent = cashflowChart[index]?.current
+                    return (
+                      <text x={x} y={y + 12} textAnchor="middle" fill={isCurrent ? '#00d4ff' : '#55556a'} fontSize={11} fontWeight={isCurrent ? 700 : 400}>
+                        {payload.value}
+                      </text>
+                    )
+                  }}
+                  axisLine={false} tickLine={false}
+                />
+                <YAxis tickFormatter={v => `R$${(v / 1000).toFixed(0)}k`} tick={{ fill: '#55556a', fontSize: 11 }} axisLine={false} tickLine={false} />
+                <Tooltip content={<CurrencyTooltip />} />
+                <Bar dataKey="income"   name="Receitas" fill="#00ff88" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="expenses" name="Despesas" fill="#ff4466" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
 
-          <Card>
-            <CardHeader><CardTitle>Despesas por Categoria</CardTitle></CardHeader>
-            <CardContent className="flex flex-col items-center gap-3">
-              {expByCategory.length === 0 ? (
-                <p className="text-xs text-[#55556a] py-8">Sem despesas no período</p>
-              ) : (
-                <>
-                  <ResponsiveContainer width="100%" height={240}>
-                    <PieChart>
-                      <Pie data={expByCategory} dataKey="amount" nameKey="name" cx="50%" cy="50%" innerRadius={55} outerRadius={90} paddingAngle={2}>
-                        {expByCategory.map(entry => (
-                          <Cell key={entry.id} fill={entry.color} stroke="#0a0a0f" strokeWidth={2} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        formatter={(v: any, name: any) => {
-                          const total = expByCategory.reduce((s, c) => s + c.amount, 0)
-                          const pct = total > 0 ? (Number(v) / total) * 100 : 0
-                          return [`${formatBRL(v)} (${pct.toFixed(1)}%)`, name]
-                        }}
-                        contentStyle={{ background: '#0d0d14', border: '1px solid #1e1e2e', borderRadius: 12, fontSize: 12, color: '#ffffff' }}
-                        itemStyle={{ color: '#ffffff' }}
-                        labelStyle={{ color: '#ffffff', fontWeight: 600 }}
-                      />
-                      <Legend wrapperStyle={{ fontSize: 11, color: '#8888aa' }} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="w-full space-y-0.5">
-                    {expByCategory.map(cat => {
-                      const isOpen = expandedCats.has(cat.id)
-                      const catTxs = periodTx.filter(t => t.type === 'expense' && t.category === cat.id)
-                        .sort((a, b) => b.amount - a.amount)
+        {/* ── Donut charts: Despesas + Receitas por Categoria ── */}
+        {(() => {
+          // Shared period navigator rendered in each card header
+          const DonutPeriodNav = () => (
+            <div className="flex items-center gap-1 mt-0.5">
+              <button onClick={prevDonutMonth} className="p-0.5 rounded hover:bg-[#1e1e2e] transition-colors">
+                <ChevronLeft className="w-3.5 h-3.5 text-[#55556a]" />
+              </button>
+              <span className="text-xs text-[#55556a] min-w-[80px] text-center">
+                {monthName(donutMonth).slice(0, 3)} {donutYear}
+              </span>
+              <button onClick={nextDonutMonth} disabled={isDonutFuture}
+                className="p-0.5 rounded hover:bg-[#1e1e2e] transition-colors disabled:opacity-30">
+                <ChevronRight className="w-3.5 h-3.5 text-[#55556a]" />
+              </button>
+            </div>
+          )
+
+          const CategoryList = ({ items, txType }: { items: typeof expByCategory; txType: 'expense' | 'income' }) => (
+            <div className="w-full space-y-0.5">
+              {items.map(cat => {
+                const isOpen = expandedCats.has(cat.id + txType)
+                const catTxs = donutTx.filter(t => t.type === txType && t.category === cat.id)
+                  .sort((a, b) => b.amount - a.amount)
+                return (
+                  <div key={cat.id}>
+                    <button
+                      onClick={() => toggleCat(cat.id + txType)}
+                      className="w-full flex items-center justify-between text-xs py-1.5 px-1 rounded-lg hover:bg-[#16161f] transition-colors group"
+                    >
+                      <span className="flex items-center gap-1.5 text-[#8888aa] group-hover:text-[#e8e8f0]">
+                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: cat.color }} />
+                        {cat.icon} {cat.name}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="text-[#e8e8f0] font-medium">{formatBRL(cat.amount)}</span>
+                        <ChevronDown className={clsx('w-3 h-3 text-[#55556a] transition-transform', isOpen && 'rotate-180')} />
+                      </span>
+                    </button>
+                    {isOpen && (() => {
+                      const subGroups = catTxs.reduce((acc, t) => {
+                        const key = (t.description || 'Sem descrição').trim().toLowerCase()
+                        const display = (t.description || 'Sem descrição').trim()
+                        if (!acc[key]) acc[key] = { name: display, total: 0, count: 0 }
+                        acc[key].total += t.amount; acc[key].count += 1
+                        return acc
+                      }, {} as Record<string, { name: string; total: number; count: number }>)
                       return (
-                        <div key={cat.id}>
-                          <button
-                            onClick={() => toggleCat(cat.id)}
-                            className="w-full flex items-center justify-between text-xs py-1.5 px-1 rounded-lg hover:bg-[#16161f] transition-colors group"
-                          >
-                            <span className="flex items-center gap-1.5 text-[#8888aa] group-hover:text-[#e8e8f0]">
-                              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: cat.color }} />
-                              {cat.icon} {cat.name}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <span className="text-[#e8e8f0] font-medium">{formatBRL(cat.amount)}</span>
-                              <ChevronDown className={clsx('w-3 h-3 text-[#55556a] transition-transform', isOpen && 'rotate-180')} />
-                            </span>
-                          </button>
-                          {isOpen && (() => {
-                            const subGroups = catTxs.reduce((acc, t) => {
-                              const key = (t.description || 'Sem descrição').trim().toLowerCase()
-                              const display = (t.description || 'Sem descrição').trim()
-                              if (!acc[key]) acc[key] = { name: display, total: 0, count: 0 }
-                              acc[key].total += t.amount
-                              acc[key].count += 1
-                              return acc
-                            }, {} as Record<string, { name: string; total: number; count: number }>)
-                            const subRows = Object.values(subGroups).sort((a, b) => b.total - a.total)
-                            return (
-                              <div className="ml-4 mb-1 space-y-0.5 border-l border-[#1e1e2e] pl-3">
-                                {subRows.map(row => (
-                                  <div key={row.name} className="flex items-center justify-between text-[11px] py-0.5">
-                                    <span className="text-[#55556a] truncate max-w-[120px] flex items-center gap-1">
-                                      {row.name}
-                                      {row.count > 1 && (
-                                        <span className="text-[#55556a] bg-[#1e1e2e] rounded px-1 py-0.5 text-[10px] font-normal flex-shrink-0">
-                                          {row.count}×
-                                        </span>
-                                      )}
-                                    </span>
-                                    <span className="text-[#ff4466] font-medium flex-shrink-0">{formatBRL(row.total)}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            )
-                          })()}
+                        <div className="ml-4 mb-1 space-y-0.5 border-l border-[#1e1e2e] pl-3">
+                          {Object.values(subGroups).sort((a, b) => b.total - a.total).map(row => (
+                            <div key={row.name} className="flex items-center justify-between text-[11px] py-0.5">
+                              <span className="text-[#55556a] truncate max-w-[120px] flex items-center gap-1">
+                                {row.name}
+                                {row.count > 1 && <span className="bg-[#1e1e2e] rounded px-1 py-0.5 text-[10px] flex-shrink-0">{row.count}×</span>}
+                              </span>
+                              <span className={clsx('font-medium flex-shrink-0', txType === 'expense' ? 'text-[#ff4466]' : 'text-[#00ff88]')}>
+                                {formatBRL(row.total)}
+                              </span>
+                            </div>
+                          ))}
                         </div>
                       )
-                    })}
+                    })()}
                   </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                )
+              })}
+            </div>
+          )
+
+          return (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Despesas por Categoria */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <CardTitle>Despesas por Categoria</CardTitle>
+                    <DonutPeriodNav />
+                  </div>
+                </CardHeader>
+                <CardContent className="flex flex-col items-center gap-3">
+                  {expByCategory.length === 0 ? (
+                    <p className="text-xs text-[#55556a] py-8">Sem despesas em {monthName(donutMonth)} {donutYear}</p>
+                  ) : (
+                    <>
+                      <ResponsiveContainer width="100%" height={220}>
+                        <PieChart>
+                          <Pie data={expByCategory} dataKey="amount" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={85} paddingAngle={2}>
+                            {expByCategory.map(entry => (
+                              <Cell key={entry.id} fill={entry.color} stroke="#0a0a0f" strokeWidth={2} />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            formatter={(v: any, name: any) => {
+                              const total = expByCategory.reduce((s, c) => s + c.amount, 0)
+                              const pct = total > 0 ? (Number(v) / total) * 100 : 0
+                              return [`${formatBRL(v)} (${pct.toFixed(1)}%)`, name]
+                            }}
+                            contentStyle={{ background: '#0d0d14', border: '1px solid #1e1e2e', borderRadius: 12, fontSize: 12, color: '#ffffff' }}
+                            itemStyle={{ color: '#ffffff' }} labelStyle={{ color: '#ffffff', fontWeight: 600 }}
+                          />
+                          <Legend wrapperStyle={{ fontSize: 11, color: '#8888aa' }} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <CategoryList items={expByCategory} txType="expense" />
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Receitas por Categoria */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <CardTitle>Receitas por Categoria</CardTitle>
+                    <DonutPeriodNav />
+                  </div>
+                </CardHeader>
+                <CardContent className="flex flex-col items-center gap-3">
+                  {incByCategory.length === 0 ? (
+                    <p className="text-xs text-[#55556a] py-8">Sem receitas em {monthName(donutMonth)} {donutYear}</p>
+                  ) : (
+                    <>
+                      <ResponsiveContainer width="100%" height={220}>
+                        <PieChart>
+                          <Pie data={incByCategory} dataKey="amount" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={85} paddingAngle={2}>
+                            {incByCategory.map(entry => (
+                              <Cell key={entry.id} fill={entry.color} stroke="#0a0a0f" strokeWidth={2} />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            formatter={(v: any, name: any) => {
+                              const total = incByCategory.reduce((s, c) => s + c.amount, 0)
+                              const pct = total > 0 ? (Number(v) / total) * 100 : 0
+                              return [`${formatBRL(v)} (${pct.toFixed(1)}%)`, name]
+                            }}
+                            contentStyle={{ background: '#0d0d14', border: '1px solid #1e1e2e', borderRadius: 12, fontSize: 12, color: '#ffffff' }}
+                            itemStyle={{ color: '#ffffff' }} labelStyle={{ color: '#ffffff', fontWeight: 600 }}
+                          />
+                          <Legend wrapperStyle={{ fontSize: 11, color: '#8888aa' }} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <CategoryList items={incByCategory} txType="income" />
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )
+        })()}
 
         {/* ── Linha 3: Transações Recentes + Próximas Contas ── */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
