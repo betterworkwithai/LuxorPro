@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react'
 import {
   Search, Plus, Download, Trash2, Paperclip,
   ChevronUp, ChevronDown, ArrowUpDown, Repeat, Pencil, ToggleLeft, ToggleRight,
-  TrendingUp, TrendingDown, AlertTriangle,
+  ChevronLeft, ChevronRight, AlertTriangle,
 } from 'lucide-react'
 import {
   PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
@@ -34,7 +34,7 @@ function formatRelativeDate(iso?: string): string {
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })
 }
 
-const MONTHS_BACK = 12
+type PeriodMode = 'monthly' | 'ytd' | 'yearly'
 
 // Default budget nature per category (for 50/30/20 rule)
 const CATEGORY_NATURE: Record<string, 'fixed' | 'variable' | 'investment'> = {
@@ -318,9 +318,15 @@ export default function Cashflow() {
   const [typeF,     setTypeF]     = useState<'all' | 'income' | 'expense' | 'wanted'>('all')
   const [catF,      setCatF]      = useState('')
   const [accountF,  setAccountF]  = useState('')
-  const [monthF,    setMonthF]    = useState('')
   const [sortField, setSortField] = useState<SortField>('date')
   const [sortDir,   setSortDir]   = useState<SortDir>('desc')
+
+  // Period selector
+  const [periodMode,  setPeriodMode]  = useState<PeriodMode>('monthly')
+  const [periodMonth, setPeriodMonth] = useState(() => {
+    const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}`
+  })
+  const [periodYear,  setPeriodYear]  = useState(() => new Date().getFullYear())
 
   const [showSubModal, setShowSubModal] = useState(false)
   const [editSub,      setEditSub]      = useState<RecurringTransaction | undefined>()
@@ -346,25 +352,49 @@ export default function Cashflow() {
     return t.amount
   }, [settings.usdToBrl, settings.eurToBrl])
 
-  const monthOptions = useMemo(() => {
-    const opts = []
-    for (let i = 0; i < MONTHS_BACK; i++) {
-      const d = new Date(curYear, curMonth - 1 - i, 1)
-      const m = d.getMonth() + 1
-      const y = d.getFullYear()
-      opts.push({ value: `${y}-${String(m).padStart(2, '0')}`, label: `${monthName(m)} ${y}` })
+  // ── Period helpers ────────────────────────────
+  const todayStr = new Date().toISOString().slice(0, 10)
+
+  const periodIncludes = useCallback((date: string) => {
+    if (periodMode === 'monthly') return date.startsWith(periodMonth)
+    if (periodMode === 'ytd')    return date >= `${periodYear}-01-01` && date <= todayStr
+    return date.startsWith(String(periodYear))
+  }, [periodMode, periodMonth, periodYear, todayStr])
+
+  const periodLabel = useMemo(() => {
+    if (periodMode === 'monthly') {
+      const [y, m] = periodMonth.split('-')
+      return `${monthName(parseInt(m))} ${y}`
     }
-    return opts
-  }, [curMonth, curYear])
+    if (periodMode === 'ytd') return `Jan–${monthName(curMonth).slice(0, 3)} ${periodYear}`
+    return String(periodYear)
+  }, [periodMode, periodMonth, periodYear, curMonth])
+
+  const stepMonth = (dir: 1 | -1) => {
+    const [y, m] = periodMonth.split('-').map(Number)
+    const d = new Date(y, m - 1 + dir, 1)
+    setPeriodMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+  }
+  const isNextMonthFuture = periodMode === 'monthly' && (() => {
+    const [y, m] = periodMonth.split('-').map(Number)
+    return y === curYear && m >= curMonth
+  })()
+
+  // Available years (from transaction dates + current)
+  const availableYears = useMemo(() => {
+    const years = new Set<number>([curYear])
+    transactions.forEach(t => { const y = parseInt(t.date.slice(0, 4)); if (!isNaN(y)) years.add(y) })
+    return [...years].sort((a, b) => b - a)
+  }, [transactions, curYear])
 
   const filtered = useMemo(() => {
     let list = [...transactions]
-    if (search)              list = list.filter(t => t.description.toLowerCase().includes(search.toLowerCase()))
-    if (typeF === 'wanted')  list = list.filter(t => t.isWanted === true)
+    list = list.filter(t => periodIncludes(t.date))
+    if (search)               list = list.filter(t => t.description.toLowerCase().includes(search.toLowerCase()))
+    if (typeF === 'wanted')   list = list.filter(t => t.isWanted === true)
     else if (typeF !== 'all') list = list.filter(t => t.type === typeF)
-    if (catF)      list = list.filter(t => t.category === catF)
-    if (accountF)  list = list.filter(t => t.account === accountF)
-    if (monthF)    list = list.filter(t => t.date.startsWith(monthF))
+    if (catF)     list = list.filter(t => t.category === catF)
+    if (accountF) list = list.filter(t => t.account === accountF)
     list.sort((a, b) => {
       let cmp = 0
       if (sortField === 'date')             cmp = a.date.localeCompare(b.date)
@@ -375,13 +405,12 @@ export default function Cashflow() {
       return sortDir === 'asc' ? cmp : -cmp
     })
     return list
-  }, [transactions, search, typeF, catF, accountF, monthF, sortField, sortDir])
+  }, [transactions, periodIncludes, search, typeF, catF, accountF, sortField, sortDir])
 
-  // ── Donut chart data — always uses the selected month (or current) ──
-  const chartMonthKey = monthF || `${curYear}-${String(curMonth).padStart(2, '0')}`
+  // ── Chart data — follows the selected period ──
   const chartTx = useMemo(() =>
-    transactions.filter(t => t.date.startsWith(chartMonthKey)),
-    [transactions, chartMonthKey]
+    transactions.filter(t => periodIncludes(t.date)),
+    [transactions, periodIncludes]
   )
 
   const expByCategory = useMemo(() => {
@@ -532,21 +561,77 @@ export default function Cashflow() {
       />
 
       <div className="p-4 sm:p-6 space-y-4">
+
+        {/* ── Period selector ── */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Mode tabs */}
+          <div className="flex gap-px bg-[#16161f] border border-[#1e1e2e] rounded-xl p-1">
+            {([
+              { v: 'monthly', l: 'Mensal'       },
+              { v: 'ytd',     l: 'Ano até hoje' },
+              { v: 'yearly',  l: 'Anual'        },
+            ] as { v: PeriodMode; l: string }[]).map(({ v, l }) => (
+              <button key={v} onClick={() => setPeriodMode(v)}
+                className={clsx('px-3 py-1.5 rounded-lg text-xs font-semibold transition-all',
+                  periodMode === v ? 'bg-[#1e1e2e] text-[#e8e8f0]' : 'text-[#55556a] hover:text-[#e8e8f0]')}>
+                {l}
+              </button>
+            ))}
+          </div>
+
+          {/* Month navigator */}
+          {periodMode === 'monthly' && (
+            <div className="flex items-center gap-1 bg-[#16161f] border border-[#1e1e2e] rounded-xl px-1 py-1">
+              <button onClick={() => stepMonth(-1)}
+                className="w-7 h-7 flex items-center justify-center rounded-lg text-[#55556a] hover:text-[#e8e8f0] hover:bg-[#1e1e2e] transition-colors">
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+              <span className="text-sm font-semibold text-[#e8e8f0] w-36 text-center select-none">
+                {periodLabel}
+              </span>
+              <button onClick={() => stepMonth(1)} disabled={isNextMonthFuture}
+                className="w-7 h-7 flex items-center justify-center rounded-lg text-[#55556a] hover:text-[#e8e8f0] hover:bg-[#1e1e2e] transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
+          {/* Year selector */}
+          {(periodMode === 'yearly' || periodMode === 'ytd') && (
+            <div className="flex items-center gap-1 bg-[#16161f] border border-[#1e1e2e] rounded-xl px-1 py-1">
+              <button onClick={() => setPeriodYear(y => y - 1)}
+                className="w-7 h-7 flex items-center justify-center rounded-lg text-[#55556a] hover:text-[#e8e8f0] hover:bg-[#1e1e2e] transition-colors">
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+              <span className="text-sm font-semibold text-[#e8e8f0] w-20 text-center select-none">
+                {periodMode === 'ytd' ? `${periodYear} YTD` : periodYear}
+              </span>
+              <button onClick={() => setPeriodYear(y => y + 1)} disabled={periodYear >= curYear}
+                className="w-7 h-7 flex items-center justify-center rounded-lg text-[#55556a] hover:text-[#e8e8f0] hover:bg-[#1e1e2e] transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
+
         {/* Resumo */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="card p-4 text-center">
             <p className="text-[10px] text-[#8888aa] uppercase tracking-wider mb-1">Receitas</p>
             <p className="text-lg font-bold text-[#00ff88]">{formatBRL(totalIncome, true)}</p>
+            <p className="text-[10px] text-[#55556a] mt-1">{periodLabel}</p>
           </div>
           <div className="card p-4 text-center">
             <p className="text-[10px] text-[#8888aa] uppercase tracking-wider mb-1">Despesas</p>
             <p className="text-lg font-bold text-[#ff4466]">{formatBRL(totalExpenses, true)}</p>
+            <p className="text-[10px] text-[#55556a] mt-1">{periodLabel}</p>
           </div>
           <div className="card p-4 text-center">
             <p className="text-[10px] text-[#8888aa] uppercase tracking-wider mb-1">Saldo</p>
             <p className={clsx('text-lg font-bold', netFlow >= 0 ? 'text-[#00ff88]' : 'text-[#ff4466]')}>
               {formatBRL(netFlow, true)}
             </p>
+            <p className="text-[10px] text-[#55556a] mt-1">{periodLabel}</p>
           </div>
         </div>
 
@@ -558,7 +643,7 @@ export default function Cashflow() {
               <CardHeader>
                 <CardTitle>Despesas por Categoria</CardTitle>
                 <span className="text-[10px] text-[#55556a] ml-auto">
-                  {monthF ? monthOptions.find(o => o.value === monthF)?.label : `${monthName(curMonth)} ${curYear}`}
+                  {periodLabel}
                 </span>
               </CardHeader>
               <CardContent>
@@ -608,7 +693,7 @@ export default function Cashflow() {
               <CardHeader>
                 <CardTitle>Receitas por Categoria</CardTitle>
                 <span className="text-[10px] text-[#55556a] ml-auto">
-                  {monthF ? monthOptions.find(o => o.value === monthF)?.label : `${monthName(curMonth)} ${curYear}`}
+                  {periodLabel}
                 </span>
               </CardHeader>
               <CardContent>
@@ -956,11 +1041,6 @@ export default function Cashflow() {
                 </button>
               ))}
             </div>
-
-            <select className="input-dark w-auto text-xs" value={monthF} onChange={e => setMonthF(e.target.value)}>
-              <option value="">Todos os meses</option>
-              {monthOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
 
             <select className="input-dark w-auto text-xs" value={catF} onChange={e => setCatF(e.target.value)}>
               <option value="">Todas as categorias</option>
