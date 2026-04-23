@@ -26,7 +26,7 @@ function useFadeIn(threshold = 0.12) {
 }
 
 // ── Animated number counter ───────────────────────────────────────────────────
-function Counter({ to, prefix = '', suffix = '' }: { to: number; prefix?: string; suffix?: string }) {
+function Counter({ to, prefix = '', suffix = '', decimals = 0 }: { to: number; prefix?: string; suffix?: string; decimals?: number }) {
   const [n, setN] = useState(0)
   const spanRef = useRef<HTMLSpanElement>(null)
   const started = useRef(false)
@@ -36,17 +36,18 @@ function Counter({ to, prefix = '', suffix = '' }: { to: number; prefix?: string
       if (!e.isIntersecting || started.current) return
       started.current = true
       const dur = 1800, t0 = Date.now()
+      const factor = Math.pow(10, decimals)
       const tick = () => {
         const p = Math.min((Date.now() - t0) / dur, 1)
-        setN(Math.floor((1 - Math.pow(1 - p, 3)) * to))
+        setN(Math.floor((1 - Math.pow(1 - p, 3)) * to * factor) / factor)
         if (p < 1) requestAnimationFrame(tick)
       }
       requestAnimationFrame(tick)
     }, { threshold: 0.5 })
     obs.observe(el)
     return () => obs.disconnect()
-  }, [to])
-  return <span ref={spanRef}>{prefix}{n.toLocaleString('pt-BR')}{suffix}</span>
+  }, [to, decimals])
+  return <span ref={spanRef}>{prefix}{n.toLocaleString('pt-BR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}{suffix}</span>
 }
 
 // ── Dashboard Mockup (hero visual) ────────────────────────────────────────────
@@ -340,7 +341,7 @@ export default function Landing() {
               </div>
 
               <div className="flex flex-wrap items-center gap-4 text-xs text-[#55556a]">
-                {['Sem cartão de crédito', '7 dias grátis', '30 dias de garantia'].map(t => (
+                {['7 dias grátis', '30 dias de garantia'].map(t => (
                   <span key={t} className="flex items-center gap-1.5">
                     <Check className="w-3.5 h-3.5 text-[#00ff88]" />{t}
                   </span>
@@ -365,8 +366,8 @@ export default function Landing() {
             {[
               { label: 'Investidores ativos', value: <Counter to={2847} suffix="+" /> },
               { label: 'Em patrimônio gerenciado', value: <><span className="text-[#ff7a00]">R$</span> <Counter to={890} suffix="M+" /></> },
-              { label: 'Avaliação média', value: <><Counter to={49} prefix="" suffix="" /><span className="text-[#f59e0b]">★</span> / 5</> },
-              { label: 'Uptime garantido', value: <><Counter to={999} suffix="%" /></> },
+              { label: 'Avaliação média', value: <><Counter to={4.9} decimals={1} /><span className="text-[#f59e0b]">★</span> / 5</> },
+              { label: 'Uptime garantido', value: <><Counter to={99.9} decimals={1} suffix="%" /></> },
             ].map(({ label, value }, i) => (
               <div key={i}>
                 <p className="text-2xl sm:text-3xl font-bold text-[#e8e8f0] mb-1">{value}</p>
