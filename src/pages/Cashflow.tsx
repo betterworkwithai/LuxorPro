@@ -334,6 +334,10 @@ export default function Cashflow() {
   const [recSort,      setRecSort]      = useState<'name' | 'value' | 'category' | 'day'>('day')
   const [editTx,       setEditTx]       = useState<Transaction | undefined>()
 
+  // Pagination
+  const [pageSize, setPageSize] = useState(20)
+  const [page,     setPage]     = useState(1)
+
   // Bulk edit
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkCat,     setBulkCat]     = useState('')
@@ -406,6 +410,16 @@ export default function Cashflow() {
     })
     return list
   }, [transactions, periodIncludes, search, typeF, catF, accountF, sortField, sortDir])
+
+  // ── Pagination ───────────────────────────────
+  const totalPages  = Math.max(1, Math.ceil(filtered.length / pageSize))
+  const currentPage = Math.min(page, totalPages)
+  const paginated   = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+
+  // Reset to page 1 when period/search/filter changes cause list to shrink
+  const prevFilterKey = React.useRef('')
+  const filterKey = `${periodMode}|${periodMonth}|${periodYear}|${search}|${typeF}|${catF}|${accountF}|${pageSize}`
+  if (filterKey !== prevFilterKey.current) { prevFilterKey.current = filterKey; if (page !== 1) setPage(1) }
 
   // ── Chart data — follows the selected period ──
   const chartTx = useMemo(() =>
@@ -1145,8 +1159,26 @@ export default function Cashflow() {
           )
         })()}
 
-        {/* Tabela */}
+        {/* Lançamentos */}
         <Card className="overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-[#1e1e2e]">
+            <div>
+              <h2 className="text-sm font-semibold text-[#e8e8f0]">Lançamentos</h2>
+              <p className="text-[10px] text-[#55556a] mt-0.5">{filtered.length} transaç{filtered.length !== 1 ? 'ões' : 'ão'} · {periodLabel}</p>
+            </div>
+            <div className="flex items-center gap-1.5 text-xs text-[#55556a]">
+              <span>Mostrar</span>
+              {[10, 20, 50, 100].map(n => (
+                <button key={n} onClick={() => setPageSize(n)}
+                  className={clsx('px-2.5 py-1 rounded-lg border text-xs font-semibold transition-all',
+                    pageSize === n
+                      ? 'bg-[#1e1e2e] text-[#e8e8f0] border-[#2a2a3e]'
+                      : 'text-[#55556a] border-transparent hover:text-[#e8e8f0]')}>
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
           {selectedIds.size > 0 && (
             <div className="flex flex-wrap items-center gap-2 px-4 py-3 bg-[#ff7a00]/10 border-b border-[#ff7a00]/20">
               <span className="text-xs text-[#ff7a00] font-semibold whitespace-nowrap">{selectedIds.size} selecionada{selectedIds.size !== 1 ? 's' : ''}</span>
@@ -1235,7 +1267,7 @@ export default function Cashflow() {
                 {filtered.length === 0 && (
                   <tr><td colSpan={9} className="px-4 py-12 text-center text-[#55556a] text-sm">Nenhuma transação encontrada</td></tr>
                 )}
-                {filtered.map(t => {
+                {paginated.map(t => {
                   const cat = allCategories.find(c => c.id === t.category)
                   const amtBRL = toBRL(t)
                   return (
@@ -1304,10 +1336,45 @@ export default function Cashflow() {
               </tbody>
             </table>
           </div>
-          <div className="px-4 py-3 border-t border-[#1e1e2e] flex items-center justify-between">
+          <div className="px-4 py-3 border-t border-[#1e1e2e] flex items-center justify-between gap-4 flex-wrap">
             <p className="text-xs text-[#55556a]">
-              {filtered.length} transaç{filtered.length !== 1 ? 'ões' : 'ão'} · {transactions.length} no total
+              {filtered.length === 0 ? '0 resultados' : `${(currentPage - 1) * pageSize + 1}–${Math.min(currentPage * pageSize, filtered.length)} de ${filtered.length}`}
             </p>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1">
+                <button onClick={() => setPage(1)} disabled={currentPage === 1}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg text-[#55556a] hover:text-[#e8e8f0] hover:bg-[#1e1e2e] disabled:opacity-30 transition-colors text-xs font-bold">
+                  «
+                </button>
+                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg text-[#55556a] hover:text-[#e8e8f0] hover:bg-[#1e1e2e] disabled:opacity-30 transition-colors">
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                  const p = totalPages <= 7 ? i + 1
+                    : currentPage <= 4 ? i + 1
+                    : currentPage >= totalPages - 3 ? totalPages - 6 + i
+                    : currentPage - 3 + i
+                  return (
+                    <button key={p} onClick={() => setPage(p)}
+                      className={clsx('w-7 h-7 flex items-center justify-center rounded-lg text-xs font-semibold transition-colors',
+                        p === currentPage
+                          ? 'bg-[#1e1e2e] text-[#e8e8f0]'
+                          : 'text-[#55556a] hover:text-[#e8e8f0] hover:bg-[#1e1e2e]')}>
+                      {p}
+                    </button>
+                  )
+                })}
+                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg text-[#55556a] hover:text-[#e8e8f0] hover:bg-[#1e1e2e] disabled:opacity-30 transition-colors">
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+                <button onClick={() => setPage(totalPages)} disabled={currentPage === totalPages}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg text-[#55556a] hover:text-[#e8e8f0] hover:bg-[#1e1e2e] disabled:opacity-30 transition-colors text-xs font-bold">
+                  »
+                </button>
+              </div>
+            )}
           </div>
         </Card>
       </div>
