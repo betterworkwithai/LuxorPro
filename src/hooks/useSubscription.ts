@@ -13,21 +13,23 @@ import { getStoredSubscription } from '../lib/stripe'
 export type SubscriptionStatus = 'none' | 'trialing' | 'active' | 'past_due' | 'canceled'
 
 export interface SubscriptionInfo {
-  status:           SubscriptionStatus
-  plan:             string | null
-  trialEnd:         Date   | null
-  periodEnd:        Date   | null
-  isActive:         boolean  // true when status is active or trialing
-  loading:          boolean
+  status:             SubscriptionStatus
+  plan:               string | null
+  trialEnd:           Date   | null
+  periodEnd:          Date   | null
+  cancelAtPeriodEnd:  boolean  // true when user has scheduled cancellation
+  isActive:           boolean  // true when status is active or trialing
+  loading:            boolean
 }
 
 export function useSubscription(): SubscriptionInfo & { refresh: () => void } {
   const [data, setData]     = useState<Omit<SubscriptionInfo, 'loading'>>(() => ({
-    status:   'none',
-    plan:     null,
-    trialEnd: null,
-    periodEnd: null,
-    isActive:  !SUPABASE_CONFIGURED, // local mode → always active
+    status:            'none',
+    plan:              null,
+    trialEnd:          null,
+    periodEnd:         null,
+    cancelAtPeriodEnd: false,
+    isActive:          !SUPABASE_CONFIGURED, // local mode → always active
   }))
   const [loading, setLoading] = useState(SUPABASE_CONFIGURED)
 
@@ -44,7 +46,7 @@ export function useSubscription(): SubscriptionInfo & { refresh: () => void } {
 
       const { data: row, error } = await supabase
         .from('profiles')
-        .select('subscription_status, subscription_plan, subscription_current_period_end, trial_end')
+        .select('subscription_status, subscription_plan, subscription_current_period_end, trial_end, cancel_at_period_end')
         .eq('id', user.id)
         .single()
 
@@ -52,11 +54,12 @@ export function useSubscription(): SubscriptionInfo & { refresh: () => void } {
         // Fallback to optimistic localStorage value
         const stored = getStoredSubscription()
         setData({
-          status:    stored ? 'active' : 'none',
-          plan:      stored,
-          trialEnd:  null,
-          periodEnd: null,
-          isActive:  !!stored,
+          status:            stored ? 'active' : 'none',
+          plan:              stored,
+          trialEnd:          null,
+          periodEnd:         null,
+          cancelAtPeriodEnd: false,
+          isActive:          !!stored,
         })
         setLoading(false)
         return
@@ -65,16 +68,17 @@ export function useSubscription(): SubscriptionInfo & { refresh: () => void } {
       const status = (row.subscription_status ?? 'none') as SubscriptionStatus
       setData({
         status,
-        plan:      row.subscription_plan ?? null,
-        trialEnd:  row.trial_end ? new Date(row.trial_end) : null,
-        periodEnd: row.subscription_current_period_end
+        plan:              row.subscription_plan ?? null,
+        trialEnd:          row.trial_end ? new Date(row.trial_end) : null,
+        periodEnd:         row.subscription_current_period_end
           ? new Date(row.subscription_current_period_end)
           : null,
-        isActive:  status === 'active' || status === 'trialing',
+        cancelAtPeriodEnd: row.cancel_at_period_end ?? false,
+        isActive:          status === 'active' || status === 'trialing',
       })
     } catch {
       const stored = getStoredSubscription()
-      setData(d => ({ ...d, isActive: !!stored }))
+      setData(d => ({ ...d, isActive: !!stored, cancelAtPeriodEnd: false }))
     } finally {
       setLoading(false)
     }

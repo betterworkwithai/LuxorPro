@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Save, Database, AlertTriangle, Trash2, Plus, Tag, X, Download, Upload, KeyRound, Mail, CreditCard, ExternalLink, Loader2, Crown } from 'lucide-react'
-import { createPortalSession } from '../lib/stripe'
+import { Save, Database, AlertTriangle, Trash2, Plus, Tag, X, Download, Upload, KeyRound, Mail, CreditCard, ExternalLink, Loader2, Crown, CalendarX, RefreshCw } from 'lucide-react'
+import { createPortalSession, cancelSubscription } from '../lib/stripe'
 import { useSubscription } from '../hooks/useSubscription'
 import { useStore } from '../store/useStore'
 import { PageHeader } from '../components/ui/PageHeader'
@@ -207,9 +207,12 @@ export default function Settings() {
 
   // Subscription management
   const subscription = useSubscription()
-  const [portalLoading,   setPortalLoading]   = useState(false)
-  const [portalFallback,  setPortalFallback]  = useState(false)  // show manual link
-  const [portalError,     setPortalError]     = useState('')
+  const [portalLoading,      setPortalLoading]      = useState(false)
+  const [portalFallback,     setPortalFallback]     = useState(false)
+  const [portalError,        setPortalError]        = useState('')
+  const [showCancelModal,    setShowCancelModal]    = useState(false)
+  const [cancelLoading,      setCancelLoading]      = useState(false)
+  const [cancelError,        setCancelError]        = useState('')
 
   const handleManageSubscription = async () => {
     setPortalLoading(true)
@@ -221,12 +224,29 @@ export default function Settings() {
         window.location.href = result.url
         return
       }
-      // Edge function unavailable or returned an error — show fallback link
       setPortalFallback(true)
     } catch {
       setPortalFallback(true)
     } finally {
       setPortalLoading(false)
+    }
+  }
+
+  const handleCancelRenewal = async () => {
+    setCancelLoading(true)
+    setCancelError('')
+    try {
+      const result = await cancelSubscription()
+      if ('error' in result) {
+        setCancelError(result.error)
+        return
+      }
+      setShowCancelModal(false)
+      subscription.refresh()
+    } catch {
+      setCancelError('Erro ao cancelar. Tente novamente.')
+    } finally {
+      setCancelLoading(false)
     }
   }
 
@@ -465,7 +485,7 @@ export default function Settings() {
                 </div>
               ) : (
                 <>
-                  {/* Status badge */}
+                  {/* Status + renewal row */}
                   <div className="flex items-center gap-3">
                     <div
                       className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -478,8 +498,10 @@ export default function Settings() {
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-[#e8e8f0]">
-                        {subscription.status === 'active'   && `Plano ${subscription.plan ?? ''} — Ativo`}
-                        {subscription.status === 'trialing' && `Trial gratuito — Plano ${subscription.plan ?? ''}`}
+                        {subscription.status === 'active'   && !subscription.cancelAtPeriodEnd && `Plano ${subscription.plan ?? ''} — Ativo`}
+                        {subscription.status === 'active'   && subscription.cancelAtPeriodEnd  && `Plano ${subscription.plan ?? ''} — Cancelamento agendado`}
+                        {subscription.status === 'trialing' && !subscription.cancelAtPeriodEnd && `Trial gratuito — Plano ${subscription.plan ?? ''}`}
+                        {subscription.status === 'trialing' && subscription.cancelAtPeriodEnd  && `Trial — Cancelamento agendado`}
                         {subscription.status === 'past_due' && 'Pagamento pendente'}
                         {subscription.status === 'canceled' && 'Assinatura cancelada'}
                         {subscription.status === 'none'     && 'Sem assinatura ativa'}
@@ -487,8 +509,10 @@ export default function Settings() {
                       <p className="text-xs text-[#55556a]">
                         {subscription.status === 'trialing' && subscription.trialEnd &&
                           `Trial até ${subscription.trialEnd.toLocaleDateString('pt-BR')}`}
-                        {subscription.status === 'active' && subscription.periodEnd &&
-                          `Próxima cobrança em ${subscription.periodEnd.toLocaleDateString('pt-BR')}`}
+                        {subscription.status === 'active' && !subscription.cancelAtPeriodEnd && subscription.periodEnd &&
+                          `Renova em ${subscription.periodEnd.toLocaleDateString('pt-BR')}`}
+                        {subscription.status === 'active' && subscription.cancelAtPeriodEnd && subscription.periodEnd &&
+                          `Acesso garantido até ${subscription.periodEnd.toLocaleDateString('pt-BR')}`}
                         {subscription.status === 'canceled' && subscription.periodEnd &&
                           `Acesso até ${subscription.periodEnd.toLocaleDateString('pt-BR')}`}
                         {subscription.status === 'past_due' &&
@@ -499,56 +523,49 @@ export default function Settings() {
                     </div>
                   </div>
 
-                  {/* Portal button — only for paying customers */}
-                  {subscription.status !== 'none' && subscription.plan !== 'lifetime' && (
-                    <div className="space-y-2">
-                      {!portalFallback ? (
-                        <button
-                          onClick={handleManageSubscription}
-                          disabled={portalLoading}
-                          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border border-[#1e1e2e] text-[#8888aa] hover:border-[#ff7a00]/30 hover:text-[#ff7a00] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {portalLoading
-                            ? <Loader2 className="w-4 h-4 animate-spin" />
-                            : <ExternalLink className="w-4 h-4" />}
-                          Gerenciar Assinatura
-                        </button>
-                      ) : (
-                        /* Fallback when edge function isn't deployed yet */
-                        <div
-                          className="p-4 rounded-xl space-y-3"
-                          style={{ background: 'rgba(255,122,0,0.05)', border: '1px solid rgba(255,122,0,0.15)' }}
-                        >
-                          <p className="text-xs font-semibold text-[#e8e8f0]">Acesse o portal diretamente pelo Stripe</p>
-                          <p className="text-[11px] text-[#8888aa] leading-relaxed">
-                            Faça login com o e-mail da sua conta para cancelar ou alterar seu plano.
-                          </p>
-                          <a
-                            href="https://billing.stripe.com"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-[0.98]"
-                            style={{ background: 'linear-gradient(135deg, #ff7a00, #ff4500)' }}
-                          >
-                            <ExternalLink className="w-4 h-4" />
-                            Abrir Portal Stripe
-                          </a>
-                          <button
-                            onClick={() => { setPortalFallback(false); setPortalError('') }}
-                            className="block text-[11px] text-[#3a3a4e] hover:text-[#55556a] transition-colors"
-                          >
-                            Tentar novamente
-                          </button>
-                        </div>
-                      )}
-                      {!portalFallback && (
-                        <p className="text-[11px] text-[#3a3a4e]">
-                          Cancele, altere plano ou atualize método de pagamento via Stripe.
+                  {/* Renewal date highlight — active recurring plans only */}
+                  {subscription.isActive && subscription.plan !== 'lifetime' && subscription.periodEnd && !subscription.cancelAtPeriodEnd && (
+                    <div
+                      className="flex items-center justify-between px-4 py-3 rounded-xl"
+                      style={{ background: 'rgba(255,122,0,0.05)', border: '1px solid rgba(255,122,0,0.12)' }}
+                    >
+                      <div>
+                        <p className="text-[11px] text-[#55556a] uppercase tracking-wider mb-0.5">Próxima renovação</p>
+                        <p className="text-sm font-semibold text-[#e8e8f0]">
+                          {subscription.periodEnd.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
                         </p>
-                      )}
-                      {portalError && (
-                        <p className="text-xs text-[#ff4466]">{portalError}</p>
-                      )}
+                      </div>
+                      <RefreshCw className="w-4 h-4 text-[#ff7a00]" />
+                    </div>
+                  )}
+
+                  {/* Cancellation scheduled notice */}
+                  {subscription.cancelAtPeriodEnd && subscription.periodEnd && (
+                    <div
+                      className="flex items-center gap-3 px-4 py-3 rounded-xl"
+                      style={{ background: 'rgba(255,68,102,0.05)', border: '1px solid rgba(255,68,102,0.15)' }}
+                    >
+                      <CalendarX className="w-4 h-4 text-[#ff4466] flex-shrink-0" />
+                      <p className="text-xs text-[#ff4466]">
+                        Renovação cancelada. Seu acesso continua até <strong>{subscription.periodEnd.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</strong>.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Cancel renewal button — active recurring plans that haven't been canceled yet */}
+                  {subscription.isActive && subscription.plan !== 'lifetime' && !subscription.cancelAtPeriodEnd && (
+                    <div className="space-y-2">
+                      <button
+                        onClick={() => setShowCancelModal(true)}
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border border-[#1e1e2e] text-[#8888aa] hover:border-[#ff4466]/40 hover:text-[#ff4466] transition-all"
+                      >
+                        <CalendarX className="w-4 h-4" />
+                        Cancelar Renovação
+                      </button>
+                      <p className="text-[11px] text-[#3a3a4e]">
+                        Você mantém acesso até o fim do período atual.
+                      </p>
+                      {cancelError && <p className="text-xs text-[#ff4466]">{cancelError}</p>}
                     </div>
                   )}
 
@@ -1194,6 +1211,37 @@ export default function Settings() {
         open={showNewCat}
         onClose={() => setShowNewCat(false)}
       />
+
+      {/* Cancel renewal confirmation modal */}
+      <Modal open={showCancelModal} onClose={() => { setShowCancelModal(false); setCancelError('') }} title="Cancelar Renovação" size="sm">
+        <div className="px-6 py-5 space-y-4">
+          <p className="text-sm text-[#8888aa] leading-relaxed">
+            Sua assinatura <strong className="text-[#e8e8f0]">não será renovada</strong> ao fim do período atual.
+            {subscription.periodEnd && (
+              <> Você mantém acesso completo até <strong className="text-[#e8e8f0]">{subscription.periodEnd.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</strong>.</>
+            )}
+          </p>
+          <p className="text-xs text-[#55556a]">
+            Pode reativar quando quiser antes dessa data.
+          </p>
+          {cancelError && (
+            <p className="text-xs text-[#ff4466] font-medium">{cancelError}</p>
+          )}
+        </div>
+        <ModalFooter>
+          <button className="btn-ghost" onClick={() => { setShowCancelModal(false); setCancelError('') }} disabled={cancelLoading}>
+            Manter assinatura
+          </button>
+          <button
+            className="btn-danger"
+            onClick={handleCancelRenewal}
+            disabled={cancelLoading}
+          >
+            {cancelLoading ? <Loader2 className="w-4 h-4 animate-spin inline mr-1.5" /> : <CalendarX className="w-4 h-4 inline mr-1.5" />}
+            Confirmar cancelamento
+          </button>
+        </ModalFooter>
+      </Modal>
     </div>
   )
 }

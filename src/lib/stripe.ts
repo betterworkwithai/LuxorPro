@@ -113,6 +113,17 @@ export async function createPortalSession(): Promise<{ url: string } | { error: 
   }
 }
 
+/** Cancels the active subscription at period end (no immediate loss of access). */
+export async function cancelSubscription(): Promise<{ success: true; periodEnd: number } | { error: string }> {
+  try {
+    const { data, error } = await supabase.functions.invoke('cancel-subscription', { body: {} })
+    if (error) return { error: error.message ?? 'Erro desconhecido' }
+    return data as { success: true; periodEnd: number }
+  } catch (e: unknown) {
+    return { error: e instanceof Error ? e.message : 'Erro desconhecido' }
+  }
+}
+
 /** Keys used to persist subscription status across sessions. */
 export const SUBSCRIPTION_STORAGE_KEY = 'luxor_subscription'
 export const NEW_USER_STORAGE_KEY     = 'luxor_new_user'
