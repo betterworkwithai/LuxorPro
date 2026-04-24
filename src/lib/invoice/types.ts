@@ -53,6 +53,7 @@ export interface ParsedTransaction {
   sourceLine: string
   selected: boolean
   account: string
+  linhaOriginal?: string   // source line cited by Claude for grounding
 }
 
 /** Metadata extracted from the invoice header. */

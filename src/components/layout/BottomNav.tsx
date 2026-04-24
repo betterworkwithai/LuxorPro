@@ -1,7 +1,7 @@
 import React from 'react'
 import { NavLink } from 'react-router-dom'
 import {
-  LayoutDashboard, ArrowLeftRight, TrendingUp, Target, FileSearch, Receipt, Settings, Calculator,
+  LayoutDashboard, ArrowLeftRight, TrendingUp, Target, FileSearch, Settings, Calculator, Link2,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { pfPath } from '../../constants'
@@ -12,9 +12,10 @@ const NAV = [
   { to: pfPath('/wealth'),    icon: TrendingUp,      label: 'Patrim.' },
   { to: pfPath('/goals'),     icon: Target,          label: 'Metas' },
   
-  { to: pfPath('/documents'), icon: FileSearch,      label: 'IA' },
-  { to: pfPath('/tools'),     icon: Calculator,      label: 'Ferr.' },
-  { to: pfPath('/settings'),  icon: Settings,        label: 'Config' },
+  { to: pfPath('/documents'),   icon: FileSearch,  label: 'IA' },
+  { to: pfPath('/connections'), icon: Link2,        label: 'Bancos' },
+  { to: pfPath('/tools'),       icon: Calculator,  label: 'Ferr.' },
+  { to: pfPath('/settings'),    icon: Settings,    label: 'Config' },
 ]
 
 export function BottomNav() {

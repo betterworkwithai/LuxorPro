@@ -6,7 +6,7 @@ const STEPS = [
   {
     emoji: '',
     title: 'Bem-vindo ao Luxor',
-    subtitle: 'Automação de Elite para o seu capital',
+    subtitle: '',
     bullets: [
       'Todos os dados ficam no seu navegador, 100% privado',
       'Sem cadastro obrigatório — comece agora mesmo',

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Save, Database, AlertTriangle, Trash2, Plus, Tag, X, Download, Upload, KeyRound, Mail, CreditCard, ExternalLink, Loader2, Crown, CalendarX, RefreshCw } from 'lucide-react'
+import { Save, Database, AlertTriangle, Trash2, Plus, Tag, X, Download, Upload, KeyRound, Mail, CreditCard, ExternalLink, Loader2, Crown, CalendarX, RefreshCw, Heart } from 'lucide-react'
+import { SharingSettings } from '../components/settings/SharingSettings'
 import { createPortalSession, cancelSubscription } from '../lib/stripe'
 import { useSubscription } from '../hooks/useSubscription'
 import { useStore } from '../store/useStore'
@@ -782,6 +783,21 @@ export default function Settings() {
                 <input className="input-dark" type="number" min="0" max="100" placeholder="30" value={form.savingsRateGoal} onChange={e => upd('savingsRateGoal', parseFloat(e.target.value))} />
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* ── Modo Casal ── */}
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              <span className="flex items-center gap-2">
+                <Heart className="w-4 h-4 text-[#ff7a00]" />
+                Modo Casal — Compartilhamento
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <SharingSettings />
           </CardContent>
         </Card>
 

@@ -4,7 +4,6 @@ import { supabase, SUPABASE_CONFIGURED } from '../lib/supabase'
 import { LOCAL_AUTH_KEY } from '../App'
 import { markNewUser } from '../lib/stripe'
 import { clsx } from 'clsx'
-import luxorLogo from '../assets/logo.png'
 
 type Tab = 'login' | 'signup' | 'reset'
 
@@ -15,21 +14,8 @@ const BRAND_GRADIENT = 'linear-gradient(135deg, #ff7a00, #ff4500)'
 
 function LuxorLogo() {
   return (
-    <div className="flex flex-col items-center gap-3 mb-8">
-      <div
-        className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg"
-        style={{
-          background: 'rgba(255,122,0,0.1)',
-          border: '1px solid rgba(255,122,0,0.3)',
-          boxShadow: '0 0 30px rgba(255,122,0,0.15)',
-        }}
-      >
-        <img src={luxorLogo} alt="Luxor" className="w-9 h-9 object-contain" />
-      </div>
-      <div className="text-center">
-        <h1 className="text-2xl font-bold text-[#e8e8f0] tracking-tight">Luxor</h1>
-        <p className="text-xs text-[#8888aa] mt-1 italic">Automação de Elite para o seu capital</p>
-      </div>
+    <div className="flex justify-center mb-6 -mt-2">
+      <img src="/logo.gif" alt="Luxor Pro" className="w-48 h-48 object-contain" />
     </div>
   )
 }
@@ -514,7 +500,7 @@ export default function Auth() {
   ]
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden" style={{ background: '#08182F' }}>
       {/* Background glow */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 rounded-full blur-3xl" style={{ background: 'rgba(255,122,0,0.07)' }} />
@@ -564,9 +550,6 @@ export default function Auth() {
           )}
         </div>
 
-        <p className="text-center text-[10px] text-[#2a2a3e] mt-6">
-          Luxor · Automação de Elite para o seu capital
-        </p>
       </div>
     </div>
   )

@@ -374,7 +374,7 @@ export default function Subscription({ userId, onComplete }: SubscriptionProps) 
             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-semibold mb-5"
             style={{ background: 'rgba(255,122,0,0.1)', border: '1px solid rgba(255,122,0,0.25)', color: BRAND }}
           >
-            <Zap className="w-3 h-3" /> Automação de Elite para o seu capital
+            <Zap className="w-3 h-3" /> Luxor Pro
           </div>
           <h1 className="text-3xl sm:text-4xl font-bold text-[#e8e8f0] leading-tight mb-4">
             {userName ? `Bem-vindo, ${userName}.` : 'Gerencie seu patrimônio'}

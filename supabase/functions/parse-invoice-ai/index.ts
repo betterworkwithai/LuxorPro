@@ -29,38 +29,45 @@ function json(data: unknown, status = 200) {
   })
 }
 
-const SYSTEM_PROMPT = `Você é um especialista em análise de faturas e extratos bancários brasileiros.
-Analise o texto extraído de um documento financeiro e retorne um JSON estruturado.
+const SYSTEM_PROMPT = `Você é um assistente financeiro de elite processando faturas de cartão de crédito. Sua tarefa é extrair transações financeiras reais do texto bruto fornecido.
 
-Regras importantes:
+REGRAS ESTRITAS:
+1. Ignore quadros de resumo, pagamentos de faturas anteriores, juros, limites de crédito e totais de categorias.
+2. Uma transação válida DEVE conter uma data e um valor. NUNCA combine duas datas ou dois valores no mesmo objeto.
+3. Antes de gerar o JSON, use a tag <thinking> para mapear linha por linha o texto e identificar quais linhas contêm transações reais.
+4. Para cada transação, você deve incluir o campo 'linha_original' contendo o texto exato que você usou para extrair os dados. Se você não puder citar a linha exata, não crie a transação.
+
+Regras de extração:
 - Extraia APENAS lançamentos reais (compras, pagamentos, transferências, débitos, créditos)
-- IGNORE totalmente: totais de fatura, pagamento mínimo, saldos, limites de crédito, mensagens informativas, IOF, encargos automáticos da fatura
+- IGNORE: totais de fatura, pagamento mínimo, saldos, limites de crédito, mensagens informativas, IOF, encargos automáticos
 - Para cartão de crédito: lançamentos são despesas (tipo: "despesa")
 - Créditos na fatura (estornos, cashback, pagamentos recebidos) são receitas (tipo: "receita")
-- Datas devem estar no formato DD/MM/YYYY
-- Valores devem ser numéricos positivos, sem R$, sem ponto de milhar, com ponto decimal
-- Parcelas: extraia no formato "NN/TT" quando visível, caso contrário use null
-- categoria_sugerida deve ser em português e indicar o tipo de gasto (ex: Alimentação, Transporte, Saúde, Streaming, Moradia, Lazer, Compras, Educação, Outros)
-Responda APENAS com JSON válido, sem markdown, sem texto adicional.`
+- Datas no formato YYYY-MM-DD
+- Valores numéricos positivos, sem R$, sem ponto de milhar, com ponto decimal
+- Parcelas: formato "NN/TT" quando visível, caso contrário null
+- categoria_sugerida em português (ex: Alimentação, Transporte, Saúde, Streaming, Moradia, Lazer, Compras, Educação, Outros)
+
+Responda com a tag <thinking> seguida APENAS de JSON válido, sem markdown adicional.`
 
 function userPrompt(text: string): string {
   return `Analise este documento financeiro e retorne o JSON estruturado:
 
-${text.slice(0, 14000)}
+${text}
 
-Formato de resposta exato:
+Formato de resposta exato (após a tag <thinking>):
 {
   "banco": "Nome do banco ou emissor",
   "mes_referencia": "Mês Ano (ex: Março 2026)",
   "total_fatura": 0.00,
   "transacoes": [
     {
-      "data": "DD/MM/YYYY",
+      "data": "YYYY-MM-DD",
       "descricao": "Descrição completa do lançamento",
       "valor": 0.00,
       "parcela": "01/10",
       "tipo": "despesa",
-      "categoria_sugerida": "Alimentação"
+      "categoria_sugerida": "Alimentação",
+      "linha_original": "texto exato da linha fonte"
     }
   ]
 }`
@@ -112,8 +119,9 @@ Deno.serve(async (req) => {
     const anthropicData = await anthropicRes.json()
     const rawContent: string = anthropicData.content?.[0]?.text ?? ''
 
-    // Strip markdown fences the model occasionally adds
+    // Strip <thinking>…</thinking> chain-of-thought block, then markdown fences
     const jsonStr = rawContent
+      .replace(/<thinking>[\s\S]*?<\/thinking>/i, '')
       .replace(/^```(?:json)?\s*/im, '')
       .replace(/\s*```\s*$/im, '')
       .trim()

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import {
   Check, ChevronDown, TrendingUp, Target, FileSearch,
   Calculator, Zap, Shield, ArrowRight, Lock,
-  BarChart3, Wallet, Globe, Users,
+  BarChart3, Wallet, Globe, Users, Wifi,
 } from 'lucide-react'
 
 const STRIPE_MONTHLY  = 'https://buy.stripe.com/eVqbIV9EAa91c4navC3wQ03'
@@ -25,76 +25,120 @@ function useFadeIn(threshold = 0.12) {
   return { ref, visible }
 }
 
-// ── Dashboard Mockup (hero visual) ────────────────────────────────────────────
-function DashboardMockup() {
+// ── Phone Mockup (hero visual) ────────────────────────────────────────────────
+function PhoneMockup() {
   const bars = [30, 48, 38, 62, 55, 75, 65, 82, 72, 90, 85, 100]
   return (
-    <div className="relative w-full max-w-md mx-auto select-none pointer-events-none">
-      <div className="absolute -inset-8 rounded-full" style={{ background: 'radial-gradient(ellipse, rgba(255,122,0,0.18) 0%, transparent 70%)' }} />
-      <div className="relative bg-[#0d0d14] border border-[#2a2a3e] rounded-2xl overflow-hidden shadow-[0_32px_80px_rgba(0,0,0,0.6)]">
-        {/* Browser chrome */}
-        <div className="flex items-center gap-1.5 px-4 py-2.5 border-b border-[#1e1e2e] bg-[#080810]">
-          <div className="w-2.5 h-2.5 rounded-full bg-[#ff4466]/50" />
-          <div className="w-2.5 h-2.5 rounded-full bg-[#f59e0b]/50" />
-          <div className="w-2.5 h-2.5 rounded-full bg-[#00ff88]/50" />
-          <div className="flex-1 mx-3 h-4 bg-[#1a1a2e] rounded-md flex items-center px-2">
-            <span className="text-[9px] text-[#55556a]">luxorpro.com.br/app</span>
-          </div>
-        </div>
-        <div className="p-5">
-          <div className="flex items-start justify-between mb-4">
-            <div>
-              <p className="text-[9px] text-[#55556a] uppercase tracking-widest mb-0.5">Patrimônio Total</p>
-              <p className="text-[22px] font-bold text-[#e8e8f0] leading-none">R$ 1.247.830</p>
-              <span className="inline-flex items-center gap-1 mt-1.5 text-[11px] font-semibold text-[#00ff88]">
-                ↑ +12,4% <span className="text-[#55556a] font-normal">este ano</span>
-              </span>
+    <div className="relative w-full max-w-[260px] mx-auto select-none pointer-events-none">
+      {/* Ambient glow */}
+      <div className="absolute -inset-12 rounded-full" style={{ background: 'radial-gradient(ellipse, rgba(255,122,0,0.15) 0%, transparent 70%)' }} />
+
+      {/* Phone frame */}
+      <div className="relative rounded-[44px] p-[3px]" style={{ background: 'linear-gradient(145deg, #2a2a3e 0%, #1a1a28 50%, #2a2a3e 100%)' }}>
+        {/* Side buttons */}
+        <div className="absolute -left-[4px] top-28 w-[4px] h-5 bg-[#2a2a3e] rounded-l-md" />
+        <div className="absolute -left-[4px] top-[148px] w-[4px] h-9 bg-[#2a2a3e] rounded-l-md" />
+        <div className="absolute -left-[4px] top-[200px] w-[4px] h-9 bg-[#2a2a3e] rounded-l-md" />
+        <div className="absolute -right-[4px] top-[160px] w-[4px] h-12 bg-[#2a2a3e] rounded-r-md" />
+
+        {/* Screen */}
+        <div className="bg-[#0a0a0f] rounded-[41px] overflow-hidden" style={{ aspectRatio: '9/19.5' }}>
+
+          {/* Status bar */}
+          <div className="flex items-center justify-between px-5 pt-3.5 pb-1">
+            <span className="text-[8px] font-bold text-[#e8e8f0]">9:41</span>
+            <div className="w-[68px] h-[16px] bg-black rounded-full" />
+            <div className="flex items-center gap-[3px]">
+              <div className="flex gap-[1.5px] items-end" style={{ height: 10 }}>
+                {[4, 6, 8, 10].map((h, i) => (
+                  <div key={i} className="w-[2px] rounded-[1px] bg-[#e8e8f0]" style={{ height: h }} />
+                ))}
+              </div>
+              <Wifi className="w-[9px] h-[9px] text-[#e8e8f0]" />
+              <div className="h-[9px] w-[16px] rounded-[2px] border border-[#e8e8f0]/50 overflow-hidden p-[1.5px]">
+                <div className="h-full w-3/4 bg-[#00ff88] rounded-[1px]" />
+              </div>
             </div>
-            <div className="grid grid-cols-2 gap-1.5">
-              {[['Mês', '+2,1%', '#00ff88'], ['Ativos', '23', '#ff7a00'], ['TIR', '14,3%', '#00d4ff'], ['Meta', '87%', '#8b5cf6']].map(([l, v, c]) => (
-                <div key={l} className="bg-[#111118] rounded-lg p-1.5 text-center min-w-[42px]">
-                  <p className="text-[9px] text-[#55556a]">{l}</p>
-                  <p className="text-[11px] font-bold" style={{ color: c as string }}>{v}</p>
+          </div>
+
+          {/* App header */}
+          <div className="px-4 py-2 border-b border-[#1e1e2e] flex items-center justify-between">
+            <div>
+              <span className="text-[9px] font-bold text-[#e8e8f0]">Bem-vindo, </span>
+              <span className="text-[9px] font-bold" style={{ color: '#FF7900' }}>Gabriel</span>
+              <span className="text-[9px]"> 👋</span>
+            </div>
+            <div className="w-5 h-5 rounded-full bg-[#ff7a00]/15 border border-[#ff7a00]/30 flex items-center justify-center">
+              <span className="text-[7px] font-bold text-[#ff7a00]">G</span>
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="px-3 py-2 space-y-2">
+            {/* Patrimônio card */}
+            <div className="bg-[#0d0d14] border border-[#1e1e2e] rounded-xl p-3">
+              <p className="text-[6px] text-[#55556a] uppercase tracking-widest mb-0.5">Patrimônio Total</p>
+              <p className="text-[15px] font-bold text-[#e8e8f0] leading-none">R$ 1.247.830</p>
+              <span className="text-[7.5px] font-semibold text-[#00ff88] mt-0.5 inline-block">↑ +12,4% este ano</span>
+            </div>
+
+            {/* Mini stat grid */}
+            <div className="grid grid-cols-3 gap-1.5">
+              {[
+                ['Receitas', 'R$ 12.4k', '#00ff88'],
+                ['Despesas', 'R$ 7.8k', '#ff4466'],
+                ['Poupança', '37%', '#8b5cf6'],
+              ].map(([l, v, c]) => (
+                <div key={l as string} className="bg-[#0d0d14] border border-[#1e1e2e] rounded-lg p-2 text-center">
+                  <p className="text-[6px] text-[#55556a] mb-0.5">{l}</p>
+                  <p className="text-[9px] font-bold" style={{ color: c as string }}>{v}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Bar chart */}
+            <div className="bg-[#0d0d14] border border-[#1e1e2e] rounded-xl p-2.5">
+              <p className="text-[6px] text-[#55556a] mb-1.5">Evolução Patrimonial — 2024</p>
+              <div className="flex items-end gap-[2px] h-7">
+                {bars.map((h, i) => (
+                  <div key={i} className="flex-1 rounded-t-[1px]" style={{
+                    height: `${h}%`,
+                    background: i === bars.length - 1 ? '#ff7a00' : `rgba(255,122,0,${0.08 + (i / bars.length) * 0.42})`
+                  }} />
+                ))}
+              </div>
+            </div>
+
+            {/* Allocation */}
+            <div className="bg-[#0d0d14] border border-[#1e1e2e] rounded-xl p-2.5 space-y-1.5">
+              <p className="text-[6px] text-[#55556a] mb-1">Alocação de Ativos</p>
+              {[
+                { label: 'Renda Variável', pct: '45%', color: '#3b82f6', w: '45%' },
+                { label: 'Renda Fixa', pct: '32%', color: '#00ff88', w: '32%' },
+                { label: 'Internacional', pct: '23%', color: '#ff7a00', w: '23%' },
+              ].map(({ label, pct, color, w }) => (
+                <div key={label}>
+                  <div className="flex items-center justify-between mb-[2px]">
+                    <span className="text-[6px] text-[#8888aa]">{label}</span>
+                    <span className="text-[6px] font-bold" style={{ color }}>{pct}</span>
+                  </div>
+                  <div className="h-[2px] bg-[#1e1e2e] rounded-full">
+                    <div className="h-full rounded-full" style={{ width: w, background: color }} />
+                  </div>
                 </div>
               ))}
             </div>
           </div>
-          <div className="flex items-end gap-[3px] h-10 mb-4">
-            {bars.map((h, i) => (
-              <div key={i} className="flex-1 rounded-t-[2px]" style={{
-                height: `${h}%`,
-                background: i === bars.length - 1 ? '#ff7a00' : `rgba(255,122,0,${0.08 + (i / bars.length) * 0.42})`
-              }} />
-            ))}
-          </div>
-          <div className="space-y-2">
-            {[
-              { label: 'Renda Variável', pct: '45%', val: 'R$ 561k', color: '#3b82f6', w: '45%' },
-              { label: 'Renda Fixa',     pct: '32%', val: 'R$ 399k', color: '#00ff88', w: '32%' },
-              { label: 'Internacional',  pct: '23%', val: 'R$ 287k', color: '#ff7a00', w: '23%' },
-            ].map(({ label, pct, val, color, w }) => (
-              <div key={label}>
-                <div className="flex items-center justify-between mb-0.5">
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-1.5 h-1.5 rounded-full" style={{ background: color }} />
-                    <span className="text-[10px] text-[#8888aa]">{label}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-[#55556a]">{val}</span>
-                    <span className="text-[10px] font-bold" style={{ color }}>{pct}</span>
-                  </div>
-                </div>
-                <div className="h-[3px] bg-[#1e1e2e] rounded-full">
-                  <div className="h-full rounded-full" style={{ width: w, background: color }} />
-                </div>
-              </div>
-            ))}
+
+          {/* Home indicator */}
+          <div className="absolute bottom-2 left-0 right-0 flex justify-center">
+            <div className="w-16 h-1 bg-[#2a2a3e] rounded-full" />
           </div>
         </div>
       </div>
 
       {/* Floating card: AI */}
-      <div className="absolute -right-6 top-16 bg-[#0d0d14] border border-[#00d4ff]/40 rounded-xl p-3 shadow-2xl w-44"
+      <div className="absolute -right-10 top-20 bg-[#0d0d14] border border-[#00d4ff]/40 rounded-xl p-3 shadow-2xl w-40"
         style={{ animation: 'lxFloat 3.2s ease-in-out infinite' }}>
         <div className="flex items-center gap-1.5 mb-1">
           <div className="w-4 h-4 rounded bg-[#00d4ff]/15 flex items-center justify-center">
@@ -106,7 +150,7 @@ function DashboardMockup() {
       </div>
 
       {/* Floating card: goal */}
-      <div className="absolute -left-6 bottom-12 bg-[#0d0d14] border border-[#00ff88]/40 rounded-xl p-3 shadow-2xl w-44"
+      <div className="absolute -left-10 bottom-24 bg-[#0d0d14] border border-[#00ff88]/40 rounded-xl p-3 shadow-2xl w-40"
         style={{ animation: 'lxFloat 4s ease-in-out infinite reverse' }}>
         <div className="flex items-center gap-1.5 mb-1">
           <div className="w-4 h-4 rounded bg-[#00ff88]/15 flex items-center justify-center">
@@ -250,12 +294,7 @@ export default function Landing() {
       <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-[#0a0a0f]/95 backdrop-blur border-b border-[#1e1e2e] py-3' : 'py-5'}`}>
         <div className="max-w-6xl mx-auto px-6 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-[#ff7a00] flex items-center justify-center shadow-[0_0_16px_rgba(255,122,0,0.4)]">
-              <svg viewBox="0 0 16 16" fill="none" className="w-5 h-5">
-                <polygon points="8,1.5 14.5,14 1.5,14" fill="white" opacity="0.95" />
-                <polygon points="8,1.5 10,6 6,6" fill="#ff7a00" opacity="0.9" />
-              </svg>
-            </div>
+            <img src="/favicon.png" alt="Luxor Pro" className="w-8 h-8 rounded-xl object-cover shadow-[0_0_16px_rgba(255,122,0,0.3)]" />
             <span className="text-[15px] font-bold tracking-tight">Luxor <span className="text-[#ff7a00]">Pro</span></span>
           </div>
           <div className="flex items-center gap-3">
@@ -318,8 +357,8 @@ export default function Landing() {
             </div>
 
             {/* Right: Mockup */}
-            <div className="hidden lg:block">
-              <DashboardMockup />
+            <div className="hidden lg:flex justify-center py-10">
+              <PhoneMockup />
             </div>
           </div>
         </div>
@@ -686,12 +725,7 @@ export default function Landing() {
         <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse 70% 80% at 50% 50%, rgba(255,122,0,0.10) 0%, transparent 70%)' }} />
         <div className="absolute inset-0 dot-grid opacity-40" />
         <div ref={finalCta.ref} className={`relative max-w-3xl mx-auto text-center lx-fade ${finalCta.visible ? 'visible' : ''}`}>
-          <div className="w-14 h-14 rounded-2xl bg-[#ff7a00]/15 border border-[#ff7a00]/30 flex items-center justify-center mx-auto mb-6">
-            <svg viewBox="0 0 16 16" fill="none" className="w-8 h-8">
-              <polygon points="8,1 15,14.5 1,14.5" fill="#ff7a00" opacity="0.9" />
-              <polygon points="8,1 10,5.5 6,5.5" fill="#ffb347" opacity="0.9" />
-            </svg>
-          </div>
+          <img src="/favicon.png" alt="Luxor Pro" className="w-14 h-14 rounded-2xl object-cover mx-auto mb-6 shadow-[0_0_30px_rgba(255,122,0,0.3)]" />
           <h2 className="text-4xl sm:text-5xl font-bold leading-tight mb-5">
             Seu patrimônio merece<br />
             <span className="gradient-text">uma ferramenta à altura.</span>
@@ -722,12 +756,7 @@ export default function Landing() {
       <footer className="border-t border-[#1e1e2e] bg-[#080810] py-10 px-6">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-lg bg-[#ff7a00] flex items-center justify-center">
-              <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4">
-                <polygon points="8,1.5 14.5,14 1.5,14" fill="white" opacity="0.9" />
-                <polygon points="8,1.5 10,6 6,6" fill="#ff7a00" opacity="0.9" />
-              </svg>
-            </div>
+            <img src="/favicon.png" alt="Luxor Pro" className="w-6 h-6 rounded-lg object-cover" />
             <span className="text-sm font-bold">Luxor <span className="text-[#ff7a00]">Pro</span></span>
           </div>
           <div className="flex flex-wrap justify-center gap-6 text-xs text-[#55556a]">

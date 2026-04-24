@@ -15,24 +15,14 @@ import Cashflow from "./pages/Cashflow";
 import Wealth from "./pages/Wealth";
 import Goals from "./pages/Goals";
 import DocumentAI from "./pages/DocumentAI";
+import Connections from "./pages/Connections";
 import Settings from "./pages/Settings";
 import FinancialTools from "./pages/FinancialTools";
 
 function LoadingScreen() {
   return (
     <div className="h-screen flex items-center justify-center bg-[#0a0a0f]">
-      <div className="text-center space-y-4">
-        <div className="w-12 h-12 rounded-2xl bg-[#00d4ff]/10 border border-[#00d4ff]/30 flex items-center justify-center mx-auto">
-          <svg className="w-5 h-5 text-[#00d4ff] animate-spin" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
-        </div>
-        <div>
-          <p className="text-sm font-semibold text-[#e8e8f0]">Luxor Pro</p>
-          <p className="text-xs text-[#55556a]">Carregando seus dados financeiros…</p>
-        </div>
-      </div>
+      <img src="/logo.gif" alt="Carregando…" className="w-64 h-64 object-contain" />
     </div>
   );
 }
@@ -46,6 +36,7 @@ function AppRoutes() {
         <Route path="/wealth" element={<Wealth />} />
         <Route path="/goals" element={<Goals />} />
         <Route path="/documents" element={<DocumentAI />} />
+        <Route path="/connections" element={<Connections />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/tools" element={<FinancialTools />} />
         <Route path="*" element={<Dashboard />} />

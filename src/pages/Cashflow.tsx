@@ -18,6 +18,7 @@ import { FormulaInput } from '../components/ui/FormulaInput'
 import { formatBRL, formatDate, currentMonthYear, monthName } from '../lib/formatters'
 import { AccountSelect } from '../components/ui/AccountSelect'
 import { useAllCategories } from '../lib/useCategories'
+import { VisibilityToggle } from '../components/ui/VisibilityToggle'
 import type { RecurringTransaction, Transaction } from '../lib/types'
 import { clsx } from 'clsx'
 
@@ -317,6 +318,7 @@ export default function Cashflow() {
     transactions, deleteTransaction, updateTransaction,
     subscriptions, deleteSubscription, updateSubscription,
     setModal, activeModal, settings,
+    partnership, partnerTransactions, partnerEmail,
   } = useStore()
   const allCategories = useAllCategories()
 
@@ -603,6 +605,8 @@ export default function Cashflow() {
   const netInvestment  = investAportes - investResgates
   const cleanIncome    = totalIncome - investResgates
   const cleanExpenses  = totalExpenses - investAportes
+  const taxExpenses    = filtered.filter(t => t.type === 'expense' && !t.isWanted && t.category === 'imposto').reduce((s, t) => s + toBRL(t), 0)
+  const nonTaxExpenses = cleanExpenses - taxExpenses
 
   const activeRec = subscriptions.filter(s => s.isActive)
   const monthlyRecIncome  = activeRec.filter(s => s.type === 'income')
@@ -730,7 +734,7 @@ export default function Cashflow() {
         </div>
 
         {/* Resumo */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
           <div className="card p-4 text-center">
             <p className="text-[10px] text-[#8888aa] uppercase tracking-wider mb-1">Receitas</p>
             <p className="text-lg font-bold text-[#00ff88]">{formatBRL(cleanIncome, true)}</p>
@@ -738,7 +742,12 @@ export default function Cashflow() {
           </div>
           <div className="card p-4 text-center">
             <p className="text-[10px] text-[#8888aa] uppercase tracking-wider mb-1">Despesas</p>
-            <p className="text-lg font-bold text-[#ff4466]">{formatBRL(cleanExpenses, true)}</p>
+            <p className="text-lg font-bold text-[#ff4466]">{formatBRL(nonTaxExpenses, true)}</p>
+            <p className="text-[10px] text-[#55556a] mt-1">{periodLabel}</p>
+          </div>
+          <div className="card p-4 text-center">
+            <p className="text-[10px] text-[#8888aa] uppercase tracking-wider mb-1">Impostos</p>
+            <p className="text-lg font-bold text-[#ff7a00]">{formatBRL(taxExpenses, true)}</p>
             <p className="text-[10px] text-[#55556a] mt-1">{periodLabel}</p>
           </div>
           <div className="card p-4 text-center">
@@ -1472,7 +1481,11 @@ export default function Cashflow() {
                   const cat = allCategories.find(c => c.id === t.category)
                   const amtBRL = toBRL(t)
                   return (
-                    <tr key={t.id} className={clsx('hover:bg-[#16161f]/50 transition-colors group', t.isWanted && 'opacity-70 italic')}>
+                    <tr key={t.id} className={clsx(
+                      'hover:bg-[#16161f]/50 transition-colors group',
+                      t.isWanted && 'opacity-70 italic',
+                      t.visibility === 'shared' && 'border-l-2 border-l-[#ff7a00]/50',
+                    )}>
                       <td className="px-3 py-3">
                         <input type="checkbox" className="w-3.5 h-3.5 accent-[#ff7a00] cursor-pointer"
                           checked={selectedIds.has(t.id)} onChange={() => toggleSelect(t.id)} />
@@ -1483,6 +1496,7 @@ export default function Cashflow() {
                           <p className="text-[#e8e8f0] font-medium truncate max-w-xs">{t.description}</p>
                           {t.isWanted && <span className="text-[10px] bg-[#8b5cf6]/20 text-[#8b5cf6] px-1.5 py-0.5 rounded flex-shrink-0">Desejada</span>}
                           {t.installmentCount && <span className="text-[10px] bg-[#ff7a00]/15 text-[#ff7a00] px-1.5 py-0.5 rounded flex-shrink-0">{t.installmentNumber}/{t.installmentCount}×</span>}
+                          {t.visibility === 'shared' && <span className="text-[10px] bg-[#ff7a00]/10 text-[#ff7a00] border border-[#ff7a00]/20 px-1.5 py-0.5 rounded flex-shrink-0">👫</span>}
                         </div>
                         {t.notes && <p className="text-[10px] text-[#55556a] truncate">{t.notes}</p>}
                       </td>
@@ -1515,6 +1529,7 @@ export default function Cashflow() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           {(t.attachmentIds?.length ?? 0) > 0 && <Paperclip className="w-3.5 h-3.5 text-[#00d4ff]" />}
+                          <VisibilityToggle transaction={t} />
                           <button onClick={() => setEditTx(t)}
                             className="w-6 h-6 rounded-lg hover:bg-[#00d4ff]/15 text-[#55556a] hover:text-[#00d4ff] flex items-center justify-center transition-colors" title="Editar">
                             <Pencil className="w-3.5 h-3.5" />
@@ -1572,6 +1587,65 @@ export default function Cashflow() {
             )}
           </div>
         </Card>
+
+        {/* ── Partner shared transactions ── */}
+        {partnership?.status === 'active' && partnerTransactions.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                <span className="flex items-center gap-2">
+                  <span>👫</span>
+                  Transações de {partnerEmail ?? 'seu parceiro(a)'}
+                </span>
+              </CardTitle>
+              <span className="text-[10px] text-[#55556a] ml-auto">Compartilhadas com você</span>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-[#1e1e2e]">
+                      {['Data', 'Descrição', 'Categoria', 'Conta', 'Valor', 'Tipo'].map(h => (
+                        <th key={h} className="px-4 py-2.5 text-left text-[10px] font-semibold text-[#55556a] uppercase tracking-wider">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#1e1e2e]">
+                    {partnerTransactions.map(t => {
+                      const cat = allCategories.find(c => c.id === t.category)
+                      const amtBRL = !t.currency || t.currency === 'BRL'
+                        ? t.amount
+                        : t.currency === 'USD' ? t.amount * settings.usdToBrl : t.amount * (settings.eurToBrl ?? 5.90)
+                      return (
+                        <tr key={t.id} className="hover:bg-[#16161f]/50 transition-colors border-l-2 border-l-[#ff7a00]/40">
+                          <td className="px-4 py-3 text-xs text-[#8888aa] font-mono whitespace-nowrap">{formatDate(t.date)}</td>
+                          <td className="px-4 py-3 text-[#e8e8f0] font-medium truncate max-w-xs">{t.description}</td>
+                          <td className="px-4 py-3">
+                            <span className="flex items-center gap-1.5 text-xs text-[#8888aa]">
+                              <span>{cat?.icon ?? '📦'}</span>{cat?.name ?? t.category}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-xs text-[#55556a]">{t.account}</td>
+                          <td className="px-4 py-3">
+                            <span className={clsx('font-semibold text-sm', t.type === 'income' ? 'text-[#00ff88]' : 'text-[#ff4466]')}>
+                              {t.type === 'income' ? '+' : '-'}{formatBRL(amtBRL)}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <Badge variant={t.type === 'income' ? 'income' : 'expense'}>
+                              {t.type === 'income' ? 'receita' : 'despesa'}
+                            </Badge>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Insights + Anomaly Alerts */}
         {(() => {
           const expTx = filtered.filter(t => t.type === 'expense' && !t.isWanted)

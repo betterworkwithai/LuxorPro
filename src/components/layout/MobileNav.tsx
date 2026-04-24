@@ -9,17 +9,7 @@ import { supabase } from '../../lib/supabase'
 import { LOCAL_AUTH_KEY } from '../../App'
 import { pfPath } from '../../constants'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
-
-function PyramidIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-      <polygon points="8,1 15,14.5 1,14.5" fill="#ff7a00"/>
-      <polygon points="8,1 15,14.5 8,14.5" fill="#ffa040" opacity="0.45"/>
-      <line x1="1" y1="14.5" x2="15" y2="14.5" stroke="#ffd080" strokeWidth="0.8" opacity="0.6"/>
-      <polygon points="8,1 10,5.5 6,5.5" fill="#ffe08a" opacity="0.9"/>
-    </svg>
-  )
-}
+const luxorLogo = '/logo.gif'
 
 const NAV_ITEMS = [
   { to: pfPath('/'),           icon: LayoutDashboard, label: 'Painel' },
@@ -76,10 +66,10 @@ export function MobileNav() {
           <Menu className="w-5 h-5" />
         </button>
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-[#ff7a00]/10 border border-[#ff7a00]/30 flex items-center justify-center">
-            <PyramidIcon className="w-3.5 h-3.5" />
-          </div>
-          <p className="text-sm font-bold text-[#e8e8f0] tracking-wide">Luxor</p>
+          <img src={luxorLogo} alt="Luxor" className="w-7 h-7 rounded-lg object-cover" />
+          <p className="text-sm font-bold tracking-wide">
+            <span className="text-[#e8e8f0]">Luxor </span><span style={{ color: '#FF7900' }}>Pro</span>
+          </p>
         </div>
       </header>
 
@@ -102,12 +92,11 @@ export function MobileNav() {
         {/* Header */}
         <div className="flex items-center justify-between gap-3 px-4 py-4 border-b border-[#1e1e2e]">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-[#ff7a00]/10 border border-[#ff7a00]/30 flex items-center justify-center">
-              <PyramidIcon className="w-4 h-4" />
-            </div>
+            <img src={luxorLogo} alt="Luxor" className="w-8 h-8 rounded-lg object-cover" />
             <div>
-              <p className="text-sm font-bold text-[#e8e8f0] leading-none tracking-wide">Luxor</p>
-              <p className="text-[9px] text-[#55556a] mt-0.5 leading-tight">Automação de Elite para o seu capital</p>
+              <p className="text-sm font-bold leading-none tracking-wide">
+                <span className="text-[#e8e8f0]">Luxor </span><span style={{ color: '#FF7900' }}>Pro</span>
+              </p>
             </div>
           </div>
           <button

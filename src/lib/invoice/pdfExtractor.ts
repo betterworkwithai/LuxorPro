@@ -71,10 +71,10 @@ export async function extractRawText(file: File): Promise<string> {
       // Group items into visual lines by Y proximity (tolerance ≤2 pts, max cluster height ≤3 pts).
       // Using integer Math.round() is avoided because it silently merges adjacent rows
       // whose Y values straddle a 0.5-point boundary.
-      const rawItems: { x: number; y: number; text: string }[] = []
+      const rawItems: { x: number; y: number; text: string; width: number }[] = []
       for (const item of content.items as any[]) {
         if (!('str' in item) || !item.str) continue
-        rawItems.push({ x: item.transform[4], y: item.transform[5], text: item.str })
+        rawItems.push({ x: item.transform[4], y: item.transform[5], text: item.str, width: item.width ?? 0 })
       }
       rawItems.sort((a, b) => b.y - a.y)  // top-to-bottom
 
@@ -83,7 +83,8 @@ export async function extractRawText(file: File): Promise<string> {
         let group = [rawItems[0]]
         for (let i = 1; i < rawItems.length; i++) {
           const yFromFirst = Math.abs(rawItems[i].y - group[0].y)
-          if (yFromFirst <= 2 && yFromFirst <= 3) {
+          // 5pt tolerance: keeps 'R$' and its value on the same row (Nubank/Santander layout)
+          if (yFromFirst <= 5) {
             group.push(rawItems[i])
           } else {
             lineGroups.push(group)
@@ -94,7 +95,16 @@ export async function extractRawText(file: File): Promise<string> {
       }
 
       const lines = lineGroups
-        .map(g => g.sort((a, b) => a.x - b.x).map(i => i.text).join(' '))
+        .map(g => {
+          const sorted = g.sort((a, b) => a.x - b.x)
+          let line = sorted[0].text
+          for (let i = 1; i < sorted.length; i++) {
+            // Inject 3 spaces at large X gaps to preserve column structure for the LLM
+            const gap = sorted[i].x - (sorted[i - 1].x + (sorted[i - 1].width ?? 0))
+            line += (gap > 30 ? '   ' : ' ') + sorted[i].text
+          }
+          return line
+        })
 
       text += lines.join('\n') + '\n'
     }

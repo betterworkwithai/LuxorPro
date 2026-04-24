@@ -72,10 +72,9 @@ function mapCategory(aiCat: string, desc: string, type: 'expense' | 'income'): s
 }
 
 function parseDate(raw: string): string {
-  // DD/MM/YYYY → YYYY-MM-DD
-  const m = raw?.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw          // already ISO
+  const m = raw?.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/)    // DD/MM/YYYY
   if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`
-  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw
   return new Date().toISOString().slice(0, 10)
 }
 
@@ -151,19 +150,20 @@ export async function processInvoiceAI(
       .map((t: any): ParsedTransaction => {
         const type: 'expense' | 'income' = t.tipo === 'receita' ? 'income' : 'expense'
         return {
-          id:          nanoid(),
-          date:        parseDate(t.data ?? ''),
-          merchant:    String(t.descricao),
-          amount:      Number(t.valor),
-          installment: t.parcela && t.parcela !== 'null' ? String(t.parcela) : undefined,
+          id:           nanoid(),
+          date:         parseDate(t.data ?? ''),
+          merchant:     String(t.descricao),
+          amount:       Number(t.valor),
+          installment:  t.parcela && t.parcela !== 'null' ? String(t.parcela) : undefined,
           type,
-          category:    mapCategory(t.categoria_sugerida ?? '', t.descricao, type),
-          rawText:     String(t.descricao),
-          confidence:  0.88,
-          sourcePage:  1,
-          sourceLine:  String(t.descricao),
-          selected:    true,
-          account:     defaultAccount,
+          category:     mapCategory(t.categoria_sugerida ?? '', t.descricao, type),
+          rawText:      String(t.descricao),
+          confidence:   0.88,
+          sourcePage:   1,
+          sourceLine:   String(t.descricao),
+          selected:     true,
+          account:      defaultAccount,
+          linhaOriginal: t.linha_original ?? undefined,
         }
       })
 
@@ -180,9 +180,9 @@ export async function processInvoiceAI(
     }
   }
 
-  // ── 4. Auto-balance to invoice total ────────────────────────────────────
-  // If the invoice total is known and the parsed expenses don't sum to it,
-  // append an adjustment line so the import always balances exactly.
+  /* AUTO-BALANCE DISABLED FOR DEBUGGING
+     Re-enable once extraction is verified accurate — the mismatch is intentionally
+     visible in the ReviewTable so totals can be compared against the real invoice.
   if (result.metadata.totalAmount != null && result.transactions.length > 0) {
     const invoiceTotal = result.metadata.totalAmount
     const expSum = Math.round(
@@ -211,6 +211,7 @@ export async function processInvoiceAI(
       })
     }
   }
+  */
 
   onProgress?.('Concluído', 100)
   return result

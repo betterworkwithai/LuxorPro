@@ -6,11 +6,14 @@ import { db, seedDemoData } from '../lib/db'
 import type { LuxorBackup } from '../lib/db'
 import type {
   Transaction, Investment, TaxDeductible,
-  Attachment, RecurringTransaction, AppSettings, FinancialGoal, Category,
+  Attachment, RecurringTransaction, AppSettings, FinancialGoal, Category, Partnership,
 } from '../lib/types'
 import { DEFAULT_SETTINGS } from '../lib/types'
 import { nanoid } from 'nanoid'
 import { supabase } from '../lib/supabase'
+import {
+  createPartnership, loadPartnershipState, acceptInvite, endPartnership as endPartnershipApi,
+} from '../lib/partnership'
 
 /**
  * Resolve the user's display name from (in order):
@@ -68,6 +71,12 @@ interface AppState {
   goals:         FinancialGoal[]
   settings:      AppSettings
 
+  // couples sharing
+  partnership:          Partnership | null
+  partnerEmail:         string | null
+  partnerTransactions:  Transaction[]
+  partnershipLoading:   boolean
+
   // UI state
   isLoading: boolean
   activeModal: string | null
@@ -124,6 +133,13 @@ interface AppState {
   // backup / restore
   exportData: () => Promise<void>
   importData: (backup: LuxorBackup) => Promise<void>
+
+  // couples sharing
+  loadPartnership: () => Promise<void>
+  createInviteCode: () => Promise<void>
+  acceptInviteCode: (code: string) => Promise<void>
+  stopSharing: () => Promise<void>
+  setTransactionVisibility: (id: string, visibility: 'private' | 'shared') => Promise<void>
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -136,6 +152,12 @@ export const useStore = create<AppState>((set, get) => ({
   settings:      DEFAULT_SETTINGS,
   isLoading:     true,
   activeModal:   null,
+
+  // couples sharing initial state
+  partnership:         null,
+  partnerEmail:        null,
+  partnerTransactions: [],
+  partnershipLoading:  false,
 
   init: async () => {
     try {
@@ -329,6 +351,85 @@ export const useStore = create<AppState>((set, get) => ({
       goals:         backup.goals,
       settings:      backup.settings,
     })
+  },
+
+  // ── Couples Sharing ────────────────────────
+  loadPartnership: async () => {
+    set({ partnershipLoading: true })
+    try {
+      const state = await loadPartnershipState()
+      set({ ...state, partnershipLoading: false })
+    } catch (err) {
+      console.error('[loadPartnership]', err)
+      set({ partnershipLoading: false })
+    }
+  },
+
+  createInviteCode: async () => {
+    set({ partnershipLoading: true })
+    try {
+      const partnership = await createPartnership()
+      set({ partnership, partnerEmail: null, partnerTransactions: [], partnershipLoading: false })
+    } catch (err) {
+      set({ partnershipLoading: false })
+      throw err
+    }
+  },
+
+  acceptInviteCode: async (code) => {
+    set({ partnershipLoading: true })
+    try {
+      const state = await acceptInvite(code)
+      set({ ...state, partnershipLoading: false })
+    } catch (err) {
+      set({ partnershipLoading: false })
+      throw err
+    }
+  },
+
+  stopSharing: async () => {
+    const { partnership, transactions } = get()
+    if (!partnership) return
+    set({ partnershipLoading: true })
+    try {
+      await endPartnershipApi(partnership.id)
+      // Reset all user's shared transactions back to private
+      const sharedTxs = transactions.filter(
+        t => t.sharedWithPartnershipId === partnership.id && t.visibility === 'shared'
+      )
+      await Promise.all(
+        sharedTxs.map(t => db.transactions.upsert({
+          ...t, visibility: 'private', sharedWithPartnershipId: undefined,
+        }))
+      )
+      set(s => ({
+        partnership: null,
+        partnerEmail: null,
+        partnerTransactions: [],
+        partnershipLoading: false,
+        transactions: s.transactions.map(t =>
+          t.sharedWithPartnershipId === partnership.id
+            ? { ...t, visibility: 'private', sharedWithPartnershipId: undefined }
+            : t
+        ),
+      }))
+    } catch (err) {
+      set({ partnershipLoading: false })
+      throw err
+    }
+  },
+
+  setTransactionVisibility: async (id, visibility) => {
+    const { transactions, partnership } = get()
+    const t = transactions.find(x => x.id === id)
+    if (!t || !partnership || partnership.status !== 'active') return
+    const updated: Transaction = {
+      ...t,
+      visibility,
+      sharedWithPartnershipId: visibility === 'shared' ? partnership.id : undefined,
+    }
+    await db.transactions.upsert(updated)
+    set(s => ({ transactions: s.transactions.map(x => x.id === id ? updated : x) }))
   },
 
   // ── Clear all data ─────────────────────────

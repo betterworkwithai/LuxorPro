@@ -229,6 +229,8 @@ export default function Dashboard() {
   const netInvestment  = investAportes - investResgates
   const cleanIncome    = income   - investResgates
   const cleanExpenses  = expenses - investAportes
+  const taxExpenses    = useMemo(() => periodTx.filter(t => t.type === 'expense' && t.category === 'imposto').reduce((a, t) => a + txToBRL(t), 0), [periodTx, settings.usdToBrl, settings.eurToBrl])
+  const nonTaxExpenses = cleanExpenses - taxExpenses
   const netFlow     = income - expenses
   const savingsRate = income > 0 ? ((income - expenses) / income) * 100 : 0
 
@@ -544,7 +546,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen animate-fade-in">
       <PageHeader
-        title={`Bem-vindo, ${settings.name} 👋`}
+        title={<>Bem-vindo, <span style={{ color: '#FF7900' }}>{settings.name}</span> 👋</>}
         subtitle="Todos os dados armazenados localmente"
         actions={
           <div className="flex items-center gap-2">
@@ -573,7 +575,7 @@ export default function Dashboard() {
         />
 
         {/* ── Linha 1: Patrimônio + Stats ── */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 sm:gap-4">
           {/* Patrimônio card — spans 2 cols */}
           <div className="col-span-2 card p-5 flex flex-col justify-between relative overflow-hidden">
             <div className="absolute inset-0 opacity-5 pointer-events-none"
@@ -616,10 +618,17 @@ export default function Dashboard() {
           />
           <StatCard
             title={`Despesas ${kpiLabel}`}
-            value={formatBRL(cleanExpenses, true)}
+            value={formatBRL(nonTaxExpenses, true)}
             icon={<TrendingDown className="w-4 h-4" />}
             color="red"
-            secondary={kpiSecondary(cleanExpenses)}
+            secondary={kpiSecondary(nonTaxExpenses)}
+          />
+          <StatCard
+            title={`Impostos ${kpiLabel}`}
+            value={formatBRL(taxExpenses, true)}
+            icon={<TrendingDown className="w-4 h-4" />}
+            color="orange"
+            secondary={kpiSecondary(taxExpenses)}
           />
           <StatCard
             title={`Investimentos ${kpiLabel}`}

@@ -30,6 +30,20 @@ export interface Transaction {
   isWanted?: boolean
   // Budget classification for 50/30/20 rule
   expenseNature?: 'fixed' | 'variable' | 'investment'
+  // Couples sharing
+  visibility?: 'private' | 'shared'
+  sharedWithPartnershipId?: string
+}
+
+// ─── Couples sharing partnership ──────────────
+export interface Partnership {
+  id: string
+  user1Id: string
+  user2Id: string | null
+  inviteCode: string
+  status: 'pending' | 'active' | 'ended'
+  createdAt: string
+  updatedAt: string
 }
 
 // Known predefined classes — any other string is also valid (custom classes)
