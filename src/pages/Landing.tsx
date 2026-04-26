@@ -301,7 +301,7 @@ export default function Landing() {
             <span className="text-xl font-bold tracking-wide"><span className="text-[#e8e8f0]">Luxor</span><span className="text-[#e8e8f0]">.</span><span style={{ color: '#FF7900' }}>Pro</span></span>
           </div>
           <div className="flex items-center gap-3">
-            <a href="/app" className="hidden sm:block text-sm text-[#8888aa] hover:text-[#e8e8f0] transition-colors">
+            <a href="/app" className="text-sm text-[#8888aa] hover:text-[#e8e8f0] transition-colors">
               Entrar
             </a>
             <a
