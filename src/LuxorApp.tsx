@@ -18,6 +18,8 @@ import DocumentAI from "./pages/DocumentAI";
 import Connections from "./pages/Connections";
 import Settings from "./pages/Settings";
 import FinancialTools from "./pages/FinancialTools";
+import Admin from "./pages/Admin";
+import { isAdmin } from "./lib/admin";
 
 function LoadingScreen() {
   return (
@@ -27,7 +29,7 @@ function LoadingScreen() {
   );
 }
 
-function AppRoutes() {
+function AppRoutes({ userEmail }: { userEmail?: string }) {
   return (
     <PageLayout>
       <Routes>
@@ -39,6 +41,7 @@ function AppRoutes() {
         <Route path="/connections" element={<Connections />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/tools" element={<FinancialTools />} />
+        {isAdmin(userEmail) && <Route path="/admin" element={<Admin />} />}
         <Route path="*" element={<Dashboard />} />
       </Routes>
       <OnboardingModal />
@@ -50,6 +53,7 @@ export default function LuxorApp() {
   const { init, isLoading } = useStore();
   const [authed, setAuthed] = useState<boolean | undefined>(undefined);
   const [userId, setUserId] = useState<string | undefined>(undefined);
+  const [userEmail, setUserEmail] = useState<string | undefined>(undefined);
   const [subscriptionDone, setSubscriptionDone] = useState(false);
   const [showSubscription, setShowSubscription] = useState(false);
   const [subVerified, setSubVerified] = useState<boolean | null>(null);
@@ -69,6 +73,8 @@ export default function LuxorApp() {
   useEffect(() => {
     if (!authed || !userId) { setSubVerified(null); return; }
     if (!SUPABASE_CONFIGURED) { setSubVerified(true); return; }
+    // Admin emails bypass subscription entirely
+    if (isAdmin(userEmail)) { setSubVerified(true); return; }
 
     supabase
       .from('profiles')
@@ -82,7 +88,7 @@ export default function LuxorApp() {
         setSubVerified(active);
       })
       .catch(() => setSubVerified(!!getStoredSubscription()));
-  }, [authed, userId]);
+  }, [authed, userId, userEmail]);
 
   const [sessionGateChecked, setSessionGateChecked] = useState(false);
   useEffect(() => {
@@ -128,6 +134,7 @@ export default function LuxorApp() {
       if (has) {
         setActiveUser(data.session?.user?.id);
         setUserId(data.session?.user?.id);
+        setUserEmail(data.session?.user?.email);
         init();
       }
     });
@@ -138,10 +145,12 @@ export default function LuxorApp() {
       if (has) {
         setActiveUser(session?.user?.id);
         setUserId(session?.user?.id);
+        setUserEmail(session?.user?.email);
         init();
       } else {
         setActiveUser(null);
         setUserId(undefined);
+        setUserEmail(undefined);
       }
     });
 
@@ -165,5 +174,5 @@ export default function LuxorApp() {
       />
     );
 
-  return <AppRoutes />;
+  return <AppRoutes userEmail={userEmail} />;
 }

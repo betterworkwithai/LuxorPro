@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, ArrowLeftRight, TrendingUp, Receipt,
-  FileSearch, Settings, ChevronLeft, ChevronRight, Target, LogOut, User, Calculator,
+  FileSearch, Settings, ChevronLeft, ChevronRight, Target, LogOut, User, Calculator, Shield,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { supabase } from '../../lib/supabase'
 import { LOCAL_AUTH_KEY } from '../../App'
 import { pfPath } from '../../constants'
+import { isAdmin } from '../../lib/admin'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
 const luxorLogo = '/favicon.svg'
 
@@ -127,6 +128,29 @@ export function Sidebar() {
             </>
           )}
         </NavLink>
+
+        {/* Admin link — only for admin emails */}
+        {isAdmin(email) && (
+          <NavLink
+            to={pfPath('/admin')}
+            className={({ isActive }) =>
+              clsx(
+                'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150 group',
+                !expanded && 'justify-center px-2',
+                isActive
+                  ? 'bg-[#ff7a00]/10 text-[#ff7a00] border border-[#ff7a00]/20'
+                  : 'text-[#8888aa] hover:bg-[#16161f] hover:text-[#e8e8f0]',
+              )
+            }
+          >
+            {({ isActive }) => (
+              <>
+                <Shield className={clsx('w-4 h-4 flex-shrink-0', isActive ? 'text-[#ff7a00]' : 'text-[#55556a] group-hover:text-[#ff7a00]')} />
+                {expanded && <span>Admin</span>}
+              </>
+            )}
+          </NavLink>
+        )}
 
         {/* User info row — only shown when there's a logged-in user */}
         {email && (
