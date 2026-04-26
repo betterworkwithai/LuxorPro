@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react'
 import {
   Check, ChevronDown, TrendingUp, Target, FileSearch,
   Calculator, Zap, Shield, ArrowRight, Lock,
-  BarChart3, Wallet, Globe, Users, Wifi,
+  BarChart3, Wallet, Globe, Wifi,
+  Eye, Clock, Brain,
 } from 'lucide-react'
 
 const STRIPE_MONTHLY  = 'https://buy.stripe.com/eVqbIV9EAa91c4navC3wQ03'
@@ -176,7 +177,7 @@ const FAQS = [
   },
   {
     q: 'O que está incluído nos 7 dias grátis?',
-    a: 'Acesso completo a todas as funcionalidades: dashboard, investimentos, fluxo de caixa, metas, IA de documentos e ferramentas financeiras. Nenhum cartão é cobrado durante o período de teste.',
+    a: 'Acesso completo a todas as funcionalidades: dashboard, investimentos, fluxo de caixa, metas, IA de documentos e ferramentas financeiras.',
   },
   {
     q: 'Funciona com todos os bancos brasileiros?',
@@ -228,13 +229,15 @@ export default function Landing() {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
-  const hero    = useFadeIn(0)
-  const problem = useFadeIn(0.1)
-  const benefits= useFadeIn(0.1)
-  const howto   = useFadeIn(0.1)
-  const pricing = useFadeIn(0.1)
-  const faq     = useFadeIn(0.1)
-  const finalCta= useFadeIn(0.1)
+  const hero       = useFadeIn(0)
+  const stats      = useFadeIn(0.1)
+  const problem    = useFadeIn(0.1)
+  const transform  = useFadeIn(0.1)
+  const benefits   = useFadeIn(0.1)
+  const howto      = useFadeIn(0.1)
+  const pricing    = useFadeIn(0.1)
+  const faq        = useFadeIn(0.1)
+  const finalCta   = useFadeIn(0.1)
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-[#e8e8f0] overflow-x-hidden">
@@ -294,8 +297,8 @@ export default function Landing() {
       <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-[#0a0a0f]/95 backdrop-blur border-b border-[#1e1e2e] py-3' : 'py-5'}`}>
         <div className="max-w-6xl mx-auto px-6 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <img src="/favicon.png" alt="Luxor Pro" className="w-8 h-8 rounded-xl object-cover shadow-[0_0_16px_rgba(255,122,0,0.3)]" />
-            <span className="text-[15px] font-bold tracking-tight">Luxor <span className="text-[#ff7a00]">Pro</span></span>
+            <img src="/brand-icon.png" alt="Luxor Pro" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+            <span className="text-xl font-bold tracking-wide"><span className="text-[#e8e8f0]">Luxor</span><span className="text-[#e8e8f0]">.</span><span style={{ color: '#FF7900' }}>Pro</span></span>
           </div>
           <div className="flex items-center gap-3">
             <a href="/app" className="hidden sm:block text-sm text-[#8888aa] hover:text-[#e8e8f0] transition-colors">
@@ -381,23 +384,23 @@ export default function Landing() {
           <div className="grid md:grid-cols-3 gap-6 mb-14">
             {[
               {
-                emoji: '😰',
+                icon: <Eye className="w-5 h-5" />,
                 title: 'Patrimônio invisível',
                 desc: 'Seu dinheiro está espalhado em 4 corretoras, 3 bancos e 2 contas no exterior. Você não sabe ao certo quanto tem — nem quanto está rendendo.',
               },
               {
-                emoji: '⏳',
+                icon: <Clock className="w-5 h-5" />,
                 title: 'Horas perdidas todo mês',
                 desc: 'Downloads de extratos, copy-paste entre planilhas, fórmulas que quebram. Você gasta mais tempo organizando dados do que analisando investimentos.',
               },
               {
-                emoji: '🎲',
+                icon: <Brain className="w-5 h-5" />,
                 title: 'Decisões no escuro',
                 desc: 'Sem contexto histórico, sem benchmark, sem projeções. Cada decisão de alocação é um chute educado — não uma estratégia baseada em dados.',
               },
-            ].map(({ emoji, title, desc }) => (
+            ].map(({ icon, title, desc }) => (
               <div key={title} className="p-6 rounded-2xl bg-[#ff4466]/5 border border-[#ff4466]/15 card-glow transition-all">
-                <div className="text-3xl mb-4">{emoji}</div>
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-4 bg-[#ff4466]/10 border border-[#ff4466]/20 text-[#ff4466]">{icon}</div>
                 <h3 className="text-base font-bold text-[#e8e8f0] mb-2">{title}</h3>
                 <p className="text-sm text-[#8888aa] leading-relaxed">{desc}</p>
               </div>
@@ -418,28 +421,81 @@ export default function Landing() {
           <div className="grid md:grid-cols-3 gap-6">
             {[
               {
-                emoji: '✅',
+                icon: <Globe className="w-5 h-5" />,
                 color: '#00ff88',
                 title: 'Visão 360° instantânea',
                 desc: 'Todo o seu patrimônio — BRL, USD, EUR — consolidado em um único painel atualizado em tempo real. Veja tudo em 30 segundos.',
               },
               {
-                emoji: '⚡',
+                icon: <Zap className="w-5 h-5" />,
                 color: '#00d4ff',
                 title: 'Importação automática com IA',
                 desc: 'Arraste o PDF do seu extrato e a IA categoriza e registra todas as transações automaticamente. Fim das horas perdidas.',
               },
               {
-                emoji: '📊',
+                icon: <BarChart3 className="w-5 h-5" />,
                 color: '#ff7a00',
                 title: 'Decisões baseadas em dados',
                 desc: 'Projete metas, simule aportes, calcule VPL e TIR. Cada decisão de investimento respaldada por dados reais do seu portfólio.',
               },
-            ].map(({ emoji, color, title, desc }) => (
+            ].map(({ icon, color, title, desc }) => (
               <div key={title} className="p-6 rounded-2xl bg-[#0d0d14] border border-[#1e1e2e] card-glow transition-all">
-                <div className="text-3xl mb-4">{emoji}</div>
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-4 border" style={{ background: `${color}12`, borderColor: `${color}25`, color }}>{icon}</div>
                 <h3 className="text-base font-bold mb-2" style={{ color }}>{title}</h3>
                 <p className="text-sm text-[#8888aa] leading-relaxed">{desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════════════════════════════
+          EMOTIONAL TRANSFORMATION
+      ════════════════════════════════════════════════════════════ */}
+      <section className="py-24 px-6 bg-[#080810]">
+        <div ref={transform.ref} className={`max-w-4xl mx-auto lx-fade ${transform.visible ? 'visible' : ''}`}>
+          <div className="text-center mb-12">
+            <p className="text-xs text-[#ff7a00] uppercase tracking-widest font-bold mb-3">A vida com Luxor.Pro</p>
+            <h2 className="text-3xl sm:text-4xl font-bold leading-tight">
+              Imagine acordar segunda-feira<br />
+              <span className="gradient-text">sabendo exatamente onde está cada real.</span>
+            </h2>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-5">
+            {[
+              {
+                icon: <Clock className="w-5 h-5" />,
+                color: '#00d4ff',
+                title: '8 horas de volta por mês',
+                desc: 'Sem mais fins de semana perdidos em planilhas. A IA importa, categoriza e organiza tudo automaticamente — você usa esse tempo com o que importa.',
+              },
+              {
+                icon: <Eye className="w-5 h-5" />,
+                color: '#00ff88',
+                title: 'Visibilidade total, zero surpresas',
+                desc: 'Sabe aquela sensação de não saber exatamente quanto tem? Com Luxor.Pro, seu patrimônio completo está a um clique — BRL, USD, EUR, tudo consolidado.',
+              },
+              {
+                icon: <Target className="w-5 h-5" />,
+                color: '#8b5cf6',
+                title: 'Metas que realmente acontecem',
+                desc: 'Defina quando quer se aposentar, comprar o imóvel ou atingir a independência financeira. O sistema projeta exatamente o que precisa fazer — e te avisa quando está fora do caminho.',
+              },
+              {
+                icon: <Brain className="w-5 h-5" />,
+                color: '#ff7a00',
+                title: 'Decisões com dados, não intuição',
+                desc: 'Cada aporte, cada resgate, cada realocação respaldada por dados reais do seu portfólio. Pare de chutar. Comece a investir com inteligência.',
+              },
+            ].map(({ icon, color, title, desc }) => (
+              <div key={title} className="flex gap-4 p-6 rounded-2xl border border-[#1e1e2e] bg-[#0d0d14] hover:border-[#ff7a00]/20 transition-all card-glow">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 border" style={{ background: `${color}12`, borderColor: `${color}25`, color }}>
+                  {icon}
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-[#e8e8f0] mb-1.5">{title}</h3>
+                  <p className="text-[13px] text-[#8888aa] leading-relaxed">{desc}</p>
+                </div>
               </div>
             ))}
           </div>
@@ -565,7 +621,7 @@ export default function Landing() {
           {/* Recommendation nudge */}
           <div className="flex justify-center mb-10">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#00ff88]/10 border border-[#00ff88]/25 text-[#00ff88] text-xs font-semibold">
-              💡 90% dos nossos usuários escolhem o Anual ou Vitalício
+              <Check className="w-3.5 h-3.5" /> Anual e Vitalício incluem 7 dias de teste + 30 dias de garantia
             </div>
           </div>
 
@@ -603,9 +659,10 @@ export default function Landing() {
               </div>
               <p className="text-xs text-[#ff7a00] uppercase tracking-widest font-bold mb-1 mt-3">Anual</p>
               <div className="flex items-end gap-1 mb-1">
-                <span className="text-4xl font-bold text-[#e8e8f0]">R$ 200</span>
-                <span className="text-sm text-[#55556a] mb-1.5">/ano</span>
+                <span className="text-4xl font-bold text-[#e8e8f0]">R$ 16,67</span>
+                <span className="text-sm text-[#55556a] mb-1.5">/mês</span>
               </div>
+              <p className="text-xs text-[#55556a] -mt-0.5 mb-3">Cobrado anualmente — R$ 200/ano</p>
               <div className="flex items-center gap-2 mb-6">
                 <span className="text-xs text-[#55556a] line-through">R$ 240/ano</span>
                 <span className="px-2 py-0.5 rounded-md bg-[#00ff88]/15 text-[#00ff88] text-[10px] font-bold">17% OFF</span>
@@ -691,8 +748,7 @@ export default function Landing() {
               { icon: <Lock className="w-4 h-4" />, label: 'SSL / TLS 1.3' },
               { icon: <Shield className="w-4 h-4" />, label: 'Stripe Payments' },
               { icon: <Globe className="w-4 h-4" />, label: 'Supabase SOC 2' },
-              { icon: <Users className="w-4 h-4" />, label: '2.800+ usuários' },
-              { icon: <Zap className="w-4 h-4" />, label: '99.9% uptime' },
+              { icon: <Zap className="w-4 h-4" />, label: '99.9% uptime Supabase' },
             ].map(({ icon, label }) => (
               <div key={label} className="flex items-center gap-2 text-[#55556a] hover:text-[#8888aa] transition-colors">
                 {icon}
@@ -725,19 +781,19 @@ export default function Landing() {
         <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse 70% 80% at 50% 50%, rgba(255,122,0,0.10) 0%, transparent 70%)' }} />
         <div className="absolute inset-0 dot-grid opacity-40" />
         <div ref={finalCta.ref} className={`relative max-w-3xl mx-auto text-center lx-fade ${finalCta.visible ? 'visible' : ''}`}>
-          <img src="/favicon.png" alt="Luxor Pro" className="w-14 h-14 rounded-2xl object-cover mx-auto mb-6 shadow-[0_0_30px_rgba(255,122,0,0.3)]" />
+          <img src="/brand-icon.png" alt="Luxor Pro" className="w-16 h-16 rounded-2xl object-cover mx-auto mb-6 shadow-[0_0_40px_rgba(255,122,0,0.35)]" />
           <h2 className="text-4xl sm:text-5xl font-bold leading-tight mb-5">
-            Seu patrimônio merece<br />
-            <span className="gradient-text">uma ferramenta à altura.</span>
+            Chega de desorganização.<br />
+            <span className="gradient-text">Comece a construir riqueza de verdade.</span>
           </h2>
           <p className="text-lg text-[#8888aa] mb-8 max-w-xl mx-auto leading-relaxed">
-            Junte-se a mais de <strong className="text-[#e8e8f0]">2.800 investidores</strong> que já tomam decisões financeiras com inteligência e dados reais.
+            Controle total do seu patrimônio, receitas, despesas e metas — em um painel inteligente, com dados reais.
           </p>
           <a
             href={STRIPE_ANNUAL}
             className="inline-flex items-center gap-2.5 px-9 py-5 rounded-2xl bg-[#ff7a00] text-[#0a0a0f] text-lg font-bold hover:bg-[#e06500] transition-all btn-glow mb-6"
           >
-            Começar 7 Dias Grátis Agora
+            Quero Controle Financeiro Agora
             <ArrowRight className="w-5 h-5" />
           </a>
           <div className="flex flex-wrap justify-center gap-5 text-xs text-[#55556a]">
@@ -756,8 +812,8 @@ export default function Landing() {
       <footer className="border-t border-[#1e1e2e] bg-[#080810] py-10 px-6">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-2">
-            <img src="/favicon.png" alt="Luxor Pro" className="w-6 h-6 rounded-lg object-cover" />
-            <span className="text-sm font-bold">Luxor <span className="text-[#ff7a00]">Pro</span></span>
+            <img src="/brand-icon.png" alt="Luxor Pro" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+            <span className="text-xl font-bold tracking-wide"><span className="text-[#e8e8f0]">Luxor</span><span className="text-[#e8e8f0]">.</span><span style={{ color: '#FF7900' }}>Pro</span></span>
           </div>
           <div className="flex flex-wrap justify-center gap-6 text-xs text-[#55556a]">
             <a href="#planos" className="hover:text-[#ff7a00] transition-colors">Planos</a>
