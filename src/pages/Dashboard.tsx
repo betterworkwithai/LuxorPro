@@ -546,22 +546,9 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen animate-fade-in">
       <PageHeader
-        title={<>Bem-vindo, <span style={{ color: '#FF7900' }}>{settings.name}</span> 👋</>}
-        subtitle="Todos os dados armazenados localmente"
-        actions={
-          <div className="flex items-center gap-2">
-            <a
-              href="https://gaara.pro"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hidden md:flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-[0.98]"
-              style={{ background: 'linear-gradient(135deg, #ff7a00, #ff4500)', boxShadow: '0 0 18px rgba(255,122,0,0.35)' }}
-            >
-              <ExternalLink className="w-4 h-4 flex-shrink-0" />
-              <span>Precisa de Ajuda Profissional? <span className="opacity-90 font-medium">Fale com nossos Advisors</span></span>
-            </a>
-          </div>
-        }
+        title={<>Painel · <span style={{ color: '#FF7900' }}>{settings.name}</span></>}
+        subtitle="Visão consolidada do seu patrimônio, receitas, despesas e metas"
+        actions={<div />}
       />
 
       <div className="p-4 sm:p-6 space-y-6">

@@ -57,28 +57,28 @@ export function StatCard({ title, value, subtitle, secondary, delta, icon, color
   const c = colorMap[color]
 
   return (
-    <div className={clsx('card p-5', className)}>
-      <div className="flex items-start justify-between mb-3">
-        <p className="text-xs text-[#8888aa] font-medium uppercase tracking-wider">{title}</p>
+    <div className={clsx('card p-4 sm:p-5', className)}>
+      <div className="flex items-start justify-between mb-2.5">
+        <p className="text-[11px] text-[#8888aa] font-semibold uppercase tracking-widest leading-tight">{title}</p>
         {icon && (
           <div className={clsx('w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0', c.bg, `border ${c.border}`)}>
             <span className={c.text}>{icon}</span>
           </div>
         )}
       </div>
-      <p className={clsx('text-2xl font-bold tracking-tight', c.text)}>{value}</p>
+      <p className={clsx('text-xl sm:text-2xl font-bold tracking-tight leading-none', c.text)}>{value}</p>
       {(subtitle || delta !== undefined) && (
-        <div className="mt-1.5 flex items-center gap-2">
+        <div className="mt-2 flex items-center gap-2">
           {delta !== undefined && (
-            <span className={clsx('text-xs font-medium', delta >= 0 ? 'text-[#00ff88]' : 'text-[#ff4466]')}>
-              {delta >= 0 ? '+' : ''}{delta.toFixed(1)}%
+            <span className={clsx('text-[11px] font-semibold px-1.5 py-0.5 rounded-md', delta >= 0 ? 'text-[#00ff88] bg-[#00ff88]/10' : 'text-[#ff4466] bg-[#ff4466]/10')}>
+              {delta >= 0 ? '↑' : '↓'} {Math.abs(delta).toFixed(1)}%
             </span>
           )}
-          {subtitle && <span className="text-xs text-[#55556a]">{subtitle}</span>}
+          {subtitle && <span className="text-[11px] text-[#55556a]">{subtitle}</span>}
         </div>
       )}
       {secondary && (
-        <p className="text-[11px] text-[#55556a] mt-1 border-t border-[#1e1e2e] pt-1.5">{secondary}</p>
+        <p className="text-[11px] text-[#55556a] mt-2 pt-2 border-t border-[#1e1e2e]/60">{secondary}</p>
       )}
     </div>
   )

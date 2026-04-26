@@ -2,12 +2,21 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { Modal, ModalFooter } from '../ui/Modal'
 import { useStore } from '../../store/useStore'
 import { PAYMENT_METHODS, SUGGESTED_CATEGORIES } from '../../lib/types'
-import { Plus, X, Scissors, TrendingUp, TrendingDown } from 'lucide-react'
+import { Plus, X, Scissors, ChevronDown, ChevronUp, Info } from 'lucide-react'
 import { AccountSelect } from '../ui/AccountSelect'
 import type { Transaction } from '../../lib/types'
 import { useCategoriesForType, useAllCategories } from '../../lib/useCategories'
 import { todayISO, formatBRL } from '../../lib/formatters'
 import { FormulaInput } from '../ui/FormulaInput'
+
+/** Small inline tooltip icon */
+function Tip({ text }: { text: string }) {
+  return (
+    <span title={text} className="inline-flex items-center ml-1 text-[#55556a] hover:text-[#8888aa] cursor-help align-middle">
+      <Info className="w-3 h-3" />
+    </span>
+  )
+}
 
 interface Props {
   open: boolean
@@ -114,6 +123,9 @@ export function AddTransactionModal({ open, onClose, prefill, initial }: Props) 
     { id: '2', description: '', category: 'outros', amount: '' },
   ])
 
+  // Advanced section toggle
+  const [showAdvanced, setShowAdvanced] = useState(false)
+
   // Re-initialise whenever the modal opens
   useEffect(() => {
     if (!open) return
@@ -129,6 +141,7 @@ export function AddTransactionModal({ open, onClose, prefill, initial }: Props) 
       { id: '2', description: '', category: 'outros', amount: '' },
     ])
     setSmartCatSuggestion(null)
+    setShowAdvanced(false)
     if (initial) {
       setForm({
         type:          initial.type,
@@ -518,7 +531,10 @@ export function AddTransactionModal({ open, onClose, prefill, initial }: Props) 
             {/* Currency + Amount + Date */}
             <div className="grid grid-cols-[auto_1fr_1fr] gap-3">
               <div>
-                <label className="text-xs text-[#8888aa] mb-1.5 block">Moeda</label>
+                <label className="text-xs text-[#8888aa] mb-1.5 block">
+                  Moeda
+                  <Tip text="Selecione a moeda original da transação. O valor será convertido para BRL no relatório usando a taxa configurada em Ajustes." />
+                </label>
                 <div className="flex flex-col gap-1">
                   {(['BRL', 'USD', 'EUR'] as const).map(c => (
                     <button key={c} type="button" onClick={() => upd('currency', c)}
@@ -533,6 +549,7 @@ export function AddTransactionModal({ open, onClose, prefill, initial }: Props) 
               <div>
                 <label className="text-xs text-[#8888aa] mb-1.5 block">
                   Valor {form.currency !== 'BRL' && <span className="text-[#ff7a00]">({form.currency})</span>}
+                  <Tip text="Aceita expressões matemáticas: ex. 50+30, 1500/2. O resultado é calculado automaticamente." />
                 </label>
                 <FormulaInput value={form.amount} onChange={v => upd('amount', v)} placeholder="0,00" />
                 {form.currency !== 'BRL' && form.amount && (
@@ -542,7 +559,14 @@ export function AddTransactionModal({ open, onClose, prefill, initial }: Props) 
                 )}
               </div>
               <div>
-                <label className="text-xs text-[#8888aa] mb-1.5 block">Data</label>
+                <label className="text-xs text-[#8888aa] mb-1.5 block">
+                  {form.type === 'expense' && form.expenseRegime === 'competencia'
+                    ? <>Data da Compra <Tip text="Competência: use a data em que o gasto foi realizado (ex: data da compra no cartão). O lançamento aparece nesse mês." /></>
+                    : form.type === 'expense'
+                      ? <>Data do Pagamento <Tip text="Caixa: use a data em que o dinheiro sai da sua conta (ex: vencimento do cartão, data do débito). O lançamento aparece nesse mês." /></>
+                      : <>Data <Tip text="Data em que a receita foi recebida ou creditada." /></>
+                  }
+                </label>
                 <input type="date" className="input-dark" value={form.date} onChange={e => upd('date', e.target.value)} />
               </div>
             </div>
@@ -606,13 +630,19 @@ export function AddTransactionModal({ open, onClose, prefill, initial }: Props) 
 
             {/* Account */}
             <div>
-              <label className="text-xs text-[#8888aa] mb-1.5 block">Conta</label>
+              <label className="text-xs text-[#8888aa] mb-1.5 block">
+                Conta
+                <Tip text="Instituição financeira de onde o dinheiro saiu (despesa) ou entrou (receita). Ex: Nubank, Itaú, XP." />
+              </label>
               <AccountSelect value={form.account} onChange={v => upd('account', v)} placeholder="Selecionar…" />
             </div>
 
             {/* Payment Method */}
             <div>
-              <label className="text-xs text-[#8888aa] mb-1.5 block">Forma de Pagamento</label>
+              <label className="text-xs text-[#8888aa] mb-1.5 block">
+                Forma de Pagamento
+                <Tip text="Como a transação foi realizada. Usado para análise de uso de crédito vs. débito. Opcional." />
+              </label>
               <div className="flex flex-wrap gap-1.5 items-center">
                 {allPaymentMethods.map(pm => (
                   <button key={pm} type="button" onClick={() => upd('paymentMethod', form.paymentMethod === pm ? '' : pm)}
@@ -639,55 +669,102 @@ export function AddTransactionModal({ open, onClose, prefill, initial }: Props) 
               </div>
             </div>
 
-            {/* ── Advanced options (expenses only) ── */}
+            {/* ── Advanced options (expenses only) — collapsible ── */}
             {form.type === 'expense' && (
               <>
-                {/* Expense Regime */}
-                <div>
-                  <label className="text-xs text-[#8888aa] mb-1.5 block">Regime Contábil</label>
-                  <div className="flex gap-2">
-                    {(['caixa', 'competencia'] as const).map(r => (
-                      <button key={r} type="button" onClick={() => upd('expenseRegime', r)}
-                        className={`flex-1 py-2 rounded-xl text-xs font-semibold border transition-all ${
-                          form.expenseRegime === r
-                            ? 'bg-[#ff7a00]/10 text-[#ff7a00] border-[#ff7a00]/30'
-                            : 'bg-[#16161f] text-[#55556a] border-[#1e1e2e] hover:text-[#e8e8f0]'
-                        }`}>
-                        {r === 'caixa' ? '💵 Caixa' : '📅 Competência'}
-                      </button>
-                    ))}
-                  </div>
-                  {form.expenseRegime === 'competencia' && (
-                    <div className="mt-2">
-                      <label className="text-xs text-[#8888aa] mb-1.5 block">Data de pagamento da fatura</label>
-                      <input type="date" className="input-dark" value={form.paymentDate} onChange={e => upd('paymentDate', e.target.value)} />
-                      <p className="text-[10px] text-[#55556a] mt-1">
-                        A data acima é quando o dinheiro sai da conta (ex: vencimento do cartão). A data da transação é a data da compra.
-                      </p>
+                {/* Toggle */}
+                <button
+                  type="button"
+                  onClick={() => setShowAdvanced(v => !v)}
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#16161f] border border-[#1e1e2e] text-xs font-semibold text-[#8888aa] hover:text-[#e8e8f0] transition-all"
+                >
+                  <span>Detalhes Avançados</span>
+                  {showAdvanced ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                </button>
+
+                {showAdvanced && (
+                  <div className="space-y-4 px-1">
+
+                    {/* Expense Regime */}
+                    <div>
+                      <label className="text-xs text-[#8888aa] mb-1.5 block">
+                        Regime Contábil
+                        <Tip text="Caixa: lança na data em que o dinheiro sai da conta (ex: vencimento do cartão). Competência: lança na data em que o gasto foi incorrido (ex: data da compra)." />
+                      </label>
+                      <div className="flex gap-2">
+                        {(['caixa', 'competencia'] as const).map(r => (
+                          <button key={r} type="button" onClick={() => upd('expenseRegime', r)}
+                            className={`flex-1 py-2 rounded-xl text-xs font-semibold border transition-all ${
+                              form.expenseRegime === r
+                                ? 'bg-[#ff7a00]/10 text-[#ff7a00] border-[#ff7a00]/30'
+                                : 'bg-[#16161f] text-[#55556a] border-[#1e1e2e] hover:text-[#e8e8f0]'
+                            }`}>
+                            {r === 'caixa' ? '💵 Caixa' : '📅 Competência'}
+                          </button>
+                        ))}
+                      </div>
+                      {/* Caixa: clarify that the "Date" field above = payment date */}
+                      {form.expenseRegime === 'caixa' && (
+                        <p className="text-[10px] text-[#55556a] mt-1.5 bg-[#16161f] border border-[#1e1e2e] rounded-lg p-2">
+                          <strong className="text-[#8888aa]">Caixa:</strong> o campo "Data do Pagamento" acima deve ser a data em que o dinheiro sai da sua conta (ex: vencimento do cartão, data do débito). O fluxo de caixa é exibido nesse mês.
+                        </p>
+                      )}
+                      {/* Competência: show extra payment date for reference */}
+                      {form.expenseRegime === 'competencia' && (
+                        <div className="mt-2 space-y-1.5">
+                          <p className="text-[10px] text-[#55556a] bg-[#16161f] border border-[#1e1e2e] rounded-lg p-2">
+                            <strong className="text-[#8888aa]">Competência:</strong> o campo "Data da Compra" acima deve ser a data em que o gasto ocorreu. O lançamento aparece nesse mês, independente de quando você pagar.
+                          </p>
+                          <label className="text-xs text-[#8888aa] mb-1 block">
+                            Data de Pagamento / Vencimento (opcional)
+                            <Tip text="Informação de referência — quando o dinheiro vai sair da conta. Não altera o mês do lançamento em Competência." />
+                          </label>
+                          <input type="date" className="input-dark" value={form.paymentDate} onChange={e => upd('paymentDate', e.target.value)} />
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
 
-                {/* Expense Nature */}
-                <div>
-                  <label className="text-xs text-[#8888aa] mb-1.5 block">Natureza (regra 50/30/20)</label>
-                  <div className="flex gap-2">
-                    {([
-                      { v: 'fixed',      l: '🔒 Fixa',         cls: '#3b82f6' },
-                      { v: 'variable',   l: '🌊 Variável',      cls: '#f59e0b' },
-                      { v: 'investment', l: '📊 Investimento',  cls: '#00ff88' },
-                    ] as const).map(({ v, l, cls }) => (
-                      <button key={v} type="button"
-                        onClick={() => upd('expenseNature', form.expenseNature === v ? '' : v)}
-                        style={{ borderColor: form.expenseNature === v ? cls + '55' : undefined, color: form.expenseNature === v ? cls : undefined, background: form.expenseNature === v ? cls + '18' : undefined }}
-                        className={`flex-1 py-2 rounded-xl text-xs font-semibold border transition-all ${
-                          form.expenseNature !== v ? 'bg-[#16161f] text-[#55556a] border-[#1e1e2e] hover:text-[#e8e8f0]' : ''
-                        }`}>{l}</button>
-                    ))}
+                    {/* Expense Nature */}
+                    <div>
+                      <label className="text-xs text-[#8888aa] mb-1.5 block">
+                        Natureza (regra 50/30/20)
+                        <Tip text="Classifica a despesa para análise orçamentária: Fixa = necessidades constantes (aluguel, plano), Variável = gastos que flutuam (lazer, alimentação), Investimento = aportes em patrimônio." />
+                      </label>
+                      <div className="flex gap-2">
+                        {([
+                          { v: 'fixed',      l: '🔒 Fixa',        cls: '#3b82f6' },
+                          { v: 'variable',   l: '🌊 Variável',     cls: '#f59e0b' },
+                          { v: 'investment', l: '📊 Investimento', cls: '#00ff88' },
+                        ] as const).map(({ v, l, cls }) => (
+                          <button key={v} type="button"
+                            onClick={() => upd('expenseNature', form.expenseNature === v ? '' : v)}
+                            style={{ borderColor: form.expenseNature === v ? cls + '55' : undefined, color: form.expenseNature === v ? cls : undefined, background: form.expenseNature === v ? cls + '18' : undefined }}
+                            className={`flex-1 py-2 rounded-xl text-xs font-semibold border transition-all ${
+                              form.expenseNature !== v ? 'bg-[#16161f] text-[#55556a] border-[#1e1e2e] hover:text-[#e8e8f0]' : ''
+                            }`}>{l}</button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Want expense toggle */}
+                    <div className="flex items-center justify-between p-3 bg-[#16161f] rounded-xl border border-[#1e1e2e]">
+                      <div>
+                        <p className="text-sm text-[#e8e8f0]">
+                          Despesa Desejada
+                          <Tip text="Marque para despesas planejadas que ainda não foram realizadas. Ficam separadas do total real de despesas." />
+                        </p>
+                        <p className="text-[10px] text-[#55556a] mt-0.5">Planejada mas ainda não realizada</p>
+                      </div>
+                      <button type="button" onClick={() => setForm(f => ({ ...f, isWanted: !f.isWanted }))}
+                        className={`w-9 h-5 rounded-full transition-colors flex items-center px-0.5 ${form.isWanted ? 'bg-[#8b5cf6]' : 'bg-[#2a2a3e]'}`}>
+                        <div className={`w-4 h-4 bg-white rounded-full transition-transform ${form.isWanted ? 'translate-x-4' : 'translate-x-0'}`} />
+                      </button>
+                    </div>
+
                   </div>
-                </div>
+                )}
 
-                {/* Installment mode */}
+                {/* Installment mode — kept outside advanced so it's easy to find */}
                 {!splitMode && !isEdit && (
                   <div className="p-3 rounded-xl bg-[#16161f] border border-[#1e1e2e]">
                     <div className="flex items-center gap-3">
@@ -719,17 +796,6 @@ export function AddTransactionModal({ open, onClose, prefill, initial }: Props) 
                   </div>
                 )}
 
-                {/* Want expense toggle */}
-                <div className="flex items-center justify-between p-3 bg-[#16161f] rounded-xl border border-[#1e1e2e]">
-                  <div>
-                    <p className="text-sm text-[#e8e8f0]">Despesa Desejada</p>
-                    <p className="text-[10px] text-[#55556a] mt-0.5">Planejada mas ainda não realizada</p>
-                  </div>
-                  <button type="button" onClick={() => setForm(f => ({ ...f, isWanted: !f.isWanted }))}
-                    className={`w-9 h-5 rounded-full transition-colors flex items-center px-0.5 ${form.isWanted ? 'bg-[#8b5cf6]' : 'bg-[#2a2a3e]'}`}>
-                    <div className={`w-4 h-4 bg-white rounded-full transition-transform ${form.isWanted ? 'translate-x-4' : 'translate-x-0'}`} />
-                  </button>
-                </div>
               </>
             )}
 
@@ -841,13 +907,18 @@ export function AddTransactionModal({ open, onClose, prefill, initial }: Props) 
             </div>
 
             <div>
-              <label className="text-xs text-[#8888aa] mb-1.5 block">Conta / Instituição</label>
-              <input className="input-dark" placeholder="Ex: Nubank, Itaú…"
-                value={recForm.account} onChange={e => updRec('account', e.target.value)} />
+              <label className="text-xs text-[#8888aa] mb-1.5 block">
+                Conta / Instituição
+                <Tip text="Selecione a instituição financeira associada a essa recorrência. Você pode criar uma nova diretamente na lista." />
+              </label>
+              <AccountSelect value={recForm.account} onChange={v => updRec('account', v)} placeholder="Selecionar ou criar…" />
             </div>
 
             <div>
-              <label className="text-xs text-[#8888aa] mb-1.5 block">Frequência</label>
+              <label className="text-xs text-[#8888aa] mb-1.5 block">
+                Frequência
+                <Tip text="Mensal: repete todo mês no dia escolhido. Semanal: repete a cada N semanas." />
+              </label>
               <div className="flex gap-2">
                 {(['monthly', 'weekly'] as const).map(f => (
                   <button key={f} type="button" onClick={() => updRec('frequency', f)}
@@ -864,20 +935,29 @@ export function AddTransactionModal({ open, onClose, prefill, initial }: Props) 
 
             {recForm.frequency === 'monthly' ? (
               <div>
-                <label className="text-xs text-[#8888aa] mb-1.5 block">Dia do mês (1–28)</label>
+                <label className="text-xs text-[#8888aa] mb-1.5 block">
+                  Dia do mês (1–28)
+                  <Tip text="Dia em que essa receita/despesa cai mensalmente. Ex: 5 = dia 5 de cada mês (vencimento, salário, etc.)." />
+                </label>
                 <input type="number" min="1" max="28" className="input-dark"
                   value={recForm.billingDay} onChange={e => updRec('billingDay', e.target.value)} />
               </div>
             ) : (
               <div>
-                <label className="text-xs text-[#8888aa] mb-1.5 block">Repetir a cada (semanas)</label>
+                <label className="text-xs text-[#8888aa] mb-1.5 block">
+                  Repetir a cada (semanas)
+                  <Tip text="Intervalo em semanas entre cada ocorrência. Ex: 2 = quinzenal, 4 = mensal aproximado." />
+                </label>
                 <input type="number" min="1" max="52" className="input-dark"
                   value={recForm.weeklyInterval} onChange={e => updRec('weeklyInterval', e.target.value)} />
               </div>
             )}
 
             <div>
-              <label className="text-xs text-[#8888aa] mb-2 block">Gerar lançamentos no Fluxo de Caixa</label>
+              <label className="text-xs text-[#8888aa] mb-2 block">
+                Gerar lançamentos no Fluxo de Caixa
+                <Tip text="Cria transações reais para os próximos N meses. Use 'Só template' para criar apenas a recorrência sem lançar transações." />
+              </label>
               <div className="flex flex-wrap gap-2 mb-2">
                 {PRESET_MONTHS.map(n => (
                   <button key={n} type="button" onClick={() => { setGenerateMonths(n); setCustomMonths('') }}

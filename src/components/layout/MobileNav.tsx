@@ -9,7 +9,7 @@ import { supabase } from '../../lib/supabase'
 import { LOCAL_AUTH_KEY } from '../../App'
 import { pfPath } from '../../constants'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
-const luxorLogo = '/logo.gif'
+const luxorLogo = '/brand-icon.png'
 
 const NAV_ITEMS = [
   { to: pfPath('/'),           icon: LayoutDashboard, label: 'Painel' },
@@ -66,9 +66,9 @@ export function MobileNav() {
           <Menu className="w-5 h-5" />
         </button>
         <div className="flex items-center gap-2">
-          <img src={luxorLogo} alt="Luxor" className="w-7 h-7 rounded-lg object-cover" />
-          <p className="text-sm font-bold tracking-wide">
-            <span className="text-[#e8e8f0]">Luxor </span><span style={{ color: '#FF7900' }}>Pro</span>
+          <img src={luxorLogo} alt="Luxor" className="w-9 h-9 rounded-lg object-cover" />
+          <p className="text-xl font-bold tracking-wide">
+            <span className="text-[#e8e8f0]">Luxor</span><span className="text-[#e8e8f0]">.</span><span style={{ color: '#FF7900' }}>Pro</span>
           </p>
         </div>
       </header>
@@ -92,10 +92,10 @@ export function MobileNav() {
         {/* Header */}
         <div className="flex items-center justify-between gap-3 px-4 py-4 border-b border-[#1e1e2e]">
           <div className="flex items-center gap-3">
-            <img src={luxorLogo} alt="Luxor" className="w-8 h-8 rounded-lg object-cover" />
+            <img src={luxorLogo} alt="Luxor" className="w-10 h-10 rounded-lg object-cover" />
             <div>
-              <p className="text-sm font-bold leading-none tracking-wide">
-                <span className="text-[#e8e8f0]">Luxor </span><span style={{ color: '#FF7900' }}>Pro</span>
+              <p className="text-xl font-bold leading-none tracking-wide">
+                <span className="text-[#e8e8f0]">Luxor</span><span className="text-[#e8e8f0]">.</span><span style={{ color: '#FF7900' }}>Pro</span>
               </p>
             </div>
           </div>

@@ -9,7 +9,7 @@ import { supabase } from '../../lib/supabase'
 import { LOCAL_AUTH_KEY } from '../../App'
 import { pfPath } from '../../constants'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
-const luxorLogo = '/logo.gif'
+const luxorLogo = '/favicon.svg'
 
 const NAV_ITEMS = [
   { to: pfPath('/'),           icon: LayoutDashboard, label: 'Painel Consolidado' },
@@ -60,11 +60,16 @@ export function Sidebar() {
         'flex items-center gap-3 px-4 py-5 border-b border-[#1e1e2e] overflow-hidden',
         !expanded && 'justify-center px-2',
       )}>
-        <img src={luxorLogo} alt="Luxor" className="w-8 h-8 rounded-lg object-cover flex-shrink-0" />
+        <img
+          src={luxorLogo}
+          alt="Luxor"
+          className="w-10 h-10 rounded-lg object-contain flex-shrink-0"
+          onError={e => { (e.currentTarget as HTMLImageElement).src = '/favicon.png' }}
+        />
         {expanded && (
           <div className="overflow-hidden">
-            <p className="text-sm font-bold leading-none tracking-wide">
-              <span className="text-[#e8e8f0]">Luxor </span><span style={{ color: '#FF7900' }}>Pro</span>
+            <p className="text-xl font-bold leading-none tracking-wide">
+              <span className="text-[#e8e8f0]">Luxor</span><span className="text-[#e8e8f0]">.</span><span style={{ color: '#FF7900' }}>Pro</span>
             </p>
           </div>
         )}

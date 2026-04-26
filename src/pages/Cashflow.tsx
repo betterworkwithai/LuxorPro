@@ -38,9 +38,11 @@ function formatRelativeDate(iso?: string): string {
 
 type PeriodMode = 'monthly' | 'ytd' | 'yearly'
 
-const INC_PALETTE = [
-  '#00ff88', '#00d4ff', '#8b5cf6', '#f59e0b',
-  '#ff7a00', '#06b6d4', '#a78bfa', '#34d399',
+// Guaranteed-distinct palette for pie charts — always unique regardless of category colours
+const CHART_PALETTE = [
+  '#ff7a00', '#00d4ff', '#00ff88', '#8b5cf6', '#f59e0b',
+  '#ff4466', '#06b6d4', '#a78bfa', '#34d399', '#fb923c',
+  '#e879f9', '#4ade80', '#60a5fa', '#fbbf24', '#f472b6',
 ]
 
 // Default budget nature per category (for 50/30/20 rule)
@@ -387,6 +389,17 @@ export default function Cashflow() {
   // ── Period helpers ────────────────────────────
   const todayStr = new Date().toISOString().slice(0, 10)
 
+  /**
+   * Caixa  → report on the payment/due date (paymentDate if set, otherwise date)
+   * Competência → report on the date the expense was incurred (always date)
+   */
+  const effectiveDate = useCallback((t: Transaction) => {
+    // Caixa: report on payment/due date (when money leaves account)
+    // Competência: report on the date the expense was incurred
+    if (t.type === 'expense' && t.expenseRegime === 'caixa' && t.paymentDate) return t.paymentDate
+    return t.date
+  }, [])
+
   const periodIncludes = useCallback((date: string) => {
     if (periodMode === 'monthly') return date.startsWith(periodMonth)
     if (periodMode === 'ytd')    return date >= `${periodYear}-01-01` && date <= todayStr
@@ -421,7 +434,7 @@ export default function Cashflow() {
 
   const filtered = useMemo(() => {
     let list = [...transactions]
-    list = list.filter(t => periodIncludes(t.date))
+    list = list.filter(t => periodIncludes(effectiveDate(t)))
     if (search)               list = list.filter(t => t.description.toLowerCase().includes(search.toLowerCase()))
     if (typeF === 'wanted')   list = list.filter(t => t.isWanted === true)
     else if (typeF !== 'all') list = list.filter(t => t.type === typeF)
@@ -451,8 +464,8 @@ export default function Cashflow() {
 
   // ── Chart data — follows the selected period ──
   const chartTx = useMemo(() =>
-    transactions.filter(t => periodIncludes(t.date)),
-    [transactions, periodIncludes]
+    transactions.filter(t => periodIncludes(effectiveDate(t))),
+    [transactions, periodIncludes, effectiveDate]
   )
 
   // ── Bar chart data — adapts to period mode ──
@@ -507,24 +520,34 @@ export default function Cashflow() {
     })
   }, [transactions, periodMode, periodMonth, periodYear, curMonth, toBRL])
 
+  // Investment category IDs — excluded from the expense pie chart (shown in their own stat card)
+  const INVEST_CATS = new Set(['investimento', 'investimentos'])
+
   const expByCategory = useMemo(() => {
     const map = new Map<string, { id: string; name: string; icon: string; color: string; amount: number }>()
-    chartTx.filter(t => t.type === 'expense').forEach(t => {
-      const cat = allCategories.find(c => c.id === t.category)
-      const cur = map.get(t.category) ?? { id: t.category, name: cat?.name ?? t.category, icon: cat?.icon ?? '📦', color: cat?.color ?? '#55556a', amount: 0 }
-      map.set(t.category, { ...cur, amount: cur.amount + toBRL(t) })
-    })
-    return [...map.values()].sort((a, b) => b.amount - a.amount).slice(0, 8)
+    chartTx
+      .filter(t => t.type === 'expense' && !INVEST_CATS.has(t.category) && t.expenseNature !== 'investment')
+      .forEach(t => {
+        const cat = allCategories.find(c => c.id === t.category)
+        const cur = map.get(t.category) ?? { id: t.category, name: cat?.name ?? t.category, icon: cat?.icon ?? '📦', color: '', amount: 0 }
+        map.set(t.category, { ...cur, amount: cur.amount + toBRL(t) })
+      })
+    // Assign palette colours by sorted rank — every category gets a unique colour
+    return [...map.values()]
+      .sort((a, b) => b.amount - a.amount)
+      .map((item, i) => ({ ...item, color: CHART_PALETTE[i % CHART_PALETTE.length] }))
   }, [chartTx, allCategories, toBRL])
 
   const incByCategory = useMemo(() => {
     const map = new Map<string, { id: string; name: string; icon: string; color: string; amount: number }>()
     chartTx.filter(t => t.type === 'income').forEach(t => {
       const cat = allCategories.find(c => c.id === t.category)
-      const cur = map.get(t.category) ?? { id: t.category, name: cat?.name ?? t.category, icon: cat?.icon ?? '💰', color: cat?.color ?? '#00ff88', amount: 0 }
+      const cur = map.get(t.category) ?? { id: t.category, name: cat?.name ?? t.category, icon: cat?.icon ?? '💰', color: '', amount: 0 }
       map.set(t.category, { ...cur, amount: cur.amount + toBRL(t) })
     })
-    return [...map.values()].sort((a, b) => b.amount - a.amount)
+    return [...map.values()]
+      .sort((a, b) => b.amount - a.amount)
+      .map((item, i) => ({ ...item, color: CHART_PALETTE[i % CHART_PALETTE.length] }))
   }, [chartTx, allCategories, toBRL])
 
   // ── Budget 50/30/20 ─────────────────────────
@@ -783,7 +806,8 @@ export default function Cashflow() {
                     <ResponsiveContainer width="100%" height={220}>
                       <PieChart>
                         <Pie data={expByCategory} dataKey="amount" nameKey="name"
-                          cx="50%" cy="50%" innerRadius={50} outerRadius={85} paddingAngle={2}>
+                          cx="50%" cy="50%" innerRadius={50} outerRadius={85}
+                          paddingAngle={1} minAngle={3}>
                           {expByCategory.map(entry => (
                             <Cell key={entry.id} fill={entry.color} stroke="#0a0a0f" strokeWidth={2} />
                           ))}
@@ -794,7 +818,6 @@ export default function Cashflow() {
                             const pct = total > 0 ? (Number(v) / total * 100).toFixed(1) : '0'
                             return [`${formatBRL(v)} (${pct}%)`, name]
                           }} />
-                        <Legend wrapperStyle={{ fontSize: 11, color: '#8888aa' }} />
                       </PieChart>
                     </ResponsiveContainer>
                     <div className="mt-2 space-y-0.5">
@@ -887,9 +910,10 @@ export default function Cashflow() {
                     <ResponsiveContainer width="100%" height={220}>
                       <PieChart>
                         <Pie data={incByCategory} dataKey="amount" nameKey="name"
-                          cx="50%" cy="50%" innerRadius={50} outerRadius={85} paddingAngle={2}>
-                          {incByCategory.map((entry, i) => (
-                            <Cell key={entry.id} fill={INC_PALETTE[i % INC_PALETTE.length]} stroke="#0a0a0f" strokeWidth={2} />
+                          cx="50%" cy="50%" innerRadius={50} outerRadius={85}
+                          paddingAngle={1} minAngle={3}>
+                          {incByCategory.map(entry => (
+                            <Cell key={entry.id} fill={entry.color} stroke="#0a0a0f" strokeWidth={2} />
                           ))}
                         </Pie>
                         <Tooltip {...pieTooltipStyle}
@@ -898,7 +922,6 @@ export default function Cashflow() {
                             const pct = total > 0 ? (Number(v) / total * 100).toFixed(1) : '0'
                             return [`${formatBRL(v)} (${pct}%)`, name]
                           }} />
-                        <Legend wrapperStyle={{ fontSize: 11, color: '#8888aa' }} />
                       </PieChart>
                     </ResponsiveContainer>
                     <div className="mt-2 space-y-0.5">
@@ -906,9 +929,9 @@ export default function Cashflow() {
                         const total = incByCategory.reduce((s, c) => s + c.amount, 0)
                         return (
                           <>
-                            {incByCategory.map((cat, i) => {
+                            {incByCategory.map((cat) => {
                               const pct = total > 0 ? (cat.amount / total * 100).toFixed(1) : '0'
-                              const color = INC_PALETTE[i % INC_PALETTE.length]
+                              const color = cat.color
                               const key = `inc-${cat.id}`
                               const isOpen = expandedCatKeys.has(key)
                               const catTxs = chartTx.filter(t => t.type === 'income' && t.category === cat.id)
