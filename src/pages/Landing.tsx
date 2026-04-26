@@ -297,7 +297,7 @@ export default function Landing() {
       <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-[#0a0a0f]/95 backdrop-blur border-b border-[#1e1e2e] py-3' : 'py-5'}`}>
         <div className="max-w-6xl mx-auto px-6 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <img src="/brand-icon.png" alt="Luxor Pro" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+            <img src="/logo.png" alt="Luxor Pro" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
             <span className="text-xl font-bold tracking-wide"><span className="text-[#e8e8f0]">Luxor</span><span className="text-[#e8e8f0]">.</span><span style={{ color: '#FF7900' }}>Pro</span></span>
           </div>
           <div className="flex items-center gap-3">
@@ -781,7 +781,7 @@ export default function Landing() {
         <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse 70% 80% at 50% 50%, rgba(255,122,0,0.10) 0%, transparent 70%)' }} />
         <div className="absolute inset-0 dot-grid opacity-40" />
         <div ref={finalCta.ref} className={`relative max-w-3xl mx-auto text-center lx-fade ${finalCta.visible ? 'visible' : ''}`}>
-          <img src="/brand-icon.png" alt="Luxor Pro" className="w-16 h-16 rounded-2xl object-cover mx-auto mb-6 shadow-[0_0_40px_rgba(255,122,0,0.35)]" />
+          <img src="/logo.png" alt="Luxor Pro" className="w-16 h-16 rounded-2xl object-cover mx-auto mb-6 shadow-[0_0_40px_rgba(255,122,0,0.35)]" />
           <h2 className="text-4xl sm:text-5xl font-bold leading-tight mb-5">
             Chega de desorganização.<br />
             <span className="gradient-text">Comece a construir riqueza de verdade.</span>
@@ -812,7 +812,7 @@ export default function Landing() {
       <footer className="border-t border-[#1e1e2e] bg-[#080810] py-10 px-6">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-2">
-            <img src="/brand-icon.png" alt="Luxor Pro" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+            <img src="/logo.png" alt="Luxor Pro" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
             <span className="text-xl font-bold tracking-wide"><span className="text-[#e8e8f0]">Luxor</span><span className="text-[#e8e8f0]">.</span><span style={{ color: '#FF7900' }}>Pro</span></span>
           </div>
           <div className="flex flex-wrap justify-center gap-6 text-xs text-[#55556a]">

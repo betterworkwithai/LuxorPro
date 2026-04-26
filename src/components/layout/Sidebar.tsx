@@ -10,7 +10,7 @@ import { LOCAL_AUTH_KEY } from '../../App'
 import { pfPath } from '../../constants'
 import { isAdmin } from '../../lib/admin'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
-const luxorLogo = '/favicon.svg'
+const luxorLogo = '/logo.png'
 
 const NAV_ITEMS = [
   { to: pfPath('/'),           icon: LayoutDashboard, label: 'Painel Consolidado' },
@@ -65,7 +65,7 @@ export function Sidebar() {
           src={luxorLogo}
           alt="Luxor"
           className="w-10 h-10 rounded-lg object-contain flex-shrink-0"
-          onError={e => { (e.currentTarget as HTMLImageElement).src = '/favicon.png' }}
+          onError={e => { (e.currentTarget as HTMLImageElement).src = '/brand-icon.png' }}
         />
         {expanded && (
           <div className="overflow-hidden">
