@@ -143,12 +143,27 @@ export default function Admin() {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       const token = session?.access_token
-      if (!token) throw new Error('Não autenticado')
+      if (!token) throw new Error('Não autenticado — faça login novamente')
 
-      const { data: res, error: fnErr } = await supabase.functions.invoke('admin-stats', {
-        headers: { Authorization: `Bearer ${token}` },
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
+      if (!supabaseUrl) throw new Error('VITE_SUPABASE_URL não configurada')
+
+      const fnUrl = `${supabaseUrl}/functions/v1/admin-stats`
+      const resp = await fetch(fnUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
       })
-      if (fnErr) throw new Error(fnErr.message)
+
+      if (!resp.ok) {
+        let body = ''
+        try { body = await resp.text() } catch { /* ignore */ }
+        throw new Error(`HTTP ${resp.status} — ${body || resp.statusText}`)
+      }
+
+      const res = await resp.json()
       setData(res as AdminData)
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e))
