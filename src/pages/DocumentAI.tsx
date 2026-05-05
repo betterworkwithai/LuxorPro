@@ -6,6 +6,7 @@ import {
   Download, SquareCheck, Square, ShieldCheck, AlertTriangle,
   FileSpreadsheet, ClipboardPaste, Sparkles,
   Tag, Lock, Unlock, Repeat, Activity, TrendingUp, Wallet, CalendarClock, Users,
+  ChevronUp as ChevUp, ChevronDown as ChevDown, ChevronsUpDown,
 } from 'lucide-react'
 import { parseLocalCSV } from '../lib/invoice/csvLocalParser'
 import { nanoid } from 'nanoid'
@@ -87,6 +88,35 @@ function MetadataCard({ meta, issuer, usedOCR }: { meta: InvoiceMetadata; issuer
         </div>
       )}
     </div>
+  )
+}
+
+// ── Sortable column header ───────────────────────────────────────────────────
+function SortHeader({
+  label, active, dir, onClick, align = 'left',
+}: {
+  label: string
+  active: boolean
+  dir: 'asc' | 'desc'
+  onClick: () => void
+  align?: 'left' | 'right'
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={clsx(
+        'flex items-center gap-1 select-none transition-colors hover:text-[#e8e8f0]',
+        active ? 'text-[#00d4ff]' : 'text-[#55556a]',
+        align === 'right' ? 'justify-end' : 'justify-start',
+      )}
+      aria-sort={active ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+    >
+      <span>{label}</span>
+      {active
+        ? (dir === 'asc' ? <ChevUp className="w-3 h-3" /> : <ChevDown className="w-3 h-3" />)
+        : <ChevronsUpDown className="w-3 h-3 opacity-40" />}
+    </button>
   )
 }
 
@@ -280,6 +310,15 @@ function ReviewTable({
 }) {
   const [globalAccount, setGlobalAccount] = useState('Itaú')
   const partnership = useStore(s => s.partnership)
+  type SortKey = 'date' | 'merchant' | 'category' | 'type' | 'amount'
+  const [sortKey, setSortKey] = useState<SortKey | null>(null)
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey !== key) { setSortKey(key); setSortDir('asc'); return }
+    if (sortDir === 'asc') { setSortDir('desc'); return }
+    setSortKey(null) // 3rd click clears
+  }
   const allCats = useAllCategories()
   const expenseCats = allCats.filter(c => c.type === 'expense' || c.type === 'both')
   const incomeCats  = allCats.filter(c => c.type === 'income'  || c.type === 'both')
@@ -293,6 +332,29 @@ function ReviewTable({
     onChange(items.map((t, i) => i === idx ? { ...t, ...patch } : t))
   const remove = (idx: number) => onChange(items.filter((_, i) => i !== idx))
   const toggleAll = () => onChange(items.map(t => ({ ...t, selected: !allSel })))
+
+  // Display-only sort: keeps source order in `items` intact, only renders sorted
+  const sortedView = (() => {
+    if (!sortKey) return items.map((tx, idx) => ({ tx, idx }))
+    const dir = sortDir === 'asc' ? 1 : -1
+    return items
+      .map((tx, idx) => ({ tx, idx }))
+      .slice()
+      .sort((a, b) => {
+        let av: string | number = ''
+        let bv: string | number = ''
+        switch (sortKey) {
+          case 'date':     av = a.tx.date;     bv = b.tx.date; break
+          case 'merchant': av = a.tx.merchant.toLowerCase(); bv = b.tx.merchant.toLowerCase(); break
+          case 'category': av = a.tx.category; bv = b.tx.category; break
+          case 'type':     av = a.tx.type;     bv = b.tx.type; break
+          case 'amount':   av = a.tx.amount;   bv = b.tx.amount; break
+        }
+        if (av < bv) return -1 * dir
+        if (av > bv) return  1 * dir
+        return 0
+      })
+  })()
 
   // Apply a patch to all selected rows (or all rows if none selected)
   const applyToSelected = (patch: Partial<ParsedTransaction>) => {
@@ -391,17 +453,17 @@ function ReviewTable({
         <button onClick={toggleAll} className="flex items-center justify-center">
           {allSel ? <SquareCheck className="w-3.5 h-3.5 text-[#00d4ff]" /> : <Square className="w-3.5 h-3.5 text-[#55556a]" />}
         </button>
-        <span>Data</span>
-        <span>Descrição</span>
-        <span>Categoria</span>
-        <span>Tipo</span>
-        <span className="text-right">Valor (R$)</span>
+        <SortHeader label="Data"      active={sortKey === 'date'}     dir={sortDir} onClick={() => toggleSort('date')} />
+        <SortHeader label="Descrição" active={sortKey === 'merchant'} dir={sortDir} onClick={() => toggleSort('merchant')} />
+        <SortHeader label="Categoria" active={sortKey === 'category'} dir={sortDir} onClick={() => toggleSort('category')} />
+        <SortHeader label="Tipo"      active={sortKey === 'type'}     dir={sortDir} onClick={() => toggleSort('type')} />
+        <SortHeader label="Valor (R$)" active={sortKey === 'amount'} dir={sortDir} onClick={() => toggleSort('amount')} align="right" />
         <span />
       </div>
 
       {/* Rows */}
       <div className="divide-y divide-[#1e1e2e] max-h-[480px] overflow-y-auto">
-        {items.map((tx, idx) => (
+        {sortedView.map(({ tx, idx }) => (
           <div
             key={tx.id}
             className={clsx(
