@@ -5,6 +5,7 @@ import {
   AlertCircle, Loader2, X, Paperclip, FileSearch,
   Download, SquareCheck, Square, ShieldCheck, AlertTriangle,
   FileSpreadsheet, ClipboardPaste, Sparkles,
+  Tag, Lock, Unlock, Repeat, Activity, TrendingUp, Wallet, CalendarClock, Users,
 } from 'lucide-react'
 import { parseLocalCSV } from '../lib/invoice/csvLocalParser'
 import { nanoid } from 'nanoid'
@@ -89,6 +90,166 @@ function MetadataCard({ meta, issuer, usedOCR }: { meta: InvoiceMetadata; issuer
   )
 }
 
+// ── Bulk Actions Bar ─────────────────────────────────────────────────────────
+function SegButton({
+  active, onClick, children, color = '#00d4ff', title,
+}: {
+  active: boolean
+  onClick: () => void
+  children: React.ReactNode
+  color?: string
+  title?: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      className={clsx(
+        'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all',
+        'border whitespace-nowrap',
+        active
+          ? 'text-[#0d0d14] border-transparent shadow-sm'
+          : 'text-[#8888aa] border-[#1e1e2e] bg-[#0d0d14] hover:text-[#e8e8f0] hover:border-[#2a2a3e]',
+      )}
+      style={active ? { background: color } : undefined}
+    >
+      {children}
+    </button>
+  )
+}
+
+function BulkActionsBar({
+  selectedCount, totalCount, expenseCats, incomeCats,
+  sharedNature, sharedRegime, sharedVisibility, hasPartnership, onApply,
+}: {
+  selectedCount: number
+  totalCount: number
+  expenseCats: { id: string; name: string; icon?: string }[]
+  incomeCats: { id: string; name: string; icon?: string }[]
+  sharedNature: 'fixed' | 'variable' | 'investment' | null
+  sharedRegime: 'caixa' | 'competencia' | null
+  sharedVisibility: 'private' | 'shared' | null
+  hasPartnership: boolean
+  onApply: (patch: Partial<ParsedTransaction>) => void
+}) {
+  const targetLabel = selectedCount > 0
+    ? `${selectedCount} selecionado${selectedCount !== 1 ? 's' : ''}`
+    : `todos os ${totalCount}`
+
+  return (
+    <div className="bg-[#0d0d15] border-b border-[#1e1e2e] px-5 py-3 space-y-3">
+      <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-[#8888aa] font-semibold">
+        <Tag className="w-3 h-3 text-[#ff7a00]" />
+        <span>Aplicar em massa · {targetLabel}</span>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+        {/* ── Bulk category ─────────────────────────────────────────── */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] text-[#55556a] uppercase tracking-wider">Categoria:</span>
+          <select
+            defaultValue=""
+            onChange={e => {
+              if (!e.target.value) return
+              onApply({ category: e.target.value })
+              e.target.value = ''
+            }}
+            className="input-dark text-[11px] py-1 px-2 h-7"
+          >
+            <option value="" disabled>Escolher…</option>
+            <optgroup label="— Despesas —">
+              {expenseCats.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+            </optgroup>
+            <optgroup label="— Receitas —">
+              {incomeCats.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+            </optgroup>
+          </select>
+        </div>
+
+        {/* ── Expense nature ─────────────────────────────────────────── */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-[10px] text-[#55556a] uppercase tracking-wider">Natureza:</span>
+          <SegButton
+            active={sharedNature === 'fixed'}
+            onClick={() => onApply({ expenseNature: 'fixed' })}
+            color="#8b5cf6"
+            title="Despesa fixa (recorrente, mês a mês)"
+          >
+            <Repeat className="w-3 h-3" /> Fixa
+          </SegButton>
+          <SegButton
+            active={sharedNature === 'variable'}
+            onClick={() => onApply({ expenseNature: 'variable' })}
+            color="#00d4ff"
+            title="Despesa variável (consumo do dia a dia)"
+          >
+            <Activity className="w-3 h-3" /> Variável
+          </SegButton>
+          <SegButton
+            active={sharedNature === 'investment'}
+            onClick={() => onApply({ expenseNature: 'investment' })}
+            color="#00ff88"
+            title="Investimento (aporte, aplicação)"
+          >
+            <TrendingUp className="w-3 h-3" /> Investimento
+          </SegButton>
+        </div>
+
+        {/* ── Accounting regime ─────────────────────────────────────── */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-[10px] text-[#55556a] uppercase tracking-wider">Regime:</span>
+          <SegButton
+            active={sharedRegime === 'caixa'}
+            onClick={() => onApply({ expenseRegime: 'caixa' })}
+            color="#ff7a00"
+            title="Regime de caixa: registra na data do pagamento"
+          >
+            <Wallet className="w-3 h-3" /> Caixa
+          </SegButton>
+          <SegButton
+            active={sharedRegime === 'competencia'}
+            onClick={() => onApply({ expenseRegime: 'competencia' })}
+            color="#f59e0b"
+            title="Regime de competência: registra na data do consumo"
+          >
+            <CalendarClock className="w-3 h-3" /> Competência
+          </SegButton>
+        </div>
+
+        {/* ── Sharing (only when in a partnership) ──────────────────── */}
+        {hasPartnership && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[10px] text-[#55556a] uppercase tracking-wider">Compartilhar:</span>
+            <SegButton
+              active={sharedVisibility === 'private'}
+              onClick={() => onApply({ visibility: 'private' })}
+              color="#55556a"
+            >
+              <Lock className="w-3 h-3" /> Privado
+            </SegButton>
+            <SegButton
+              active={sharedVisibility === 'shared'}
+              onClick={() => onApply({ visibility: 'shared' })}
+              color="#00ff88"
+              title="Dividir esta despesa com seu parceiro(a)"
+            >
+              <Users className="w-3 h-3" /> Compartilhado
+            </SegButton>
+          </div>
+        )}
+      </div>
+
+      {!hasPartnership && (
+        <p className="text-[10px] text-[#55556a] flex items-center gap-1.5">
+          <Unlock className="w-3 h-3" />
+          Para marcar despesas compartilhadas, configure um parceiro(a) em Configurações
+        </p>
+      )}
+    </div>
+  )
+}
+
 // ── Review Table ─────────────────────────────────────────────────────────────
 const TYPE_OPTIONS = [
   { value: 'expense', label: '↓ Despesa',   color: 'text-[#ff4466]' },
@@ -107,6 +268,7 @@ function ReviewTable({
   onClear: () => void
 }) {
   const [globalAccount, setGlobalAccount] = useState('Itaú')
+  const partnership = useStore(s => s.partnership)
   const allCats = useAllCategories()
   const expenseCats = allCats.filter(c => c.type === 'expense' || c.type === 'both')
   const incomeCats  = allCats.filter(c => c.type === 'income'  || c.type === 'both')
@@ -120,6 +282,34 @@ function ReviewTable({
     onChange(items.map((t, i) => i === idx ? { ...t, ...patch } : t))
   const remove = (idx: number) => onChange(items.filter((_, i) => i !== idx))
   const toggleAll = () => onChange(items.map(t => ({ ...t, selected: !allSel })))
+
+  // Apply a patch to all selected rows (or all rows if none selected)
+  const applyToSelected = (patch: Partial<ParsedTransaction>) => {
+    const target = selected.length > 0 ? selected : items
+    if (target.length === 0) return
+    const targetIds = new Set(target.map(t => t.id))
+    onChange(items.map(t => targetIds.has(t.id) ? { ...t, ...patch } : t))
+  }
+
+  // ── Read current shared bulk-state — only "all selected match" counts as set
+  const sharedNature = (() => {
+    const target = selected.length > 0 ? selected : items
+    if (target.length === 0) return null
+    const first = target[0].expenseNature
+    return target.every(t => t.expenseNature === first) ? first ?? null : null
+  })()
+  const sharedRegime = (() => {
+    const target = selected.length > 0 ? selected : items
+    if (target.length === 0) return null
+    const first = target[0].expenseRegime
+    return target.every(t => t.expenseRegime === first) ? first ?? null : null
+  })()
+  const sharedVisibility = (() => {
+    const target = selected.length > 0 ? selected : items
+    if (target.length === 0) return null
+    const first = target[0].visibility
+    return target.every(t => t.visibility === first) ? first ?? 'private' : null
+  })()
 
   return (
     <Card className="overflow-hidden border-[#00d4ff]/20">
@@ -161,6 +351,19 @@ function ReviewTable({
           </button>
         </div>
       </div>
+
+      {/* Bulk actions toolbar */}
+      <BulkActionsBar
+        selectedCount={selected.length}
+        totalCount={items.length}
+        expenseCats={expenseCats}
+        incomeCats={incomeCats}
+        sharedNature={sharedNature}
+        sharedRegime={sharedRegime}
+        sharedVisibility={sharedVisibility}
+        hasPartnership={!!partnership}
+        onApply={applyToSelected}
+      />
 
       {/* Metadata bar */}
       <MetadataCard meta={meta} issuer={issuer} usedOCR={usedOCR} />
@@ -468,6 +671,7 @@ export default function DocumentAI() {
   }
 
   const handleImport = async (selected: ParsedTransaction[]) => {
+    const partnership = useStore.getState().partnership
     let count = 0
     for (const tx of selected) {
       await addTransaction({
@@ -477,6 +681,12 @@ export default function DocumentAI() {
         type:        tx.type,
         amount:      tx.amount,
         account:     tx.account,
+        ...(tx.expenseNature ? { expenseNature: tx.expenseNature } : {}),
+        ...(tx.expenseRegime ? { expenseRegime: tx.expenseRegime } : {}),
+        ...(tx.visibility    ? { visibility:    tx.visibility }    : {}),
+        ...(tx.visibility === 'shared' && partnership
+              ? { sharedWithPartnershipId: partnership.id }
+              : {}),
       })
       count++
     }

@@ -54,6 +54,10 @@ export interface ParsedTransaction {
   selected: boolean
   account: string
   linhaOriginal?: string   // source line cited by Claude for grounding
+  // ── Bulk-categorization fields applied during review ────────────────────
+  expenseNature?: 'fixed' | 'variable' | 'investment'
+  expenseRegime?: 'caixa' | 'competencia'
+  visibility?: 'private' | 'shared'
 }
 
 /** Metadata extracted from the invoice header. */
