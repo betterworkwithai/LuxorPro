@@ -153,6 +153,8 @@ export async function processInvoiceAI(
     if (!resp.ok) {
       error = { message: `HTTP ${resp.status}`, body }
       console.error('[aiPipeline] Edge function error:', resp.status, body)
+      console.error('[aiPipeline] FULL anthropic_body:', String(body?.anthropic_body ?? '(none)'))
+      console.error('[aiPipeline] anthropic_status:', body?.anthropic_status ?? '(none)')
     } else {
       data = body
     }
