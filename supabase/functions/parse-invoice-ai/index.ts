@@ -163,7 +163,11 @@ Deno.serve(async (req) => {
     if (!anthropicRes.ok) {
       const errBody = await anthropicRes.text()
       console.error('[parse-invoice-ai] Anthropic HTTP error:', anthropicRes.status, errBody)
-      return json({ error: 'Falha ao chamar a API de IA' }, 502)
+      return json({
+        error: 'Falha ao chamar a API de IA',
+        anthropic_status: anthropicRes.status,
+        anthropic_body: errBody.slice(0, 1000),
+      }, 502)
     }
 
     const anthropicData = await anthropicRes.json()

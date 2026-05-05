@@ -133,9 +133,33 @@ export async function processInvoiceAI(
   // ── 2. Call AI edge function ─────────────────────────────────────────────
   onProgress?.('Analisando com Claude AI…', 60)
 
-  const { data, error } = await supabase.functions.invoke('parse-invoice-ai', {
-    body: { text: rawText, format: isSheet ? 'spreadsheet' : 'document' },
-  })
+  // Use raw fetch so we can see the actual response body on errors
+  const { data: { session } } = await supabase.auth.getSession()
+  const token = session?.access_token
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
+
+  let data: any = null
+  let error: any = null
+  try {
+    const resp = await fetch(`${supabaseUrl}/functions/v1/parse-invoice-ai`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ text: rawText, format: isSheet ? 'spreadsheet' : 'document' }),
+    })
+    const body = await resp.json().catch(() => ({}))
+    if (!resp.ok) {
+      error = { message: `HTTP ${resp.status}`, body }
+      console.error('[aiPipeline] Edge function error:', resp.status, body)
+    } else {
+      data = body
+    }
+  } catch (e) {
+    error = { message: (e as Error).message }
+    console.error('[aiPipeline] Fetch failed:', e)
+  }
 
   console.log('[aiPipeline] AI response — error:', error, 'data keys:', data ? Object.keys(data) : null,
     'transacoes count:', data?.transacoes?.length ?? 'N/A')
