@@ -10,12 +10,13 @@ import {
 } from 'lucide-react'
 import { parseLocalCSV } from '../lib/invoice/csvLocalParser'
 import { NewCategoryModal } from '../components/modals/NewCategoryModal'
+import { findDuplicates } from '../lib/duplicateCheck'
 import { nanoid } from 'nanoid'
 import { clsx } from 'clsx'
 import { useStore } from '../store/useStore'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Card, CardHeader, CardTitle } from '../components/ui/Card'
-import { Modal } from '../components/ui/Modal'
+import { Modal, ModalFooter } from '../components/ui/Modal'
 import { Badge } from '../components/ui/Badge'
 import { formatDate, formatBRL } from '../lib/formatters'
 import { useAllCategories } from '../lib/useCategories'
@@ -674,6 +675,7 @@ function ProgressBar({ step, pct }: { step: string; pct: number }) {
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function DocumentAI() {
   const { attachments, addAttachment, deleteAttachment, addTransaction, addTaxItem } = useStore()
+  const allTransactions = useStore(s => s.transactions)
   const [queue,         setQueue]         = useState<FileEntry[]>([])
   const [previewing,    setPreviewing]    = useState<Attachment | null>(null)
   const [pendingTxs,    setPendingTxs]    = useState<ParsedTransaction[]>([])
@@ -685,6 +687,11 @@ export default function DocumentAI() {
   const [pasteOpen,     setPasteOpen]     = useState(false)
   const [pasteText,     setPasteText]     = useState('')
   const [pasteMsg,      setPasteMsg]      = useState<string | null>(null)
+  const [dupConfirm,    setDupConfirm]    = useState<{
+    duplicates: ParsedTransaction[]
+    nonDuplicates: ParsedTransaction[]
+    selected: ParsedTransaction[]
+  } | null>(null)
 
   const updateEntry = (id: string, patch: Partial<FileEntry>) =>
     setQueue(q => q.map(e => e.id === id ? { ...e, ...patch } : e))
@@ -790,10 +797,28 @@ export default function DocumentAI() {
     setPasteMsg(null)
   }
 
-  const handleImport = async (selected: ParsedTransaction[]) => {
+  const handleImport = (selected: ParsedTransaction[]) => {
+    const duplicates: ParsedTransaction[] = []
+    const nonDuplicates: ParsedTransaction[] = []
+    for (const tx of selected) {
+      const matches = findDuplicates(
+        { date: tx.date, description: tx.merchant, amount: tx.amount, type: tx.type },
+        allTransactions,
+      )
+      if (matches.length > 0) duplicates.push(tx)
+      else nonDuplicates.push(tx)
+    }
+    if (duplicates.length > 0) {
+      setDupConfirm({ duplicates, nonDuplicates, selected })
+      return
+    }
+    performImport(selected)
+  }
+
+  const performImport = async (toImport: ParsedTransaction[]) => {
     const partnership = useStore.getState().partnership
     let count = 0
-    for (const tx of selected) {
+    for (const tx of toImport) {
       await addTransaction({
         date:        tx.date,
         description: tx.merchant,
@@ -1127,6 +1152,64 @@ export default function DocumentAI() {
       </div>
 
       {previewing && <PreviewModal attachment={previewing} onClose={() => setPreviewing(null)} />}
+
+      {dupConfirm && (
+        <Modal open={true} onClose={() => setDupConfirm(null)} title="Possíveis duplicatas detectadas" size="md">
+          <div className="px-6 py-5 space-y-3 text-sm">
+            <div className="flex items-start gap-3 p-3 rounded-xl bg-[#f59e0b]/10 border border-[#f59e0b]/30">
+              <AlertTriangle className="w-5 h-5 text-[#f59e0b] flex-shrink-0 mt-0.5" />
+              <div className="text-xs space-y-1">
+                <p className="text-[#f59e0b] font-semibold">
+                  {dupConfirm.duplicates.length} de {dupConfirm.selected.length} lançamento{dupConfirm.selected.length !== 1 ? 's' : ''} já existe{dupConfirm.duplicates.length === 1 ? '' : 'm'} no mesmo mês
+                </p>
+                <p className="text-[#8888aa]">
+                  Tem certeza que deseja adicioná-los? Para evitar duplicação, você pode importar apenas os {dupConfirm.nonDuplicates.length} lançamentos novos.
+                </p>
+              </div>
+            </div>
+            <div className="max-h-[260px] overflow-y-auto border border-[#1e1e2e] rounded-xl divide-y divide-[#1e1e2e]">
+              {dupConfirm.duplicates.map(tx => (
+                <div key={tx.id} className="px-3 py-2 text-xs flex items-center justify-between">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[#e8e8f0] truncate">{tx.merchant}</p>
+                    <p className="text-[10px] text-[#55556a]">{tx.date}</p>
+                  </div>
+                  <span className={tx.type === 'expense' ? 'text-[#ff4466] font-semibold' : 'text-[#00ff88] font-semibold'}>
+                    {tx.type === 'expense' ? '−' : '+'}{formatBRL(tx.amount, true)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <ModalFooter>
+            <button className="btn-ghost" onClick={() => setDupConfirm(null)}>
+              Cancelar
+            </button>
+            <button
+              className="btn-ghost"
+              onClick={() => {
+                const list = dupConfirm.nonDuplicates
+                setDupConfirm(null)
+                if (list.length > 0) performImport(list)
+              }}
+              disabled={dupConfirm.nonDuplicates.length === 0}
+            >
+              Importar só os {dupConfirm.nonDuplicates.length} novos
+            </button>
+            <button
+              className="btn-primary"
+              onClick={() => {
+                const list = dupConfirm.selected
+                setDupConfirm(null)
+                performImport(list)
+              }}
+              style={{ background: '#f59e0b' }}
+            >
+              Importar todos mesmo assim
+            </button>
+          </ModalFooter>
+        </Modal>
+      )}
     </div>
   )
 }

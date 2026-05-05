@@ -119,6 +119,7 @@ interface AppState {
 
   // custom categories
   addCustomCategory:    (c: Omit<Category, 'id'>) => Promise<string>
+  updateCustomCategory: (id: string, patch: Partial<Omit<Category, 'id'>>) => Promise<void>
   deleteCustomCategory: (id: string) => Promise<void>
 
   // custom institutions
@@ -298,6 +299,15 @@ export const useStore = create<AppState>((set, get) => ({
     await db.settings.save(updated)
     set({ settings: updated })
     return cat.id
+  },
+  updateCustomCategory: async (id, patch) => {
+    const current = get().settings
+    const list = (current.customCategories ?? []).map(c =>
+      c.id === id ? { ...c, ...patch } : c,
+    )
+    const updated = { ...current, customCategories: list }
+    await db.settings.save(updated)
+    set({ settings: updated })
   },
   deleteCustomCategory: async (id) => {
     const current = get().settings

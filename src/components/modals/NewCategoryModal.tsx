@@ -14,26 +14,44 @@ interface Props {
   defaultType?: Category['type']
   /** Called after a successful create with the newly assigned category id. */
   onCreated?: (categoryId: string) => void
+  /** When provided, the modal edits an existing custom category instead of creating one. */
+  editCategory?: Category | null
 }
 
-export function NewCategoryModal({ open, onClose, defaultType, onCreated }: Props) {
-  const { addCustomCategory } = useStore()
+export function NewCategoryModal({ open, onClose, defaultType, onCreated, editCategory }: Props) {
+  const { addCustomCategory, updateCustomCategory } = useStore()
+  const isEdit = !!editCategory
   const [form, setForm] = useState({ ...EMPTY_CAT, type: defaultType ?? EMPTY_CAT.type })
   const upd = <K extends keyof typeof form>(k: K, v: typeof form[K]) => setForm(f => ({ ...f, [k]: v }))
 
   useEffect(() => {
-    if (open) setForm({ ...EMPTY_CAT, type: defaultType ?? EMPTY_CAT.type })
-  }, [open, defaultType])
+    if (!open) return
+    if (editCategory) {
+      setForm({
+        name:  editCategory.name,
+        icon:  editCategory.icon,
+        color: editCategory.color,
+        type:  editCategory.type,
+      })
+    } else {
+      setForm({ ...EMPTY_CAT, type: defaultType ?? EMPTY_CAT.type })
+    }
+  }, [open, defaultType, editCategory])
 
   const handleSave = async () => {
     if (!form.name.trim()) return
-    const id = await addCustomCategory({ ...form, name: form.name.trim() })
-    onCreated?.(id)
+    if (isEdit && editCategory) {
+      await updateCustomCategory(editCategory.id, { ...form, name: form.name.trim() })
+      onCreated?.(editCategory.id)
+    } else {
+      const id = await addCustomCategory({ ...form, name: form.name.trim() })
+      onCreated?.(id)
+    }
     onClose()
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Nova Categoria" size="sm">
+    <Modal open={open} onClose={onClose} title={isEdit ? 'Editar Categoria' : 'Nova Categoria'} size="sm">
       <div className="px-6 py-5 space-y-4">
         {/* Emoji + Name */}
         <div className="flex gap-3 items-end">
@@ -116,7 +134,7 @@ export function NewCategoryModal({ open, onClose, defaultType, onCreated }: Prop
       <ModalFooter>
         <button className="btn-ghost" onClick={onClose}>Cancelar</button>
         <button className="btn-primary" onClick={handleSave} disabled={!form.name.trim()}>
-          Criar Categoria
+          {isEdit ? 'Salvar' : 'Criar Categoria'}
         </button>
       </ModalFooter>
     </Modal>

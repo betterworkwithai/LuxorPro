@@ -9,6 +9,7 @@ import { useCategoriesForType, useAllCategories } from '../../lib/useCategories'
 import { todayISO, formatBRL } from '../../lib/formatters'
 import { FormulaInput } from '../ui/FormulaInput'
 import { EmojiPicker } from '../ui/EmojiPicker'
+import { findDuplicates } from '../../lib/duplicateCheck'
 
 /** Small inline tooltip icon */
 function Tip({ text }: { text: string }) {
@@ -100,6 +101,7 @@ export function AddTransactionModal({ open, onClose, prefill, initial }: Props) 
       : emptyForm(prefill, defaultAccount)
   )
   const [saving, setSaving] = useState(false)
+  const [duplicateMatches, setDuplicateMatches] = useState<typeof transactions>([])
 
   // Recurring form state
   const [recForm, setRecForm] = useState(() => emptyRecForm(defaultAccount))
@@ -248,7 +250,21 @@ export function AddTransactionModal({ open, onClose, prefill, initial }: Props) 
   })()
 
   // ── Save ──
-  const handleSave = async () => {
+  const handleSave = async (force = false) => {
+    // ── Duplicate guard (simple add only — splits/installments are intentional groups)
+    if (!force && !isEdit && !splitMode && !installMode) {
+      const amt = parseFloat(form.amount.replace(',', '.'))
+      if (form.description && !isNaN(amt) && amt > 0) {
+        const matches = findDuplicates(
+          { date: form.date, description: form.description, amount: amt, type: form.type },
+          transactions,
+        )
+        if (matches.length > 0) {
+          setDuplicateMatches(matches)
+          return // user must confirm via banner before proceeding
+        }
+      }
+    }
     setSaving(true)
     try {
       if (splitMode && !isEdit) {
@@ -1086,10 +1102,44 @@ export function AddTransactionModal({ open, onClose, prefill, initial }: Props) 
         )}
       </div>
 
+      {duplicateMatches.length > 0 && (
+        <div role="alert" aria-live="polite" className="mx-6 mb-3 p-3 rounded-xl bg-[#f59e0b]/10 border border-[#f59e0b]/30 text-xs space-y-2">
+          <div className="flex items-start gap-2">
+            <Info className="w-4 h-4 text-[#f59e0b] flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-[#f59e0b] font-semibold">Possível duplicata detectada</p>
+              <p className="text-[#8888aa] mt-1">
+                Já existe {duplicateMatches.length === 1 ? 'um lançamento' : `${duplicateMatches.length} lançamentos`} no mesmo mês com a mesma descrição e valor. Tem certeza que deseja adicionar mesmo assim?
+              </p>
+              <ul className="mt-2 space-y-0.5 text-[#55556a]">
+                {duplicateMatches.slice(0, 3).map(m => (
+                  <li key={m.id} className="text-[10px]">
+                    · {m.date} · {m.description} · {formatBRL(m.amount)}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 justify-end">
+            <button
+              onClick={() => { setDuplicateMatches([]); }}
+              className="btn-ghost text-xs px-3 py-1"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={() => { setDuplicateMatches([]); handleSave(true) }}
+              className="btn-primary text-xs px-3 py-1 bg-[#f59e0b] hover:bg-[#f59e0b]/90"
+            >
+              Adicionar mesmo assim
+            </button>
+          </div>
+        </div>
+      )}
       <ModalFooter>
         <button className="btn-ghost" onClick={onClose}>Cancelar</button>
         {(isEdit || mode === 'one-time') ? (
-          <button className="btn-primary" onClick={handleSave} disabled={saving}>
+          <button className="btn-primary" onClick={() => handleSave()} disabled={saving}>
             {saveLabel}
           </button>
         ) : mode === 'investment' ? (

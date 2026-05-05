@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Save, Database, AlertTriangle, Trash2, Plus, Tag, X, Download, Upload, KeyRound, Mail, CreditCard, ExternalLink, Loader2, Crown, CalendarX, RefreshCw, Heart } from 'lucide-react'
+import { Save, Database, AlertTriangle, Trash2, Plus, Tag, X, Download, Upload, KeyRound, Mail, CreditCard, ExternalLink, Loader2, Crown, CalendarX, RefreshCw, Heart, Pencil } from 'lucide-react'
 import { SharingSettings } from '../components/settings/SharingSettings'
 import { createPortalSession, cancelSubscription } from '../lib/stripe'
 import { useSubscription } from '../hooks/useSubscription'
@@ -95,6 +95,7 @@ export default function Settings() {
   const [saved,          setSaved]          = useState(false)
   const [showClearModal, setShowClearModal] = useState(false)
   const [showNewCat,     setShowNewCat]     = useState(false)
+  const [editCat,        setEditCat]        = useState<Category | null>(null)
   const [clearing,       setClearing]       = useState(false)
   const [importing,      setImporting]      = useState(false)
   const [importStatus,   setImportStatus]   = useState<'idle' | 'ok' | 'error'>('idle')
@@ -788,13 +789,22 @@ export default function Settings() {
                           {cat.type === 'expense' ? 'Despesa' : cat.type === 'income' ? 'Receita' : 'Ambos'}
                         </span>
                       </div>
-                      <button
-                        onClick={() => deleteCustomCategory(cat.id)}
-                        className="w-7 h-7 rounded-lg flex items-center justify-center text-[#55556a] hover:text-[#ff4466] hover:bg-[#ff4466]/10 transition-all"
-                        title="Remover categoria"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => setEditCat(cat)}
+                          className="w-7 h-7 rounded-lg flex items-center justify-center text-[#55556a] hover:text-[#00d4ff] hover:bg-[#00d4ff]/10 transition-all"
+                          title="Editar categoria"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => deleteCustomCategory(cat.id)}
+                          className="w-7 h-7 rounded-lg flex items-center justify-center text-[#55556a] hover:text-[#ff4466] hover:bg-[#ff4466]/10 transition-all"
+                          title="Remover categoria"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1120,6 +1130,11 @@ export default function Settings() {
       <NewCategoryModal
         open={showNewCat}
         onClose={() => setShowNewCat(false)}
+      />
+      <NewCategoryModal
+        open={!!editCat}
+        editCategory={editCat}
+        onClose={() => setEditCat(null)}
       />
 
       {/* Cancel renewal confirmation modal */}
