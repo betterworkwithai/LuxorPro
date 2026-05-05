@@ -120,11 +120,12 @@ function SegButton({
 }
 
 function BulkActionsBar({
-  selectedCount, totalCount, expenseCats, incomeCats,
+  selectedCount, totalCount, targetType, expenseCats, incomeCats,
   sharedNature, sharedRegime, sharedVisibility, hasPartnership, onApply,
 }: {
   selectedCount: number
   totalCount: number
+  targetType: 'expense' | 'income' | 'mixed'
   expenseCats: { id: string; name: string; icon?: string }[]
   incomeCats: { id: string; name: string; icon?: string }[]
   sharedNature: 'fixed' | 'variable' | 'investment' | null
@@ -158,12 +159,22 @@ function BulkActionsBar({
             className="input-dark text-[11px] py-1 px-2 h-7"
           >
             <option value="" disabled>Escolher…</option>
-            <optgroup label="— Despesas —">
-              {expenseCats.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
-            </optgroup>
-            <optgroup label="— Receitas —">
-              {incomeCats.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
-            </optgroup>
+            {targetType === 'expense' && expenseCats.map(c => (
+              <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+            ))}
+            {targetType === 'income' && incomeCats.map(c => (
+              <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+            ))}
+            {targetType === 'mixed' && (
+              <>
+                <optgroup label="— Despesas —">
+                  {expenseCats.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+                </optgroup>
+                <optgroup label="— Receitas —">
+                  {incomeCats.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+                </optgroup>
+              </>
+            )}
           </select>
         </div>
 
@@ -356,6 +367,12 @@ function ReviewTable({
       <BulkActionsBar
         selectedCount={selected.length}
         totalCount={items.length}
+        targetType={(() => {
+          const target = selected.length > 0 ? selected : items
+          if (target.length === 0) return 'mixed'
+          const first = target[0].type
+          return target.every(t => t.type === first) ? first : 'mixed'
+        })()}
         expenseCats={expenseCats}
         incomeCats={incomeCats}
         sharedNature={sharedNature}
@@ -417,12 +434,9 @@ function ReviewTable({
               value={tx.category}
               onChange={e => update(idx, { category: e.target.value })}
             >
-              <optgroup label="— Despesas —">
-                {expenseCats.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
-              </optgroup>
-              <optgroup label="— Receitas —">
-                {incomeCats.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
-              </optgroup>
+              {(tx.type === 'expense' ? expenseCats : incomeCats).map(c => (
+                <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+              ))}
             </select>
 
             <select
