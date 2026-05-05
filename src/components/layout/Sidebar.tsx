@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, ArrowLeftRight, TrendingUp, Receipt,
-  FileSearch, Settings, ChevronLeft, ChevronRight, Target, LogOut, User, Calculator, Shield,
+  FileSearch, Settings, ChevronLeft, ChevronRight, Target, LogOut, User, Calculator, Shield, Link2,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { supabase } from '../../lib/supabase'
@@ -19,6 +19,7 @@ const NAV_ITEMS = [
   { to: pfPath('/goals'),      icon: Target,          label: 'Minhas Metas' },
   
   { to: pfPath('/documents'),  icon: FileSearch,      label: 'IA de Documentos' },
+  { to: pfPath('/connections'),icon: Link2,           label: 'Open Finance' },
   { to: pfPath('/tools'),      icon: Calculator,      label: 'Ferramentas' },
 ]
 
