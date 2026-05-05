@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useRef } from 'react'
 import { useDropzone } from 'react-dropzone'
 import {
   Upload, FileText, Image, Trash2, Eye, Zap, CheckCircle2,
@@ -9,6 +9,7 @@ import {
   ChevronUp as ChevUp, ChevronDown as ChevDown, ChevronsUpDown,
 } from 'lucide-react'
 import { parseLocalCSV } from '../lib/invoice/csvLocalParser'
+import { NewCategoryModal } from '../components/modals/NewCategoryModal'
 import { nanoid } from 'nanoid'
 import { clsx } from 'clsx'
 import { useStore } from '../store/useStore'
@@ -151,7 +152,7 @@ function SegButton({
 
 function BulkActionsBar({
   selectedCount, totalCount, targetType, expenseCats, incomeCats,
-  sharedNature, sharedRegime, sharedVisibility, hasPartnership, onApply,
+  sharedNature, sharedRegime, sharedVisibility, hasPartnership, onApply, onCreateCategory,
 }: {
   selectedCount: number
   totalCount: number
@@ -163,6 +164,7 @@ function BulkActionsBar({
   sharedVisibility: 'private' | 'shared' | null
   hasPartnership: boolean
   onApply: (patch: Partial<ParsedTransaction>) => void
+  onCreateCategory: (type: 'expense' | 'income' | 'both') => void
 }) {
   const targetLabel = selectedCount > 0
     ? `${selectedCount} selecionado${selectedCount !== 1 ? 's' : ''}`
@@ -180,10 +182,15 @@ function BulkActionsBar({
         <div className="flex items-center gap-1.5">
           <span className="text-[10px] text-[#55556a] uppercase tracking-wider">Categoria:</span>
           <select
-            defaultValue=""
+            value=""
             onChange={e => {
-              if (!e.target.value) return
-              onApply({ category: e.target.value })
+              const v = e.target.value
+              if (!v) return
+              if (v === '__new__') {
+                onCreateCategory(targetType === 'mixed' ? 'both' : targetType)
+              } else {
+                onApply({ category: v })
+              }
               e.target.value = ''
             }}
             className="input-dark text-[11px] py-1 px-2 h-7"
@@ -205,6 +212,7 @@ function BulkActionsBar({
                 </optgroup>
               </>
             )}
+            <option value="__new__">＋ Nova categoria…</option>
           </select>
         </div>
 
@@ -313,6 +321,27 @@ function ReviewTable({
   type SortKey = 'date' | 'merchant' | 'category' | 'type' | 'amount'
   const [sortKey, setSortKey] = useState<SortKey | null>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  // ── Inline category creation ──────────────────────────────────────────────
+  const [catModalOpen, setCatModalOpen] = useState(false)
+  const [catModalType, setCatModalType] = useState<'expense' | 'income' | 'both'>('expense')
+  const catTargetRef = useRef<{ kind: 'row'; idx: number } | { kind: 'bulk' } | null>(null)
+
+  const openCategoryModal = (
+    type: 'expense' | 'income' | 'both',
+    target: { kind: 'row'; idx: number } | { kind: 'bulk' },
+  ) => {
+    setCatModalType(type)
+    catTargetRef.current = target
+    setCatModalOpen(true)
+  }
+
+  const handleCatCreated = (newId: string) => {
+    const target = catTargetRef.current
+    if (!target) return
+    if (target.kind === 'row') update(target.idx, { category: newId })
+    else applyToSelected({ category: newId })
+    catTargetRef.current = null
+  }
 
   const toggleSort = (key: SortKey) => {
     if (sortKey !== key) { setSortKey(key); setSortDir('asc'); return }
@@ -442,6 +471,14 @@ function ReviewTable({
         sharedVisibility={sharedVisibility}
         hasPartnership={!!partnership}
         onApply={applyToSelected}
+        onCreateCategory={(type) => openCategoryModal(type, { kind: 'bulk' })}
+      />
+
+      <NewCategoryModal
+        open={catModalOpen}
+        onClose={() => setCatModalOpen(false)}
+        defaultType={catModalType}
+        onCreated={handleCatCreated}
       />
 
       {/* Metadata bar */}
@@ -494,11 +531,18 @@ function ReviewTable({
             <select
               className="input-dark text-xs py-1 px-2"
               value={tx.category}
-              onChange={e => update(idx, { category: e.target.value })}
+              onChange={e => {
+                if (e.target.value === '__new__') {
+                  openCategoryModal(tx.type, { kind: 'row', idx })
+                  return
+                }
+                update(idx, { category: e.target.value })
+              }}
             >
               {(tx.type === 'expense' ? expenseCats : incomeCats).map(c => (
                 <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
               ))}
+              <option value="__new__">＋ Nova categoria…</option>
             </select>
 
             <select

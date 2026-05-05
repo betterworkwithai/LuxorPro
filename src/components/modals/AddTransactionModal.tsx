@@ -8,6 +8,7 @@ import type { Transaction } from '../../lib/types'
 import { useCategoriesForType, useAllCategories } from '../../lib/useCategories'
 import { todayISO, formatBRL } from '../../lib/formatters'
 import { FormulaInput } from '../ui/FormulaInput'
+import { EmojiPicker } from '../ui/EmojiPicker'
 
 /** Small inline tooltip icon */
 function Tip({ text }: { text: string }) {
@@ -584,9 +585,8 @@ export function AddTransactionModal({ open, onClose, prefill, initial }: Props) 
 
               {newCatOpen && (
                 <div className="mb-2 p-2.5 rounded-xl border border-[#ff7a00]/30 bg-[#ff7a00]/5 space-y-2">
-                  <div className="flex gap-2">
-                    <input className="input-dark w-14 text-center text-lg" value={newCat.icon} maxLength={2}
-                      onChange={e => setNewCat(c => ({ ...c, icon: e.target.value }))} />
+                  <div className="flex gap-2 items-center">
+                    <EmojiPicker value={newCat.icon} onChange={v => setNewCat(c => ({ ...c, icon: v }))} />
                     <input className="input-dark flex-1" placeholder="Nome (ex: Pet, Vestuário)"
                       value={newCat.name} onChange={e => setNewCat(c => ({ ...c, name: e.target.value }))}
                       onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleSaveNewCat())} autoFocus />

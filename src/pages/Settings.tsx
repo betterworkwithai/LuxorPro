@@ -16,6 +16,7 @@ import { useAllCategories } from '../lib/useCategories'
 import { clsx } from 'clsx'
 import { supabase, SUPABASE_CONFIGURED } from '../lib/supabase'
 import emailjs from '@emailjs/browser'
+import { NewCategoryModal } from '../components/modals/NewCategoryModal'
 
 const EMAILJS_SERVICE_ID  = 'service_e2vgo4k'
 const EMAILJS_TEMPLATE_ID = 'template_7uofibw'
@@ -70,114 +71,7 @@ function DeleteAccountModal({ open, onClose, onConfirm }: {
     </Modal>
   )
 }
-const EMPTY_CAT = { name: '', icon: '📦', color: '#ff7a00', type: 'expense' as Category['type'] }
-
-function NewCategoryModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { addCustomCategory } = useStore()
-  const [form, setForm] = useState(EMPTY_CAT)
-  const upd = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
-
-  const handleSave = async () => {
-    if (!form.name.trim()) return
-    await addCustomCategory({ ...form, name: form.name.trim() })
-    setForm(EMPTY_CAT)
-    onClose()
-  }
-
-  return (
-    <Modal open={open} onClose={onClose} title="Nova Categoria" size="sm">
-      <div className="px-6 py-5 space-y-4">
-        {/* Emoji + Name */}
-        <div className="flex gap-3">
-          <div>
-            <label className="text-xs text-[#8888aa] mb-1.5 block">Emoji</label>
-            <input
-              className="input-dark w-16 text-center text-xl"
-              value={form.icon}
-              maxLength={2}
-              onChange={e => upd('icon', e.target.value)}
-            />
-          </div>
-          <div className="flex-1">
-            <label className="text-xs text-[#8888aa] mb-1.5 block">Nome</label>
-            <input
-              className="input-dark"
-              placeholder="Ex: Pet, Vestuário…"
-              value={form.name}
-              onChange={e => upd('name', e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleSave()}
-            />
-          </div>
-        </div>
-
-        {/* Type */}
-        <div>
-          <label className="text-xs text-[#8888aa] mb-1.5 block">Tipo</label>
-          <div className="flex gap-2">
-            {([
-              { v: 'expense', l: '↓ Despesa' },
-              { v: 'income',  l: '↑ Receita' },
-              { v: 'both',    l: '↕ Ambos'   },
-            ] as const).map(({ v, l }) => (
-              <button
-                key={v}
-                onClick={() => upd('type', v)}
-                className={clsx(
-                  'flex-1 py-2 rounded-xl text-xs font-medium border transition-all',
-                  form.type === v
-                    ? 'bg-[#ff7a00]/10 border-[#ff7a00]/30 text-[#ff7a00]'
-                    : 'bg-[#16161f] border-[#1e1e2e] text-[#55556a] hover:text-[#e8e8f0]',
-                )}
-              >
-                {l}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Color */}
-        <div>
-          <label className="text-xs text-[#8888aa] mb-1.5 block">Cor</label>
-          <div className="flex items-center gap-3">
-            <input
-              type="color"
-              className="w-10 h-10 rounded-lg cursor-pointer bg-transparent border-0"
-              value={form.color}
-              onChange={e => upd('color', e.target.value)}
-            />
-            {/* Quick colour presets */}
-            <div className="flex gap-1.5 flex-wrap">
-              {['#ff7a00','#00ff88','#ff4466','#8b5cf6','#f59e0b','#3b82f6','#ec4899','#10b981'].map(c => (
-                <button
-                  key={c}
-                  onClick={() => upd('color', c)}
-                  className={clsx(
-                    'w-5 h-5 rounded-full border-2 transition-all',
-                    form.color === c ? 'border-white scale-125' : 'border-transparent',
-                  )}
-                  style={{ backgroundColor: c }}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Preview */}
-        <div className="flex items-center gap-2 p-3 bg-[#16161f] rounded-xl border border-[#1e1e2e]">
-          <span className="text-lg">{form.icon || '📦'}</span>
-          <span className="text-sm font-medium" style={{ color: form.color }}>{form.name || 'Pré-visualização'}</span>
-          <span className="text-[10px] text-[#55556a] ml-auto">{form.type === 'expense' ? 'Despesa' : form.type === 'income' ? 'Receita' : 'Ambos'}</span>
-        </div>
-      </div>
-      <ModalFooter>
-        <button className="btn-ghost" onClick={onClose}>Cancelar</button>
-        <button className="btn-primary" onClick={handleSave} disabled={!form.name.trim()}>
-          Criar Categoria
-        </button>
-      </ModalFooter>
-    </Modal>
-  )
-}
+// NewCategoryModal moved to ../components/modals/NewCategoryModal.tsx (shared)
 
 // ─── Suitability profiles ─────────────────────
 const SUITABILITY_OPTIONS = [

@@ -7,6 +7,12 @@ interface CatRule {
 }
 
 export const CAT_RULES: CatRule[] = [
+  // ── High-priority brand/keyword rules (match before generic patterns) ───
+  { re: /\biof\b/i,                cat: 'imposto',    type: 'expense' },
+  { re: /\bnetflix\b/i,            cat: 'streaming',  type: 'expense' },
+  { re: /\bwellhub\b|\bgympass\b/i, cat: 'saude',      type: 'expense' },
+  { re: /\bplaystation\b|\bxbox\b|\bnintendo\b|\bsteam\b/i, cat: 'lazer', type: 'expense' },
+  { re: /\buber\b(?!.?eat)/i,      cat: 'transporte', type: 'expense' }, // Uber but not Uber Eats
   // Alimentação — delivery
   { re: /ifood|rappi|uber.?eat|james|pedido\.pago|pizza|burger|mcdonald|subway|outback|giraffas|restaurante|lanchonete|padaria|sorveteria|café|cafeteria|sushi|churrascaria|acai|açai|hortifruti|quentinha|delivery/i, cat: 'alimentacao', type: 'expense' },
   // Alimentação — supermercados
@@ -49,4 +55,15 @@ export function autoCategorize(desc: string): { category: string; type: 'income'
     if (rule.re.test(desc)) return { category: rule.cat, type: rule.type }
   }
   return { category: 'outros', type: 'expense' }
+}
+
+// ── Discard rules: descriptions matching these are dropped before review ────
+const DISCARD_RULES: RegExp[] = [
+  /pagamento\s+efetuado/i,
+  /saldo\s+anterior/i,
+  /total\s+da\s+fatura/i,
+]
+
+export function shouldDiscard(desc: string): boolean {
+  return DISCARD_RULES.some(re => re.test(desc))
 }

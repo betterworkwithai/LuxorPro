@@ -3,7 +3,7 @@
 // without calling any AI. Used as a free alternative to the AI pipeline.
 
 import { nanoid } from 'nanoid'
-import { autoCategorize } from './autoCategorize'
+import { autoCategorize, shouldDiscard } from './autoCategorize'
 import type { ParsedTransaction } from './types'
 
 interface ParseResult {
@@ -163,6 +163,11 @@ export function parseLocalCSV(text: string, defaultAccount = 'Cartão'): ParseRe
 
     if (!date || !descStr || amount === null) {
       warnings.push(`Linha ${i + (hasHeader ? 2 : 1)} ignorada — dados incompletos`)
+      continue
+    }
+
+    if (shouldDiscard(descStr)) {
+      warnings.push(`"${descStr}" descartado automaticamente`)
       continue
     }
 

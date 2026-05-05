@@ -10,7 +10,7 @@ import { detectNativeText } from './pdfNativeDetector'
 import { extractRawText } from './pdfExtractor'
 import { runOCROnPDF, runOCROnImage } from './ocrEngine'
 import { extractSpreadsheetText, isSpreadsheet } from './spreadsheetExtractor'
-import { autoCategorize } from './autoCategorize'
+import { autoCategorize, shouldDiscard } from './autoCategorize'
 import { supabase } from '../supabase'
 import { processInvoice } from './pipeline'
 import type { ParsedTransaction, PipelineResult, PipelineOptions, InvoiceMetadata } from './types'
@@ -194,6 +194,7 @@ export async function processInvoiceAI(
 
     const transactions: ParsedTransaction[] = (data.transacoes ?? [])
       .filter((t: any) => t.descricao && typeof t.valor === 'number' && t.valor > 0)
+      .filter((t: any) => !shouldDiscard(String(t.descricao)))
       .map((t: any): ParsedTransaction => {
         const type: 'expense' | 'income' = t.tipo === 'receita' ? 'income' : 'expense'
         return {
