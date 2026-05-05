@@ -320,7 +320,7 @@ function ReviewTable({
   const [globalAccount, setGlobalAccount] = useState('Itaú')
   const partnership = useStore(s => s.partnership)
   type SortKey = 'date' | 'merchant' | 'category' | 'type' | 'amount'
-  const [sortKey, setSortKey] = useState<SortKey | null>(null)
+  const [sortKey, setSortKey] = useState<SortKey | null>('merchant')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   // ── Inline category creation ──────────────────────────────────────────────
   const [catModalOpen, setCatModalOpen] = useState(false)
