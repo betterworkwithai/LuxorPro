@@ -9,6 +9,7 @@ import { nanoid } from 'nanoid'
 import { detectNativeText } from './pdfNativeDetector'
 import { extractRawText } from './pdfExtractor'
 import { runOCROnPDF, runOCROnImage } from './ocrEngine'
+import { extractSpreadsheetText, isSpreadsheet } from './spreadsheetExtractor'
 import { autoCategorize } from './autoCategorize'
 import { supabase } from '../supabase'
 import { processInvoice } from './pipeline'
@@ -88,6 +89,7 @@ export async function processInvoiceAI(
 
   const isPDF   = file.type === 'application/pdf'
   const isImage = file.type.startsWith('image/')
+  const isSheet = isSpreadsheet(file)
 
   let rawText  = ''
   let usedOCR  = false
@@ -96,7 +98,11 @@ export async function processInvoiceAI(
   // ── 1. Text extraction ───────────────────────────────────────────────────
   onProgress?.('Extraindo texto do documento', 10)
 
-  if (isPDF) {
+  if (isSheet) {
+    onProgress?.('Lendo planilha', 20)
+    rawText = await extractSpreadsheetText(file)
+    onProgress?.('Planilha convertida', 50)
+  } else if (isPDF) {
     nativeTextResult = await detectNativeText(file)
     if (nativeTextResult.hasNativeText) {
       rawText = await extractRawText(file)
