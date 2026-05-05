@@ -132,7 +132,7 @@ export async function processInvoiceAI(
   onProgress?.('Analisando com Claude AI…', 60)
 
   const { data, error } = await supabase.functions.invoke('parse-invoice-ai', {
-    body: { text: rawText },
+    body: { text: rawText, format: isSheet ? 'spreadsheet' : 'document' },
   })
 
   let result: PipelineResult

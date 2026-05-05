@@ -49,6 +49,27 @@ Regras de extração:
 
 Responda com a tag <thinking> seguida APENAS de JSON válido, sem markdown adicional.`
 
+const SPREADSHEET_SYSTEM_PROMPT = `Você é um assistente financeiro processando uma planilha (CSV/Excel) de transações exportada de um banco ou cartão de crédito.
+
+CONTEXTO IMPORTANTE: O usuário exportou esses dados intencionalmente. Cada linha com data + descrição + valor é uma transação real que o usuário QUER importar. Não filtre nada por "ser ruído". Inclua TODAS as linhas válidas.
+
+REGRAS:
+1. A primeira linha geralmente é o cabeçalho (ex: "data,lançamento,valor" ou "Date,Description,Amount"). Use-o para mapear colunas.
+2. Toda linha subsequente com data + descrição + valor é uma transação. INCLUA TODAS — incluindo IOF, taxas, parking, pequenos valores. O usuário quer ver tudo.
+3. Convenção de sinal:
+   - Valor POSITIVO = despesa (compra, débito, IOF, taxa). tipo: "despesa". valor: o número positivo.
+   - Valor NEGATIVO = receita (pagamento recebido, estorno, crédito). tipo: "receita". valor: o número absoluto (positivo).
+4. NUNCA inverta o sinal sem motivo. Se o valor é -2482.12, é uma receita de 2482.12.
+5. Datas no formato YYYY-MM-DD (já vêm assim na maioria dos casos).
+6. Para cada transação, inclua o campo 'linha_original' com o conteúdo exato da linha CSV.
+7. categoria_sugerida em português: Alimentação, Transporte, Saúde, Streaming, Moradia, Lazer, Compras, Educação, Viagem, Impostos e Taxas, Pagamento, Outros.
+   - IOF, taxas bancárias → "Impostos e Taxas"
+   - Parking, pedágio, gasolina, Uber → "Transporte"
+   - Pagamento recebido / estorno → "Pagamento"
+   - Companhia aérea, hotel → "Viagem"
+
+NÃO use a tag <thinking>. Responda APENAS com JSON válido, sem markdown.`
+
 function userPrompt(text: string): string {
   return `Analise este documento financeiro e retorne o JSON estruturado:
 
@@ -73,6 +94,30 @@ Formato de resposta exato (após a tag <thinking>):
 }`
 }
 
+function spreadsheetUserPrompt(text: string): string {
+  return `Esta é uma planilha CSV/Excel exportada. Inclua TODAS as linhas com data + descrição + valor. Use o sinal do valor para definir o tipo (positivo = despesa, negativo = receita).
+
+${text}
+
+Responda APENAS com JSON neste formato (sem <thinking>, sem markdown):
+{
+  "banco": "Nome do banco ou emissor (deduza do contexto, ou null)",
+  "mes_referencia": "Mês mais frequente nas datas (ex: Março 2026)",
+  "total_fatura": null,
+  "transacoes": [
+    {
+      "data": "YYYY-MM-DD",
+      "descricao": "texto da descrição",
+      "valor": 0.00,
+      "parcela": null,
+      "tipo": "despesa",
+      "categoria_sugerida": "Alimentação",
+      "linha_original": "linha CSV original"
+    }
+  ]
+}`
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS })
 
@@ -86,10 +131,12 @@ Deno.serve(async (req) => {
 
     // ── Parse body ───────────────────────────────────────────────────────────
     const body = await req.json()
-    const { text } = body
+    const { text, format } = body
     if (!text || typeof text !== 'string' || text.trim().length < 10) {
       return json({ error: 'text é obrigatório e deve ter pelo menos 10 caracteres' }, 400)
     }
+
+    const isSpreadsheet = format === 'spreadsheet'
 
     // ── Call Anthropic API ───────────────────────────────────────────────────
     const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
@@ -104,9 +151,12 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         model:      'claude-sonnet-4-20250514',
-        max_tokens: 4096,
-        system:     SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: userPrompt(text) }],
+        max_tokens: 8192,
+        system:     isSpreadsheet ? SPREADSHEET_SYSTEM_PROMPT : SYSTEM_PROMPT,
+        messages: [{
+          role: 'user',
+          content: isSpreadsheet ? spreadsheetUserPrompt(text) : userPrompt(text),
+        }],
       }),
     })
 
