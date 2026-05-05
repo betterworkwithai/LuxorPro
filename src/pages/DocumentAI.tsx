@@ -4,8 +4,9 @@ import {
   Upload, FileText, Image, Trash2, Eye, Zap, CheckCircle2,
   AlertCircle, Loader2, X, Paperclip, FileSearch,
   Download, SquareCheck, Square, ShieldCheck, AlertTriangle,
-  FileSpreadsheet,
+  FileSpreadsheet, ClipboardPaste, Sparkles,
 } from 'lucide-react'
+import { parseLocalCSV } from '../lib/invoice/csvLocalParser'
 import { nanoid } from 'nanoid'
 import { clsx } from 'clsx'
 import { useStore } from '../store/useStore'
@@ -358,6 +359,9 @@ export default function DocumentAI() {
   const [pendingOCR,    setPendingOCR]    = useState(false)
   const [importedCount, setImportedCount] = useState<number | null>(null)
   const [rejectMsg,     setRejectMsg]     = useState<string | null>(null)
+  const [pasteOpen,     setPasteOpen]     = useState(false)
+  const [pasteText,     setPasteText]     = useState('')
+  const [pasteMsg,      setPasteMsg]      = useState<string | null>(null)
 
   const updateEntry = (id: string, patch: Partial<FileEntry>) =>
     setQueue(q => q.map(e => e.id === id ? { ...e, ...patch } : e))
@@ -439,6 +443,29 @@ export default function DocumentAI() {
     },
     maxSize: 20 * 1024 * 1024,
   })
+
+  const handlePasteParse = () => {
+    setPasteMsg(null)
+    if (!pasteText.trim()) {
+      setPasteMsg('Cole o texto CSV antes de processar')
+      return
+    }
+    const { transactions, warnings } = parseLocalCSV(pasteText)
+    if (transactions.length === 0) {
+      setPasteMsg(`Nenhuma transação reconhecida${warnings.length ? ` — ${warnings[0]}` : ''}`)
+      return
+    }
+    setPendingTxs(prev => {
+      const existingIds = new Set(prev.map(t => t.id))
+      return [...prev, ...transactions.filter(t => !existingIds.has(t.id))]
+    })
+    setPendingMeta({})
+    setPendingIssuer(undefined)
+    setPendingOCR(false)
+    setPasteText('')
+    setPasteOpen(false)
+    setPasteMsg(null)
+  }
 
   const handleImport = async (selected: ParsedTransaction[]) => {
     let count = 0
@@ -523,6 +550,80 @@ export default function DocumentAI() {
             onClear={() => { setPendingTxs([]); setPendingMeta({}); setPendingIssuer(undefined); setPendingOCR(false) }}
           />
         )}
+
+        {/* Paste CSV — local parsing, no AI tokens */}
+        <Card className="overflow-hidden">
+          <button
+            onClick={() => setPasteOpen(o => !o)}
+            className="w-full flex items-center justify-between px-5 py-4 hover:bg-[#16161f]/40 transition-colors text-left"
+            aria-expanded={pasteOpen}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-[#00ff88]/10 border border-[#00ff88]/20 flex items-center justify-center flex-shrink-0">
+                <ClipboardPaste className="w-4 h-4 text-[#00ff88]" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-[#e8e8f0]">Colar CSV manualmente</p>
+                <p className="text-[11px] text-[#55556a]">
+                  Processamento local instantâneo · sem IA, sem custo · ideal para extratos copiados
+                </p>
+              </div>
+            </div>
+            <div className={clsx('w-7 h-7 rounded-lg flex items-center justify-center text-[#55556a] transition-transform',
+              pasteOpen && 'rotate-45')}>
+              <X className="w-4 h-4" />
+            </div>
+          </button>
+
+          {pasteOpen && (
+            <div className="px-5 pb-5 space-y-3 border-t border-[#1e1e2e] pt-4 animate-fade-in">
+              <div>
+                <label className="text-[10px] uppercase tracking-widest text-[#8888aa] font-semibold">
+                  Cole o CSV abaixo
+                </label>
+                <p className="text-[11px] text-[#55556a] mt-1 mb-2">
+                  Formato esperado: cabeçalho com <span className="font-mono text-[#00d4ff]">data, lançamento, valor</span> (ou similar) seguido das linhas. Valores positivos = despesa · negativos = receita.
+                </p>
+                <textarea
+                  value={pasteText}
+                  onChange={e => { setPasteText(e.target.value); setPasteMsg(null) }}
+                  placeholder={'data,lançamento,valor\n2026-03-20,IOF COMPRA INTERNACIONAL,7.47\n2026-03-19,HARD ROCK ST-CT M REST,213.67\n2026-03-02,PAGAMENTO EFETUADO,-2482.12'}
+                  className="w-full input-dark font-mono text-xs leading-relaxed min-h-[180px] py-3 px-3 resize-y"
+                  spellCheck={false}
+                />
+              </div>
+
+              {pasteMsg && (
+                <div role="alert" className="flex items-center gap-2 text-xs text-[#ff4466]">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  <span>{pasteMsg}</span>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <p className="text-[11px] text-[#55556a] flex items-center gap-1.5">
+                  <Sparkles className="w-3 h-3 text-[#00ff88]" />
+                  Categorização automática por palavras-chave
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => { setPasteText(''); setPasteMsg(null) }}
+                    disabled={!pasteText}
+                    className="btn-ghost text-xs px-3 py-1.5"
+                  >
+                    Limpar
+                  </button>
+                  <button
+                    onClick={handlePasteParse}
+                    className="btn-primary text-xs px-4 py-1.5 flex items-center gap-1.5"
+                  >
+                    <Zap className="w-3.5 h-3.5" /> Processar localmente
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </Card>
 
         {/* Drop zone */}
         <div
