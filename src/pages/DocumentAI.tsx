@@ -432,13 +432,10 @@ export default function DocumentAI() {
       }
       setTimeout(() => setRejectMsg(null), 5000)
     },
-    accept: {
-      'application/pdf': ['.pdf'],
-      'image/*': ['.png', '.jpg', '.jpeg', '.webp'],
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-      'application/vnd.ms-excel': ['.xls'],
-      'text/csv': ['.csv'],
-      'application/csv': ['.csv'],
+    validator: (file) => {
+      const ok = /\.(pdf|png|jpe?g|webp|xlsx|xls|csv|tsv|ods)$/i.test(file.name)
+      if (!ok) return { code: 'file-invalid-type', message: 'Formato não suportado' }
+      return null
     },
     maxSize: 20 * 1024 * 1024,
   })

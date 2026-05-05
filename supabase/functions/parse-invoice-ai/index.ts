@@ -169,20 +169,35 @@ Deno.serve(async (req) => {
     const anthropicData = await anthropicRes.json()
     const rawContent: string = anthropicData.content?.[0]?.text ?? ''
 
-    // Strip <thinking>…</thinking> chain-of-thought block, then markdown fences
-    const jsonStr = rawContent
-      .replace(/<thinking>[\s\S]*?<\/thinking>/i, '')
-      .replace(/^```(?:json)?\s*/im, '')
-      .replace(/\s*```\s*$/im, '')
+    console.log('[parse-invoice-ai] format:', format, '| raw response length:', rawContent.length,
+      '| first 300 chars:', rawContent.slice(0, 300))
+
+    // Strip <thinking>…</thinking> chain-of-thought block, then markdown fences,
+    // then extract the first balanced { ... } block as JSON.
+    let candidate = rawContent
+      .replace(/<thinking>[\s\S]*?<\/thinking>/gi, '')
+      .replace(/```(?:json)?\s*/gi, '')
+      .replace(/```/g, '')
       .trim()
+
+    const firstBrace = candidate.indexOf('{')
+    const lastBrace  = candidate.lastIndexOf('}')
+    if (firstBrace >= 0 && lastBrace > firstBrace) {
+      candidate = candidate.slice(firstBrace, lastBrace + 1)
+    }
 
     let parsed: unknown
     try {
-      parsed = JSON.parse(jsonStr)
-    } catch {
-      console.error('[parse-invoice-ai] JSON parse failed. Raw:', rawContent.slice(0, 300))
+      parsed = JSON.parse(candidate)
+    } catch (e) {
+      console.error('[parse-invoice-ai] JSON parse failed:', (e as Error).message)
+      console.error('[parse-invoice-ai] Candidate (first 500):', candidate.slice(0, 500))
+      console.error('[parse-invoice-ai] Raw (first 500):', rawContent.slice(0, 500))
       return json({ error: 'IA retornou resposta inválida — tente novamente' }, 502)
     }
+
+    const txCount = (parsed as { transacoes?: unknown[] })?.transacoes?.length ?? 0
+    console.log('[parse-invoice-ai] success — transacoes:', txCount)
 
     return json(parsed)
 

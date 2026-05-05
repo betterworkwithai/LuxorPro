@@ -101,6 +101,8 @@ export async function processInvoiceAI(
   if (isSheet) {
     onProgress?.('Lendo planilha', 20)
     rawText = await extractSpreadsheetText(file)
+    console.log('[aiPipeline] Spreadsheet detected. Extracted text length:', rawText.length)
+    console.log('[aiPipeline] First 500 chars:', rawText.slice(0, 500))
     onProgress?.('Planilha convertida', 50)
   } else if (isPDF) {
     nativeTextResult = await detectNativeText(file)
@@ -135,11 +137,24 @@ export async function processInvoiceAI(
     body: { text: rawText, format: isSheet ? 'spreadsheet' : 'document' },
   })
 
+  console.log('[aiPipeline] AI response — error:', error, 'data keys:', data ? Object.keys(data) : null,
+    'transacoes count:', data?.transacoes?.length ?? 'N/A')
+
   let result: PipelineResult
 
   if (error || !data || !data.transacoes) {
-    // Edge function not available — fall back to the regex-based pipeline
-    console.warn('[aiPipeline] AI unavailable, falling back to regex pipeline:', error?.message)
+    // Edge function not available OR returned no transactions field
+    console.warn('[aiPipeline] AI unavailable or empty response. Falling back to regex pipeline:', error?.message, data)
+    if (isSheet) {
+      // Don't run the regex PDF pipeline on a spreadsheet — return AI failure cleanly
+      return {
+        transactions: [],
+        metadata: {},
+        usedOCR: false,
+        nativeTextResult,
+        logs: [{ step: 'ai', message: `IA falhou ao processar planilha: ${error?.message ?? 'sem resposta'}`, level: 'error' }],
+      }
+    }
     result = await processInvoice(file, opts)
   } else {
     // ── 3. Map to ParsedTransaction[] ─────────────────────────────────────
