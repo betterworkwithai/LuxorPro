@@ -97,6 +97,7 @@ export default function Settings() {
   const [saved,          setSaved]          = useState(false)
   const [showClearModal, setShowClearModal] = useState(false)
   const [showNewCat,     setShowNewCat]     = useState(false)
+  const [activeTab,      setActiveTab]      = useState<string>('perfil')
   const [user,           setUser]           = useState<{ email: string | null } | null>(null)
 
   useEffect(() => {
@@ -365,16 +366,14 @@ export default function Settings() {
         }
       />
 
-      {/* CSS to give every settings section a 80px anchor offset so sticky-nav clicks land below the header */}
-      <style>{`section[id^="settings-"] { scroll-margin-top: 88px; }`}</style>
-
       <div className="p-4 sm:p-6 max-w-7xl mx-auto lg:flex lg:gap-8">
 
-        <SettingsNav />
+        <SettingsNav active={activeTab} onChange={setActiveTab} />
 
         <div className="flex-1 min-w-0 space-y-6 lg:max-w-3xl">
 
         {/* ── Perfil ── */}
+        {activeTab === 'perfil' && (
         <section id="perfil" aria-labelledby="perfil-heading">
         <Card>
           <CardHeader><CardTitle>Perfil</CardTitle></CardHeader>
@@ -387,8 +386,10 @@ export default function Settings() {
         </Card>
 
         </section>
+        )}
 
         {/* ── Assinatura ── */}
+        {activeTab === 'assinatura' && (
         <section id="assinatura" aria-labelledby="assinatura-heading">
         {SUPABASE_CONFIGURED && (
           <Card>
@@ -508,8 +509,10 @@ export default function Settings() {
         )}
 
         </section>
+        )}
 
         {/* ── Segurança da Conta ── */}
+        {activeTab === 'seguranca' && (
         <section id="seguranca" aria-labelledby="seguranca-heading">
         <Card>
           <CardHeader>
@@ -641,8 +644,10 @@ export default function Settings() {
         </Card>
 
         </section>
+        )}
 
         {/* ── Perfil de Investidor (Task 16) ── */}
+        {activeTab === 'investidor' && (
         <section id="investidor" aria-labelledby="investidor-heading">
         <Card>
           <CardHeader><CardTitle>Perfil de Investidor</CardTitle></CardHeader>
@@ -668,8 +673,10 @@ export default function Settings() {
         </Card>
 
         </section>
+        )}
 
         {/* ── Moeda e Câmbio ── */}
+        {activeTab === 'moeda' && (
         <section id="moeda" aria-labelledby="moeda-heading">
         <Card>
           <CardHeader><CardTitle>Moeda e Câmbio</CardTitle></CardHeader>
@@ -699,28 +706,10 @@ export default function Settings() {
         </Card>
 
         </section>
-
-        {/* ── Metas financeiras ── */}
-        <section id="metas" aria-labelledby="metas-heading">
-        <Card>
-          <CardHeader><CardTitle>Metas Financeiras</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs text-[#8888aa] mb-1.5 block">Meta de Renda Mensal (R$)</label>
-                <input className="input-dark" type="number" placeholder="30000" value={form.monthlyIncomeGoal} onChange={e => upd('monthlyIncomeGoal', parseFloat(e.target.value))} />
-              </div>
-              <div>
-                <label className="text-xs text-[#8888aa] mb-1.5 block">Meta de Poupança (%)</label>
-                <input className="input-dark" type="number" min="0" max="100" placeholder="30" value={form.savingsRateGoal} onChange={e => upd('savingsRateGoal', parseFloat(e.target.value))} />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        </section>
+        )}
 
         {/* ── Modo Casal ── */}
+        {activeTab === 'compartilhamento' && (
         <section id="compartilhamento" aria-labelledby="compartilhamento-heading">
         <Card>
           <CardHeader>
@@ -737,8 +726,10 @@ export default function Settings() {
         </Card>
 
         </section>
+        )}
 
         {/* ── Instituições (Tasks 17 + 18) ── */}
+        {activeTab === 'instituicoes' && (
         <section id="instituicoes" aria-labelledby="instituicoes-heading">
         <Card>
           <CardHeader><CardTitle>Instituições</CardTitle></CardHeader>
@@ -799,8 +790,10 @@ export default function Settings() {
         </Card>
 
         </section>
+        )}
 
         {/* ── Categorias Personalizadas ── */}
+        {activeTab === 'categorias' && (
         <section id="categorias" aria-labelledby="categorias-heading">
         <Card>
           <CardHeader>
@@ -901,34 +894,10 @@ export default function Settings() {
         </Card>
 
         </section>
-
-        {/* ── Armazenamento local ── */}
-        <section id="armazenamento" aria-labelledby="armazenamento-heading">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Database className="w-4 h-4 text-[#55556a]" />
-              <CardTitle>Armazenamento Local</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-3">
-              {Object.entries(storageStats).map(([k, v]) => (
-                <div key={k} className="bg-[#16161f] rounded-xl p-3 border border-[#1e1e2e]">
-                  <p className="text-[10px] text-[#55556a] uppercase tracking-wider mb-1">{k}</p>
-                  <p className="text-sm font-bold text-[#e8e8f0]">{v}</p>
-                </div>
-              ))}
-            </div>
-            <p className="text-xs text-[#55556a] mt-3">
-              Todos os dados armazenados no IndexedDB — 100% local, nunca saem do seu navegador.
-            </p>
-          </CardContent>
-        </Card>
-
-        </section>
+        )}
 
         {/* ── Backup e Restauração ── */}
+        {activeTab === 'backup' && (
         <section id="backup" aria-labelledby="backup-heading">
         <Card>
           <CardHeader>
@@ -993,8 +962,10 @@ export default function Settings() {
         </Card>
 
         </section>
+        )}
 
         {/* ── Conta (email/senha) — só com Supabase ── */}
+        {activeTab === 'conta' && (
         <section id="conta" aria-labelledby="conta-heading">
         {SUPABASE_CONFIGURED && (
           <Card>
@@ -1089,8 +1060,10 @@ export default function Settings() {
         )}
 
         </section>
+        )}
 
         {/* ── Sugerir Funcionalidade (Task 19) ── */}
+        {activeTab === 'sugerir' && (
         <section id="sugerir" aria-labelledby="sugerir-heading">
         <Card>
           <CardHeader><CardTitle>Sugerir Funcionalidade</CardTitle></CardHeader>
@@ -1122,13 +1095,17 @@ export default function Settings() {
         </Card>
 
         </section>
+        )}
 
         {/* ── Suporte e Bugs ── */}
+        {activeTab === 'suporte' && (
         <section id="suporte" aria-labelledby="suporte-heading">
           <SupportSection userEmail={user?.email ?? null} />
         </section>
+        )}
 
         {/* ── Apagar Dados e Conta ── */}
+        {activeTab === 'apagar' && (
         <section id="apagar" aria-labelledby="apagar-heading">
         <Card className="border-[#ff4466]/20">
           <CardHeader>
@@ -1181,6 +1158,7 @@ export default function Settings() {
           </CardContent>
         </Card>
         </section>
+        )}
 
         </div>
       </div>

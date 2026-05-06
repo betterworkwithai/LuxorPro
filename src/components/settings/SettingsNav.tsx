@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React from 'react'
 import { clsx } from 'clsx'
 import {
   User, CreditCard, ShieldCheck, BarChart2, Wallet, Target, Heart,
@@ -19,11 +19,9 @@ export const SETTINGS_NAV_ITEMS: SettingsNavItem[] = [
   { id: 'seguranca',       label: 'Segurança',              icon: ShieldCheck },
   { id: 'investidor',      label: 'Perfil de Investidor',   icon: BarChart2 },
   { id: 'moeda',           label: 'Moeda e Câmbio',         icon: Wallet },
-  { id: 'metas',           label: 'Metas Financeiras',      icon: Target },
   { id: 'compartilhamento',label: 'Compartilhamento',       icon: Heart },
   { id: 'instituicoes',    label: 'Instituições',           icon: Building2 },
   { id: 'categorias',      label: 'Categorias',             icon: Tag },
-  { id: 'armazenamento',   label: 'Armazenamento',          icon: Database },
   { id: 'backup',          label: 'Backup',                 icon: Download },
   { id: 'conta',           label: 'Conta',                  icon: KeyRound },
   { id: 'sugerir',         label: 'Sugerir Função',         icon: Sparkles },
@@ -32,53 +30,23 @@ export const SETTINGS_NAV_ITEMS: SettingsNavItem[] = [
 ]
 
 /**
- * Tracks which section is currently in view via IntersectionObserver
- * to drive the active-state highlight on the nav.
+ * Controlled settings tab navigation. Left sidebar on desktop, horizontal
+ * scroll tabs on mobile. Only the section matching `active` is rendered by
+ * the parent — this is a tab pattern, not anchored scroll.
  */
-function useActiveSection(): string {
-  const [active, setActive] = useState<string>(SETTINGS_NAV_ITEMS[0].id)
-
-  useEffect(() => {
-    const sections = SETTINGS_NAV_ITEMS
-      .map(it => document.getElementById(it.id))
-      .filter((el): el is HTMLElement => !!el)
-    if (sections.length === 0) return
-
-    // Pick the section whose top edge is closest to (but not below) the
-    // sticky-nav offset. We use a -120px topMargin to account for the page
-    // header (which is sticky at top:0 with z-30).
-    const observer = new IntersectionObserver(
-      entries => {
-        const visible = entries
-          .filter(e => e.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)
-        if (visible[0]) setActive(visible[0].target.id)
-      },
-      { rootMargin: '-120px 0px -55% 0px', threshold: [0, 0.25, 0.5] },
-    )
-    sections.forEach(el => observer.observe(el))
-    return () => observer.disconnect()
-  }, [])
-
-  return active
-}
-
-/**
- * Sticky settings sub-navigation. Left sidebar on desktop, horizontal scroll
- * tabs on mobile. Clicking an item smoothly scrolls to the matching section.
- */
-export function SettingsNav() {
-  const active = useActiveSection()
-
+export function SettingsNav({
+  active, onChange,
+}: {
+  active:   string
+  onChange: (id: string) => void
+}) {
   const handleClick = (id: string) => {
-    const el = document.getElementById(id)
-    if (!el) return
-    el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    // After scroll, move keyboard focus to the section heading for screen readers
-    setTimeout(() => {
-      const heading = el.querySelector<HTMLElement>('[data-section-heading]')
-      heading?.focus({ preventScroll: true })
-    }, 400)
+    onChange(id)
+    // Scroll back to the top of the page so users see the tab content
+    // from its beginning, regardless of where they clicked from.
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    })
   }
 
   return (
