@@ -434,7 +434,16 @@ export default function Landing() {
       {/* ════════════════════════════════════════════════════════════
           STICKY NAV
       ════════════════════════════════════════════════════════════ */}
-      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-[#0a0a0f]/95 backdrop-blur border-b border-[#1e1e2e] py-3' : 'py-5'}`}>
+      <nav
+        className="fixed top-0 left-0 right-0 z-50 py-4"
+        style={{
+          backgroundColor: scrolled ? 'rgba(10,10,15,0.92)' : 'rgba(10,10,15,0)',
+          backdropFilter: scrolled ? 'blur(8px)' : 'blur(0px)',
+          WebkitBackdropFilter: scrolled ? 'blur(8px)' : 'blur(0px)',
+          borderBottom: scrolled ? '1px solid #1e1e2e' : '1px solid transparent',
+          transition: 'background-color 280ms var(--lx-ease), backdrop-filter 280ms var(--lx-ease), border-color 280ms var(--lx-ease)',
+        }}
+      >
         <div className="max-w-6xl mx-auto px-6 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <img src="/logo.png" alt="Luxor Pro" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
