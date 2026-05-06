@@ -84,6 +84,32 @@ function addSyncedIds(ids: string[]) {
   localStorage.setItem(SYNCED_KEY, JSON.stringify([...set]))
 }
 
+/**
+ * Scans existing transactions + investments for `pluggy:<id>` markers and
+ * returns the set of Pluggy IDs already imported. Used as a fallback when
+ * localStorage SYNCED_KEY is cleared (different browser, manual cache clear,
+ * fresh device login, etc.) so we never re-import the same Pluggy item twice.
+ *
+ * mapTransaction tags transactions with `tags: ['pluggy:<tx.id>']`.
+ * mapInvestment writes the same marker into `notes`.
+ */
+function collectImportedPluggyIds(
+  transactions: { tags?: string[] }[],
+  investments:  { notes?: string }[],
+): Set<string> {
+  const ids = new Set<string>()
+  for (const t of transactions) {
+    for (const tag of t.tags ?? []) {
+      if (tag.startsWith('pluggy:')) ids.add(tag.slice(7))
+    }
+  }
+  for (const i of investments) {
+    const m = i.notes?.match(/pluggy:([^\s]+)/)
+    if (m) ids.add(m[1])
+  }
+  return ids
+}
+
 // ── Category mapping ──────────────────────────────────────────────────────────
 const CAT_MAP: [string, string][] = [
   ['FOOD',               'alimentacao'],
@@ -403,7 +429,23 @@ export default function Connections() {
         investments:  PluggyInvestment[]
       }
 
-      const syncedIds  = loadSyncedIds()
+      // ── INSERT-ONLY CONTRACT ─────────────────────────────────────────────
+      // Pluggy syncs MUST NEVER delete or overwrite previously-saved data.
+      // Strategy: dedup by Pluggy ID using two independent sources of truth.
+      //   1. localStorage SYNCED_KEY  — fast path, persists across sessions
+      //   2. existing store data with `pluggy:<id>` markers — survives if
+      //      localStorage is cleared (different browser, cache wipe, etc.)
+      // Only items absent from BOTH sets are added. Pre-existing manual or
+      // imported transactions/investments are never touched.
+      const lsSyncedIds = loadSyncedIds()
+      const storeState  = useStore.getState()
+      const seenPluggyIds = collectImportedPluggyIds(
+        storeState.transactions,
+        storeState.investments,
+      )
+      const isAlreadyImported = (pluggyId: string) =>
+        lsSyncedIds.has(pluggyId) || seenPluggyIds.has(pluggyId)
+
       const newIds:    string[] = []
       let   txCount  = 0
       let   invCount = 0
@@ -411,7 +453,7 @@ export default function Connections() {
       const accountMap = Object.fromEntries(accounts.map(a => [a.id, a]))
 
       for (const tx of transactions) {
-        if (syncedIds.has(tx.id)) continue
+        if (isAlreadyImported(tx.id)) continue
         const account = accountMap[tx.accountId]
         if (!account) continue
         await addTransaction(mapTransaction(tx, account, pluggyItem.connector.name))
@@ -420,7 +462,7 @@ export default function Connections() {
       }
 
       for (const inv of investments) {
-        if (syncedIds.has(inv.id)) continue
+        if (isAlreadyImported(inv.id)) continue
         await addInvestment(mapInvestment(inv, pluggyItem.connector.name))
         newIds.push(inv.id)
         invCount++
@@ -494,6 +536,11 @@ export default function Connections() {
     }
   }, [handleSuccess])
 
+  // Disconnect: removes the local Pluggy connection record only. Imported
+  // transactions and investments are intentionally PRESERVED — disconnecting
+  // a bank should not erase the user's history. To delete imported items the
+  // user must use the Duplicatas section (Cashflow / Wealth) or remove
+  // individual records by hand.
   const removeItem = (itemId: string) =>
     setItems(prev => prev.filter(i => i.itemId !== itemId))
 
