@@ -17,6 +17,8 @@ import { clsx } from 'clsx'
 import { supabase, SUPABASE_CONFIGURED } from '../lib/supabase'
 import emailjs from '@emailjs/browser'
 import { NewCategoryModal } from '../components/modals/NewCategoryModal'
+import { SettingsNav } from '../components/settings/SettingsNav'
+import { SupportSection } from '../components/settings/SupportSection'
 
 const EMAILJS_SERVICE_ID  = 'service_e2vgo4k'
 const EMAILJS_TEMPLATE_ID = 'template_7uofibw'
@@ -95,6 +97,18 @@ export default function Settings() {
   const [saved,          setSaved]          = useState(false)
   const [showClearModal, setShowClearModal] = useState(false)
   const [showNewCat,     setShowNewCat]     = useState(false)
+  const [user,           setUser]           = useState<{ email: string | null } | null>(null)
+
+  useEffect(() => {
+    let mounted = true
+    supabase.auth.getUser().then(({ data }) => {
+      if (mounted) setUser(data.user ? { email: data.user.email ?? null } : null)
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      if (mounted) setUser(session?.user ? { email: session.user.email ?? null } : null)
+    })
+    return () => { mounted = false; subscription.unsubscribe() }
+  }, [])
   const [editCat,        setEditCat]        = useState<Category | null>(null)
   const [clearing,       setClearing]       = useState(false)
   const [importing,      setImporting]      = useState(false)
@@ -351,9 +365,17 @@ export default function Settings() {
         }
       />
 
-      <div className="p-4 sm:p-6 space-y-6 max-w-2xl">
+      {/* CSS to give every settings section a 80px anchor offset so sticky-nav clicks land below the header */}
+      <style>{`section[id^="settings-"] { scroll-margin-top: 88px; }`}</style>
+
+      <div className="p-4 sm:p-6 max-w-7xl mx-auto lg:flex lg:gap-8">
+
+        <SettingsNav />
+
+        <div className="flex-1 min-w-0 space-y-6 lg:max-w-3xl">
 
         {/* ── Perfil ── */}
+        <section id="perfil" aria-labelledby="perfil-heading">
         <Card>
           <CardHeader><CardTitle>Perfil</CardTitle></CardHeader>
           <CardContent className="space-y-4">
@@ -364,7 +386,10 @@ export default function Settings() {
           </CardContent>
         </Card>
 
+        </section>
+
         {/* ── Assinatura ── */}
+        <section id="assinatura" aria-labelledby="assinatura-heading">
         {SUPABASE_CONFIGURED && (
           <Card>
             <CardHeader>
@@ -482,7 +507,10 @@ export default function Settings() {
           </Card>
         )}
 
+        </section>
+
         {/* ── Segurança da Conta ── */}
+        <section id="seguranca" aria-labelledby="seguranca-heading">
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
@@ -612,7 +640,10 @@ export default function Settings() {
           </CardContent>
         </Card>
 
+        </section>
+
         {/* ── Perfil de Investidor (Task 16) ── */}
+        <section id="investidor" aria-labelledby="investidor-heading">
         <Card>
           <CardHeader><CardTitle>Perfil de Investidor</CardTitle></CardHeader>
           <CardContent>
@@ -636,7 +667,10 @@ export default function Settings() {
           </CardContent>
         </Card>
 
+        </section>
+
         {/* ── Moeda e Câmbio ── */}
+        <section id="moeda" aria-labelledby="moeda-heading">
         <Card>
           <CardHeader><CardTitle>Moeda e Câmbio</CardTitle></CardHeader>
           <CardContent className="space-y-4">
@@ -664,7 +698,10 @@ export default function Settings() {
           </CardContent>
         </Card>
 
+        </section>
+
         {/* ── Metas financeiras ── */}
+        <section id="metas" aria-labelledby="metas-heading">
         <Card>
           <CardHeader><CardTitle>Metas Financeiras</CardTitle></CardHeader>
           <CardContent className="space-y-4">
@@ -681,7 +718,10 @@ export default function Settings() {
           </CardContent>
         </Card>
 
+        </section>
+
         {/* ── Modo Casal ── */}
+        <section id="compartilhamento" aria-labelledby="compartilhamento-heading">
         <Card>
           <CardHeader>
             <CardTitle>
@@ -696,7 +736,10 @@ export default function Settings() {
           </CardContent>
         </Card>
 
+        </section>
+
         {/* ── Instituições (Tasks 17 + 18) ── */}
+        <section id="instituicoes" aria-labelledby="instituicoes-heading">
         <Card>
           <CardHeader><CardTitle>Instituições</CardTitle></CardHeader>
           <CardContent className="space-y-5">
@@ -755,7 +798,10 @@ export default function Settings() {
           </CardContent>
         </Card>
 
+        </section>
+
         {/* ── Categorias Personalizadas ── */}
+        <section id="categorias" aria-labelledby="categorias-heading">
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -854,7 +900,10 @@ export default function Settings() {
           </CardContent>
         </Card>
 
+        </section>
+
         {/* ── Armazenamento local ── */}
+        <section id="armazenamento" aria-labelledby="armazenamento-heading">
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
@@ -877,7 +926,10 @@ export default function Settings() {
           </CardContent>
         </Card>
 
+        </section>
+
         {/* ── Backup e Restauração ── */}
+        <section id="backup" aria-labelledby="backup-heading">
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
@@ -940,7 +992,10 @@ export default function Settings() {
           </CardContent>
         </Card>
 
+        </section>
+
         {/* ── Conta (email/senha) — só com Supabase ── */}
+        <section id="conta" aria-labelledby="conta-heading">
         {SUPABASE_CONFIGURED && (
           <Card>
             <CardHeader>
@@ -1033,7 +1088,10 @@ export default function Settings() {
           </Card>
         )}
 
+        </section>
+
         {/* ── Sugerir Funcionalidade (Task 19) ── */}
+        <section id="sugerir" aria-labelledby="sugerir-heading">
         <Card>
           <CardHeader><CardTitle>Sugerir Funcionalidade</CardTitle></CardHeader>
           <CardContent className="space-y-3">
@@ -1063,7 +1121,15 @@ export default function Settings() {
           </CardContent>
         </Card>
 
+        </section>
+
+        {/* ── Suporte e Bugs ── */}
+        <section id="suporte" aria-labelledby="suporte-heading">
+          <SupportSection userEmail={user?.email ?? null} />
+        </section>
+
         {/* ── Apagar Dados e Conta ── */}
+        <section id="apagar" aria-labelledby="apagar-heading">
         <Card className="border-[#ff4466]/20">
           <CardHeader>
             <div className="flex items-center gap-2">
@@ -1114,7 +1180,9 @@ export default function Settings() {
             </div>
           </CardContent>
         </Card>
+        </section>
 
+        </div>
       </div>
 
       <ClearDataModal
