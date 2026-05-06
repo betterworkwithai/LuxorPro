@@ -53,6 +53,7 @@ interface PluggyInvestment {
   annualRate?: number
   dueDate?: string
   date?: string
+  currencyCode?: string
 }
 
 // ── Local storage helpers ─────────────────────────────────────────────────────
@@ -113,20 +114,70 @@ function mapCategory(pluggyCat: string | undefined, type: 'income' | 'expense'):
   return type === 'income' ? 'other_income' : 'outros'
 }
 
-function mapAssetClass(type: string, subtype?: string): string {
-  const t = type?.toUpperCase()
+// Strict allowlist — Pluggy imports must map to one of these canonical classes.
+// New custom classes are NEVER created from Open Finance data.
+const ALLOWED_ASSET_CLASSES = [
+  'CDB', 'LCI', 'LCA', 'Tesouro Direto', 'Ações B3', 'FII',
+  'US Stocks', 'ETF', 'USD Cash', 'Crypto', 'Real Estate', 'Other',
+] as const
+type AllowedAssetClass = typeof ALLOWED_ASSET_CLASSES[number]
+
+function mapAssetClass(
+  type: string,
+  subtype?: string,
+  currencyCode?: string,
+): AllowedAssetClass {
+  const t = (type ?? '').toUpperCase()
   const s = (subtype ?? '').toUpperCase()
-  if (t === 'MUTUAL_FUND')                          return 'FII'
-  if (t === 'ETF')                                  return 'ETF'
-  if (t === 'EQUITY')                               return 'Ações B3'
-  if (t === 'TREASURE' || s.includes('TESOURO'))    return 'Tesouro Direto'
+  const isUSD = (currencyCode ?? '').toUpperCase() === 'USD'
+
+  // Crypto / cash first (currency-agnostic)
+  if (t === 'CRYPTO' || s.includes('CRYPTO'))            return 'Crypto'
+  if (t === 'CASH'   || s.includes('CASH'))              return isUSD ? 'USD Cash' : 'Other'
+
+  // Offshore-specific instruments (signaled by USD currency or OFFSHORE subtype)
+  if (isUSD || s.includes('OFFSHORE')) {
+    if (t === 'ETF')    return 'ETF'
+    if (t === 'EQUITY') return 'US Stocks'
+    return 'Other'
+  }
+
+  // Onshore (default — most Brazilian Pluggy connectors)
+  if (t === 'ETF')                                       return 'ETF'
+  if (t === 'EQUITY')                                    return 'Ações B3'
+  if (t === 'TREASURE' || t === 'TREASURY' || s.includes('TESOURO')) return 'Tesouro Direto'
   if (t === 'FIXED_INCOME') {
     if (s.includes('CDB')) return 'CDB'
     if (s.includes('LCI')) return 'LCI'
     if (s.includes('LCA')) return 'LCA'
-    return 'CDB'
+    return 'Other'  // debênture / COE / etc. — keep neutral instead of guessing CDB
   }
+  if (t === 'MUTUAL_FUND') {
+    // Real-estate funds = FII; everything else (multimarket, stocks fund, hedge) → Other
+    if (s.includes('REAL_ESTATE') || s.includes('FII')) return 'FII'
+    return 'Other'
+  }
+
   return 'Other'
+}
+
+/** Hard guard — guarantees the class string is in the allowlist. */
+function safeAssetClass(value: string): AllowedAssetClass {
+  return (ALLOWED_ASSET_CLASSES as readonly string[]).includes(value)
+    ? (value as AllowedAssetClass)
+    : 'Other'
+}
+
+/** Onshore vs offshore inference from Pluggy hints. */
+function mapAssetLocation(
+  inv: PluggyInvestment,
+  resolvedClass: AllowedAssetClass,
+): 'onshore' | 'offshore' {
+  const isUSD = (inv.currencyCode ?? '').toUpperCase() === 'USD'
+  const s     = (inv.subtype ?? '').toUpperCase()
+  if (isUSD || s.includes('OFFSHORE'))                   return 'offshore'
+  if (resolvedClass === 'US Stocks' || resolvedClass === 'USD Cash' || resolvedClass === 'Crypto') return 'offshore'
+  return 'onshore'
 }
 
 // ── Data mappers ──────────────────────────────────────────────────────────────
@@ -160,14 +211,21 @@ function mapInvestment(
   const quantity     = inv.quantity ?? 1
   const currentPrice = quantity > 0 ? inv.amount / quantity : inv.amount
 
+  // Asset class is strictly one of the canonical AllowedAssetClass values.
+  // safeAssetClass is belt-and-suspenders: even if mapAssetClass were modified
+  // in the future to return something off-list, the import is still hardened.
+  const resolvedClass = safeAssetClass(mapAssetClass(inv.type, inv.subtype, inv.currencyCode))
+  const location      = mapAssetLocation(inv, resolvedClass)
+  const currency      = (inv.currencyCode ?? '').toUpperCase() === 'USD' ? 'USD' : 'BRL'
+
   return {
     name:         inv.name,
-    assetClass:   mapAssetClass(inv.type, inv.subtype),
-    location:     'onshore',
+    assetClass:   resolvedClass,
+    location,
     quantity,
     avgCost:      currentPrice,
     currentPrice,
-    currency:     'BRL',
+    currency,
     institution:  institutionName,
     purchaseDate: inv.date?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
     maturityDate: inv.dueDate?.slice(0, 10),
