@@ -459,8 +459,18 @@ export default function Wealth() {
   }
 
   // Filter investments per view (optionally excluding physical real estate)
+  // Also drop zero-value assets — these are typically stale Open Finance entries
+  // for products no longer available at the broker.
   const viewInvestments = useMemo(() => {
-    let base = investments
+    let base = investments.filter(i => {
+      const marketValue = (i.quantity ?? 0) * (i.currentPrice ?? 0)
+      const cost = (i.quantity ?? 0) * (i.avgCost ?? 0)
+      // Keep if there's any signal: market value, cost, dividends, or interest
+      return marketValue > 0
+        || cost > 0
+        || (i.dividendsReceived ?? 0) > 0
+        || (i.interestReceived ?? 0) > 0
+    })
     if (excludePhysRE) base = base.filter(i => i.location !== 'physical-re')
     if (view === 'global') return base
     if (view === 'local')  return base.filter(i => i.location === 'onshore' || (!excludePhysRE && i.location === 'physical-re'))
@@ -989,7 +999,7 @@ export default function Wealth() {
                 return (
                   <div className="overflow-x-auto overflow-y-auto max-h-[600px]">
                     <table className="w-full border-collapse">
-                      <thead className="sticky top-0 z-10">
+                      <thead className="sticky top-0 z-[1]">
                         <tr className="border-b border-[#1e1e2e]">
                           <th className={thCls}>Ativo</th>
                           <th className={`${thCls} text-right`}>Vencimento</th>
