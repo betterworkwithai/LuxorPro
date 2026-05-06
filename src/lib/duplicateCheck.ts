@@ -2,7 +2,7 @@
 // A transaction is "exactly the same" when in the same month it has matching
 // description (case-insensitive, trimmed), amount (cent precision), and type.
 
-import type { Transaction } from './types'
+import type { Transaction, Investment } from './types'
 
 const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ')
 const cents = (n: number) => Math.round(n * 100)
@@ -58,5 +58,39 @@ export function findAllDuplicateGroups(transactions: Transaction[]): Transaction
     if (g1.length !== g2.length) return g2.length - g1.length
     return g2[0].date.localeCompare(g1[0].date)
   })
+  return groups
+}
+
+// ─── Investment duplicate detection ──────────────────────────────────────────
+// An investment is "the same position" when it shares: normalized name (or
+// ticker if present) + institution + assetClass. Quantity/price intentionally
+// excluded — those drift between syncs even for the same underlying asset.
+
+function invDupKey(i: Pick<Investment, 'name' | 'ticker' | 'institution' | 'assetClass'>): string {
+  const handle = (i.ticker?.trim() || i.name).toLowerCase().replace(/\s+/g, ' ')
+  const inst   = norm(i.institution)
+  const cls    = norm(i.assetClass)
+  return `${cls}|${inst}|${handle}`
+}
+
+export function findAllDuplicateInvestmentGroups(investments: Investment[]): Investment[][] {
+  const buckets = new Map<string, Investment[]>()
+  for (const inv of investments) {
+    const k = invDupKey(inv)
+    const arr = buckets.get(k)
+    if (arr) arr.push(inv)
+    else buckets.set(k, [inv])
+  }
+  const groups: Investment[][] = []
+  for (const arr of buckets.values()) {
+    if (arr.length < 2) continue
+    arr.sort((a, b) => {
+      // Oldest first by purchaseDate, then by id
+      if (a.purchaseDate !== b.purchaseDate) return a.purchaseDate < b.purchaseDate ? -1 : 1
+      return a.id < b.id ? -1 : 1
+    })
+    groups.push(arr)
+  }
+  groups.sort((g1, g2) => g2.length - g1.length)
   return groups
 }

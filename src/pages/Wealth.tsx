@@ -10,8 +10,9 @@ import {
 } from 'recharts'
 import {
   Plus, Globe, Building2, Home, Trash2, Edit3, ChevronDown, ChevronRight, ChevronUp,
-  TrendingUp, TrendingDown, Wallet, Layers, ArrowUpRight, AlertTriangle, FileDown,
+  TrendingUp, TrendingDown, Wallet, Layers, ArrowUpRight, AlertTriangle, FileDown, Copy,
 } from 'lucide-react'
+import { InvestmentDeduplicateModal } from '../components/modals/InvestmentDeduplicateModal'
 import { clsx } from 'clsx'
 import { useStore } from '../store/useStore'
 import { PageHeader } from '../components/ui/PageHeader'
@@ -434,6 +435,7 @@ export default function Wealth() {
   const { investments, deleteInvestment, settings, saveSettings } = useStore()
   const [showModal,        setShowModal]        = useState(false)
   const [editing,          setEditing]          = useState<Investment | undefined>()
+  const [dedupOpen,        setDedupOpen]        = useState(false)
   const [view,             setView]             = useState<ViewMode>('global')
   const [period,           setPeriod]           = useState<PeriodOption>('1 ano')
   const [activeBenchmarks, setActiveBenchmarks] = useState<Set<BenchKey>>(() => new Set(['cdi'] as BenchKey[]))
@@ -644,6 +646,14 @@ export default function Wealth() {
         subtitle={`Perfil ${profile} · ${investments.length} ativo${investments.length === 1 ? '' : 's'}`}
         actions={
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setDedupOpen(true)}
+              title="Encontrar e remover ativos duplicados"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-[#1e1e2e] bg-[#0d0d14] text-[#e8e8f0] hover:border-[#ff7a00]/50 hover:text-[#ff7a00] transition-colors"
+            >
+              <Copy className="w-4 h-4" />
+              <span className="hidden sm:inline">Duplicatas</span>
+            </button>
             <button
               onClick={() => exportPortfolioPdf({
                 view, profile, displayCurrency, fmt: fmtBase,
@@ -1141,6 +1151,7 @@ export default function Wealth() {
         onClose={() => { setShowModal(false); setEditing(undefined) }}
         initial={editing}
       />
+      <InvestmentDeduplicateModal open={dedupOpen} onClose={() => setDedupOpen(false)} />
     </div>
   )
 }
