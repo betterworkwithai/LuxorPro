@@ -49,7 +49,8 @@ export interface Partnership {
 // Known predefined classes — any other string is also valid (custom classes)
 export type AssetClass =
   | 'CDB' | 'LCI' | 'LCA' | 'Tesouro Direto' | 'Ações B3' | 'FII'
-  | 'US Stocks' | 'ETF' | 'USD Cash' | 'Crypto' | 'Real Estate' | 'Other'
+  | 'US Stocks' | 'ETF' | 'USD Cash' | 'Crypto' | 'Real Estate' | 'Previdência'
+  | 'Other'
   | (string & {}) // allows arbitrary custom class names
 
 export type AssetLocation = 'onshore' | 'offshore' | 'physical-re'
@@ -77,7 +78,7 @@ export interface Investment {
   purchaseDate: string
   maturityDate?: string      // for fixed income / real estate
   interestRate?: number      // % per year for fixed income
-  taxTreatment: TaxTreatment // taxable | tax-deferred | tax-exempt
+  taxTreatment?: TaxTreatment // taxable | tax-deferred | tax-exempt — optional for Pluggy imports awaiting user review
   dividendsReceived?: number // cumulative dividends/FII yields received
   interestReceived?: number  // cumulative bond coupon / interest income
   benchmark?: string         // e.g. CDI, IPCA, IBOV, SP500…

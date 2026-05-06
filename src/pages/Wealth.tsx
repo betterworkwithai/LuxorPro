@@ -678,6 +678,29 @@ export default function Wealth() {
 
       <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto">
 
+        {/* ─── Pluggy review banner — investments imported with default class/tax ─── */}
+        {(() => {
+          const needReview = investments.filter(i =>
+            (i.notes ?? '').includes('review') &&
+            (i.assetClass === 'Other' || i.taxTreatment === undefined),
+          )
+          if (needReview.length === 0) return null
+          return (
+            <div role="alert" className="flex items-start gap-3 p-3 rounded-xl bg-[#f59e0b]/10 border border-[#f59e0b]/25">
+              <AlertTriangle className="w-5 h-5 text-[#f59e0b] flex-shrink-0 mt-0.5" />
+              <div className="flex-1 text-xs">
+                <p className="text-[#f59e0b] font-semibold">
+                  {needReview.length} ativo{needReview.length === 1 ? '' : 's'} importado{needReview.length === 1 ? '' : 's'} aguardando categorização
+                </p>
+                <p className="text-[#8888aa] mt-0.5">
+                  Pluggy não preenche automaticamente classe de ativo, tratamento tributário e nível de risco.
+                  Edite cada ativo para ajustar essas informações conforme seu caso.
+                </p>
+              </div>
+            </div>
+          )
+        })()}
+
         {/* ─── View Switcher ─── */}
         <div className="flex flex-col gap-2">
         <div className="grid grid-cols-3 gap-2 sm:gap-3">

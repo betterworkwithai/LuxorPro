@@ -156,7 +156,7 @@ function mapCategory(pluggyCat: string | undefined, type: 'income' | 'expense'):
 // New custom classes are NEVER created from Open Finance data.
 const ALLOWED_ASSET_CLASSES = [
   'CDB', 'LCI', 'LCA', 'Tesouro Direto', 'Ações B3', 'FII',
-  'US Stocks', 'ETF', 'USD Cash', 'Crypto', 'Real Estate', 'Other',
+  'US Stocks', 'ETF', 'USD Cash', 'Crypto', 'Real Estate', 'Previdência', 'Other',
 ] as const
 type AllowedAssetClass = typeof ALLOWED_ASSET_CLASSES[number]
 
@@ -164,10 +164,25 @@ function mapAssetClass(
   type: string,
   subtype?: string,
   currencyCode?: string,
+  name?: string,
 ): AllowedAssetClass {
   const t = (type ?? '').toUpperCase()
   const s = (subtype ?? '').toUpperCase()
+  const n = (name ?? '').toUpperCase()
   const isUSD = (currencyCode ?? '').toUpperCase() === 'USD'
+
+  // Previdência (private pension) — Pluggy types/subtypes vary by connector,
+  // and the security name is often the most reliable signal.
+  if (
+    t === 'PENSION_FUND' ||
+    t === 'PRIVATE_PENSION' ||
+    s.includes('PREVIDENC') ||
+    s.includes('PGBL') ||
+    s.includes('VGBL') ||
+    n.includes('PREVID') ||
+    n.includes('PGBL') ||
+    n.includes('VGBL')
+  ) return 'Previdência'
 
   // Crypto / cash first (currency-agnostic)
   if (t === 'CRYPTO' || s.includes('CRYPTO'))            return 'Crypto'
@@ -313,13 +328,19 @@ function mapInvestment(
     ? inv.amountOriginal / quantity
     : currentPrice
 
-  const resolvedClass = safeAssetClass(mapAssetClass(inv.type, inv.subtype, inv.currencyCode))
+  const resolvedClass = safeAssetClass(mapAssetClass(inv.type, inv.subtype, inv.currencyCode, inv.name))
   const location      = mapAssetLocation(inv, resolvedClass)
   const currency      = (inv.currencyCode ?? '').toUpperCase() === 'USD' ? 'USD' : 'BRL'
 
   // Capital return — broker-reported gain when available
   const capitalReturn = inv.amountProfit ?? undefined
 
+  // Note: we deliberately DO NOT assume taxTreatment, riskLevel, or
+  // suitability metadata from Pluggy. The user reviews and assigns these
+  // explicitly via the Investments page (some assets are tax-exempt LCI/LCA,
+  // others have IR retained at source, others are PGBL with deductible
+  // contributions — Pluggy doesn't reliably distinguish). Marking as
+  // "needs review" via tag so we can surface it in the UI.
   return {
     name:         inv.name,
     ticker:       inv.code ?? undefined,
@@ -333,8 +354,8 @@ function mapInvestment(
     purchaseDate: inv.date?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
     maturityDate: inv.dueDate?.slice(0, 10),
     interestRate: inv.annualRate ?? inv.rate,
-    taxTreatment: 'taxable',
-    notes:        `pluggy:${inv.id}`,
+    // taxTreatment intentionally undefined — user assigns it manually
+    notes:        `pluggy:${inv.id} · pluggy_type=${inv.type ?? '?'}/${inv.subtype ?? '?'} · review`,
     capitalReturn,
   }
 }
@@ -514,12 +535,17 @@ export default function Connections() {
       //                   latest price + append a price-history point. This
       //                   is what makes Investimentos performance build up
       //                   over time. Manual investments are never touched.
+      //   Subscriptions → MUST NEVER be touched. The Pluggy code path has no
+      //                   reference to the subscriptions store; we snapshot
+      //                   the count here as a tripwire — if it ever changes
+      //                   during a sync, that's a regression we want logged.
       // Dedup uses two independent ID sources so cache wipes can't cause
       // accidental re-imports:
       //   1. localStorage SYNCED_KEY (fast path)
       //   2. live store scan for `pluggy:<id>` markers
       const lsSyncedIds = loadSyncedIds()
       const storeState  = useStore.getState()
+      const subscriptionsBefore = storeState.subscriptions.length
       const seenPluggyIds = collectImportedPluggyIds(
         storeState.transactions,
         storeState.investments,
@@ -590,6 +616,15 @@ export default function Connections() {
           invCount++
         }
       }
+      // Tripwire: subscriptions must not change during a Pluggy sync.
+      const subscriptionsAfter = useStore.getState().subscriptions.length
+      if (subscriptionsAfter !== subscriptionsBefore) {
+        console.error(
+          '[pluggy-sync] REGRESSION: subscriptions count changed during sync',
+          { before: subscriptionsBefore, after: subscriptionsAfter },
+        )
+      }
+
       // Surface invUpdated in the success status so users see performance refreshes
       void invUpdated // tracked for telemetry; UI count below uses txCount + invCount
 
