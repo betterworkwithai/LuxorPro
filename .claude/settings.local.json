@@ -3,7 +3,10 @@
     "allow": [
       "Bash(npx tsc *)",
       "Read(//c/Users/gabia/OneDrive/Desktop/AI/luxorpro/**)",
-      "Bash(npx vercel *)"
+      "Bash(npx vercel *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
     ]
   }
 }

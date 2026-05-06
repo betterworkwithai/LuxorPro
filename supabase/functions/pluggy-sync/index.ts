@@ -100,8 +100,8 @@ Deno.serve(async (req) => {
     const accountsData = await pluggyGet(`/accounts?itemId=${itemId}`, apiKey) as { results?: unknown[] }
     const accounts = accountsData.results ?? []
 
-    // Fetch last 90 days of transactions per account
-    const from = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+    // Fetch year-to-date transactions per account (Jan 1 of current year onward)
+    const from = `${new Date().getFullYear()}-01-01`
     const transactionsByAccount: Record<string, unknown[]> = {}
 
     for (const acc of accounts as { id: string; type: string }[]) {

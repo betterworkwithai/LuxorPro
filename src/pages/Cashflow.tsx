@@ -2,9 +2,9 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react'
 import {
   Search, Plus, Download, Trash2, Paperclip,
   ChevronUp, ChevronDown, ArrowUpDown, Repeat, Pencil, ToggleLeft, ToggleRight,
-  ChevronLeft, ChevronRight, AlertTriangle, Copy,
+  ChevronLeft, ChevronRight, AlertTriangle,
 } from 'lucide-react'
-import { DeduplicateModal } from '../components/modals/DeduplicateModal'
+import { DuplicatesSection } from '../components/sections/DuplicatesSection'
 import {
   PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis,
@@ -325,7 +325,6 @@ export default function Cashflow() {
   } = useStore()
   const allCategories = useAllCategories()
 
-  const [dedupOpen, setDedupOpen] = useState(false)
   const [search,    setSearch]    = useState('')
   const [typeF,     setTypeF]     = useState<'all' | 'income' | 'expense' | 'wanted'>('all')
   const [catF,      setCatF]      = useState('')
@@ -694,13 +693,6 @@ export default function Cashflow() {
         subtitle="Todas as suas receitas e despesas em um só lugar"
         actions={
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setDedupOpen(true)}
-              className="btn-ghost flex items-center gap-1.5 text-xs px-2 sm:px-3"
-              title="Encontrar e remover lançamentos duplicados"
-            >
-              <Copy className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Duplicatas</span>
-            </button>
             <button onClick={exportCSV} className="btn-ghost flex items-center gap-1.5 text-xs px-2 sm:px-3">
               <Download className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Exportar</span>
             </button>
@@ -1031,6 +1023,9 @@ export default function Cashflow() {
             </ResponsiveContainer>
           </CardContent>
         </Card>
+
+        {/* ── Duplicatas (lançamentos com mesma data, descrição e valor) ── */}
+        <DuplicatesSection />
 
         {/* ── Transações Recorrentes ── */}
         <Card>
@@ -1781,7 +1776,6 @@ export default function Cashflow() {
         onClose={() => { setShowSubModal(false); setEditSub(undefined) }}
         initial={editSub}
       />
-      <DeduplicateModal open={dedupOpen} onClose={() => setDedupOpen(false)} />
     </div>
   )
 }

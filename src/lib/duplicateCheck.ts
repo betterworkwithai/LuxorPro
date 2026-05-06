@@ -1,6 +1,8 @@
 // ─── Transaction duplicate detection ─────────────────────────────────────────
-// A transaction is "exactly the same" when in the same month it has matching
-// description (case-insensitive, trimmed), amount (cent precision), and type.
+// A transaction is a duplicate ONLY when all three match exactly:
+//   • date          (same YYYY-MM-DD)
+//   • description   (case-insensitive, whitespace-normalized)
+//   • amount        (cent precision)
 
 import type { Transaction, Investment } from './types'
 
@@ -11,18 +13,15 @@ interface MatchInput {
   date: string                  // "YYYY-MM-DD"
   description: string
   amount: number                // always positive
-  type: 'expense' | 'income'
+  type?: 'expense' | 'income'   // accepted for caller compatibility but not part of the key
 }
 
-/** Composite key used for grouping — same month + type + abs(amount) + normalized desc. */
-function dupKey(t: Pick<Transaction, 'date' | 'description' | 'amount' | 'type'>): string {
-  return `${t.date.slice(0, 7)}|${t.type}|${cents(t.amount)}|${norm(t.description)}`
+/** Composite key — exact date + abs(amount) + normalized desc. */
+function dupKey(t: Pick<Transaction, 'date' | 'description' | 'amount'>): string {
+  return `${t.date}|${cents(t.amount)}|${norm(t.description)}`
 }
 
-/**
- * Returns transactions in the same month that share description + amount + type.
- * Caller decides whether to warn the user.
- */
+/** Returns transactions sharing exact date + description + amount. */
 export function findDuplicates(input: MatchInput, existing: Transaction[]): Transaction[] {
   const targetKey = dupKey(input)
   return existing.filter(t => dupKey(t) === targetKey)
