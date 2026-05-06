@@ -61,11 +61,15 @@ async function fetchAllTransactions(
 ): Promise<unknown[]> {
   const results: unknown[] = []
   let page = 1
-  const MAX_PAGES = 5
+  // 500 per page * 20 pages = up to 10 000 tx/account — comfortably covers
+  // YTD on a heavy credit card. The previous cap (5 pages * 100) silently
+  // truncated long ranges to the first ~500 transactions.
+  const PAGE_SIZE = 500
+  const MAX_PAGES = 20
 
   while (page <= MAX_PAGES) {
     const data = await pluggyGet(
-      `/transactions?accountId=${accountId}&from=${from}&pageSize=100&page=${page}`,
+      `/transactions?accountId=${accountId}&from=${from}&pageSize=${PAGE_SIZE}&page=${page}`,
       apiKey,
     ) as { results?: unknown[]; totalPages?: number }
 

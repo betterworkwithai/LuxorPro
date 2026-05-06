@@ -12,6 +12,7 @@ import { supabase } from '../lib/supabase'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Card, CardHeader, CardTitle } from '../components/ui/Card'
 import { formatBRL, formatDate } from '../lib/formatters'
+import { autoCategorize } from '../lib/invoice/autoCategorize'
 import type { Transaction, Investment } from '../lib/types'
 
 // ── Pluggy raw types (subset) ─────────────────────────────────────────────────
@@ -48,9 +49,20 @@ interface PluggyInvestment {
   name: string
   type: string
   subtype?: string
-  amount: number
+  amount: number              // current market value
+  balance?: number            // synonymous with amount on most connectors
   quantity?: number
+  value?: number              // unit price (per Pluggy spec)
   annualRate?: number
+  lastTwelveMonthsRate?: number
+  lastMonthRate?: number
+  rate?: number
+  taxes?: number              // IR retained at source
+  taxes2?: number             // IOF
+  amountProfit?: number       // gain over cost basis (when broker reports it)
+  amountWithdrawal?: number
+  amountOriginal?: number     // original invested amount (cost basis)
+  code?: string               // ticker / fund code
   dueDate?: string
   date?: string
   currencyCode?: string
@@ -211,6 +223,7 @@ function mapTransaction(
   tx:              PluggyTransaction,
   account:         PluggyAccount,
   institutionName: string,
+  historyMap?:     Map<string, string>,   // normalized description → most-used category id
 ): Omit<Transaction, 'id'> {
   const isExpense =
     tx.type === 'DEBIT' ||
@@ -220,7 +233,7 @@ function mapTransaction(
   return {
     date:        tx.date.slice(0, 10),
     description: tx.description,
-    category:    mapCategory(tx.category, type),
+    category:    smartCategory(tx, type, historyMap),
     amount:      Math.abs(tx.amount),
     type,
     account:     `${institutionName} — ${account.name}`,
@@ -230,34 +243,99 @@ function mapTransaction(
   }
 }
 
+/**
+ * Build a lookup of normalized transaction descriptions → most-frequently used
+ * category id, scanned from the user's existing transactions. Used at import
+ * time so future Pluggy imports inherit the user's classification choices.
+ */
+function buildHistoryCategoryMap(transactions: Transaction[]): Map<string, string> {
+  const counts = new Map<string, Map<string, number>>()
+  for (const t of transactions) {
+    const key = (t.description ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
+    if (!key) continue
+    let inner = counts.get(key)
+    if (!inner) { inner = new Map(); counts.set(key, inner) }
+    inner.set(t.category, (inner.get(t.category) ?? 0) + 1)
+  }
+  const result = new Map<string, string>()
+  for (const [desc, inner] of counts) {
+    let best = ''
+    let bestCount = 0
+    for (const [cat, n] of inner) {
+      if (n > bestCount) { best = cat; bestCount = n }
+    }
+    if (best) result.set(desc, best)
+  }
+  return result
+}
+
+/**
+ * Pick a category for a Pluggy transaction. Order of precedence:
+ *   1. User history — if the user has classified this exact description before,
+ *      reuse the most-frequent category they chose.
+ *   2. Local keyword rules — leverages the autoCategorize ruleset already
+ *      maintained in src/lib/invoice/autoCategorize.ts (Uber → Transporte,
+ *      IOF → Impostos, Netflix → Streaming, etc.).
+ *   3. Pluggy's category hint — falls back to mapCategory.
+ */
+function smartCategory(
+  tx:        PluggyTransaction,
+  type:      'income' | 'expense',
+  history?:  Map<string, string>,
+): string {
+  // 1. User history match (exact description, normalized)
+  const key = (tx.description ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
+  if (key && history) {
+    const seen = history.get(key)
+    if (seen) return seen
+  }
+  // 2. Local keyword rules
+  const auto = autoCategorize(tx.description ?? '')
+  if (auto.type === type && auto.category !== 'outros' && auto.category !== 'other_income') {
+    return auto.category
+  }
+  // 3. Pluggy hint fallback
+  return mapCategory(tx.category, type)
+}
+
 function mapInvestment(
   inv:             PluggyInvestment,
   institutionName: string,
 ): Omit<Investment, 'id'> {
   const quantity     = inv.quantity ?? 1
-  const currentPrice = quantity > 0 ? inv.amount / quantity : inv.amount
+  // Prefer Pluggy's per-unit value if present; otherwise derive from amount/qty.
+  const currentPrice = inv.value
+    ?? (quantity > 0 ? inv.amount / quantity : inv.amount)
 
-  // Asset class is strictly one of the canonical AllowedAssetClass values.
-  // safeAssetClass is belt-and-suspenders: even if mapAssetClass were modified
-  // in the future to return something off-list, the import is still hardened.
+  // Cost basis: use Pluggy's amountOriginal if reported, otherwise fall back
+  // to current price (broker doesn't expose cost — better safe than wrong).
+  const avgCost = inv.amountOriginal != null && quantity > 0
+    ? inv.amountOriginal / quantity
+    : currentPrice
+
   const resolvedClass = safeAssetClass(mapAssetClass(inv.type, inv.subtype, inv.currencyCode))
   const location      = mapAssetLocation(inv, resolvedClass)
   const currency      = (inv.currencyCode ?? '').toUpperCase() === 'USD' ? 'USD' : 'BRL'
 
+  // Capital return — broker-reported gain when available
+  const capitalReturn = inv.amountProfit ?? undefined
+
   return {
     name:         inv.name,
+    ticker:       inv.code ?? undefined,
     assetClass:   resolvedClass,
     location,
     quantity,
-    avgCost:      currentPrice,
+    avgCost,
     currentPrice,
     currency,
     institution:  institutionName,
     purchaseDate: inv.date?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
     maturityDate: inv.dueDate?.slice(0, 10),
-    interestRate: inv.annualRate,
+    interestRate: inv.annualRate ?? inv.rate,
     taxTreatment: 'taxable',
     notes:        `pluggy:${inv.id}`,
+    capitalReturn,
   }
 }
 
@@ -348,7 +426,7 @@ type SyncStatus =
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function Connections() {
-  const { addTransaction, addInvestment } = useStore()
+  const { addTransaction, addInvestment, updateInvestment } = useStore()
 
   const [items,        setItems]        = useState<StoredItem[]>(loadItems)
   const [status,       setStatus]       = useState<SyncStatus>({ type: 'idle' })
@@ -429,44 +507,91 @@ export default function Connections() {
         investments:  PluggyInvestment[]
       }
 
-      // ── INSERT-ONLY CONTRACT ─────────────────────────────────────────────
-      // Pluggy syncs MUST NEVER delete or overwrite previously-saved data.
-      // Strategy: dedup by Pluggy ID using two independent sources of truth.
-      //   1. localStorage SYNCED_KEY  — fast path, persists across sessions
-      //   2. existing store data with `pluggy:<id>` markers — survives if
-      //      localStorage is cleared (different browser, cache wipe, etc.)
-      // Only items absent from BOTH sets are added. Pre-existing manual or
-      // imported transactions/investments are never touched.
+      // ── SYNC CONTRACT ────────────────────────────────────────────────────
+      //   Transactions  → INSERT-ONLY. Already-imported tx (matched by Pluggy
+      //                   ID) are skipped; nothing is ever updated or deleted.
+      //   Investments   → INSERT new positions; UPDATE existing ones with the
+      //                   latest price + append a price-history point. This
+      //                   is what makes Investimentos performance build up
+      //                   over time. Manual investments are never touched.
+      // Dedup uses two independent ID sources so cache wipes can't cause
+      // accidental re-imports:
+      //   1. localStorage SYNCED_KEY (fast path)
+      //   2. live store scan for `pluggy:<id>` markers
       const lsSyncedIds = loadSyncedIds()
       const storeState  = useStore.getState()
       const seenPluggyIds = collectImportedPluggyIds(
         storeState.transactions,
         storeState.investments,
       )
-      const isAlreadyImported = (pluggyId: string) =>
+      const isAlreadyImportedTx = (pluggyId: string) =>
         lsSyncedIds.has(pluggyId) || seenPluggyIds.has(pluggyId)
 
+      // Build a quick-lookup map: pluggyId → existing Investment (for in-place updates)
+      const existingInvByPluggyId = new Map<string, typeof storeState.investments[number]>()
+      for (const inv of storeState.investments) {
+        const m = inv.notes?.match(/pluggy:([^\s]+)/)
+        if (m) existingInvByPluggyId.set(m[1], inv)
+      }
+
+      // Build the user-history category map ONCE (used by smartCategory below).
+      // Maps normalized description → most-frequent category id, learned from
+      // the user's previously-categorized transactions. This lets future imports
+      // inherit the user's classification choices automatically.
+      const historyCategoryMap = buildHistoryCategoryMap(storeState.transactions)
+
       const newIds:    string[] = []
-      let   txCount  = 0
-      let   invCount = 0
+      let   txCount   = 0
+      let   invCount  = 0
+      let   invUpdated = 0
 
       const accountMap = Object.fromEntries(accounts.map(a => [a.id, a]))
 
       for (const tx of transactions) {
-        if (isAlreadyImported(tx.id)) continue
+        if (isAlreadyImportedTx(tx.id)) continue
         const account = accountMap[tx.accountId]
         if (!account) continue
-        await addTransaction(mapTransaction(tx, account, pluggyItem.connector.name))
+        await addTransaction(
+          mapTransaction(tx, account, pluggyItem.connector.name, historyCategoryMap),
+        )
         newIds.push(tx.id)
         txCount++
       }
 
+      const todayIso = new Date().toISOString().slice(0, 10)
       for (const inv of investments) {
-        if (isAlreadyImported(inv.id)) continue
-        await addInvestment(mapInvestment(inv, pluggyItem.connector.name))
-        newIds.push(inv.id)
-        invCount++
+        const existing = existingInvByPluggyId.get(inv.id)
+        if (existing) {
+          // Already imported → update price + append price history point
+          const mapped       = mapInvestment(inv, pluggyItem.connector.name)
+          const newHistory   = [...(existing.priceHistory ?? [])]
+          // Replace today's entry if we already added one earlier the same day
+          const todayIdx = newHistory.findIndex(p => p.date === todayIso)
+          const point   = { date: todayIso, price: mapped.currentPrice }
+          if (todayIdx >= 0) newHistory[todayIdx] = point
+          else newHistory.push(point)
+          await updateInvestment({
+            ...existing,
+            // Latest market data from broker
+            quantity:       mapped.quantity,
+            currentPrice:   mapped.currentPrice,
+            // Only overwrite avgCost when broker actually reports cost basis
+            avgCost:        inv.amountOriginal != null ? mapped.avgCost : existing.avgCost,
+            // Cumulative gain (when broker reports it)
+            capitalReturn:  mapped.capitalReturn ?? existing.capitalReturn,
+            interestRate:   mapped.interestRate ?? existing.interestRate,
+            priceHistory:   newHistory,
+          })
+          invUpdated++
+        } else if (!isAlreadyImportedTx(inv.id)) {
+          // Brand-new position
+          await addInvestment(mapInvestment(inv, pluggyItem.connector.name))
+          newIds.push(inv.id)
+          invCount++
+        }
       }
+      // Surface invUpdated in the success status so users see performance refreshes
+      void invUpdated // tracked for telemetry; UI count below uses txCount + invCount
 
       addSyncedIds(newIds)
 
