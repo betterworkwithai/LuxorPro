@@ -13,6 +13,7 @@ import { PageHeader } from '../components/ui/PageHeader'
 import { Card, CardHeader, CardTitle } from '../components/ui/Card'
 import { formatBRL, formatDate } from '../lib/formatters'
 import { autoCategorize } from '../lib/invoice/autoCategorize'
+import { loadTombstones } from '../lib/pluggyTombstones'
 import type { Transaction, Investment } from '../lib/types'
 
 // ── Pluggy raw types (subset) ─────────────────────────────────────────────────
@@ -539,19 +540,25 @@ export default function Connections() {
       //                   reference to the subscriptions store; we snapshot
       //                   the count here as a tripwire — if it ever changes
       //                   during a sync, that's a regression we want logged.
-      // Dedup uses two independent ID sources so cache wipes can't cause
-      // accidental re-imports:
-      //   1. localStorage SYNCED_KEY (fast path)
+      // Dedup uses THREE independent ID sources to prevent accidental re-imports
+      // and to honor the user's explicit deletions:
+      //   1. localStorage SYNCED_KEY (fast path, per-browser)
       //   2. live store scan for `pluggy:<id>` markers
+      //   3. server-side tombstones table (durable across browsers/devices)
       const lsSyncedIds = loadSyncedIds()
+      const tombstones  = await loadTombstones()
       const storeState  = useStore.getState()
       const subscriptionsBefore = storeState.subscriptions.length
       const seenPluggyIds = collectImportedPluggyIds(
         storeState.transactions,
         storeState.investments,
       )
+      // Tombstones win over both fast paths — a tombstoned ID was explicitly
+      // deleted by the user and must never be re-imported.
       const isAlreadyImportedTx = (pluggyId: string) =>
-        lsSyncedIds.has(pluggyId) || seenPluggyIds.has(pluggyId)
+        tombstones.has(pluggyId)
+        || lsSyncedIds.has(pluggyId)
+        || seenPluggyIds.has(pluggyId)
 
       // Build a quick-lookup map: pluggyId → existing Investment (for in-place updates)
       const existingInvByPluggyId = new Map<string, typeof storeState.investments[number]>()

@@ -14,6 +14,9 @@ import { supabase } from '../lib/supabase'
 import {
   createPartnership, loadPartnershipState, acceptInvite, endPartnership as endPartnershipApi,
 } from '../lib/partnership'
+import {
+  tombstoneIfPluggy, extractPluggyTxId, extractPluggyInvId,
+} from '../lib/pluggyTombstones'
 
 /**
  * Resolve the user's display name from (in order):
@@ -209,6 +212,10 @@ export const useStore = create<AppState>((set, get) => ({
     set(s => ({ transactions: s.transactions.map(x => x.id === t.id ? t : x) }))
   },
   deleteTransaction: async (id) => {
+    // If this transaction came from Pluggy, tombstone its Pluggy ID so future
+    // syncs (from any device) skip it permanently.
+    const tx = get().transactions.find(x => x.id === id)
+    if (tx) await tombstoneIfPluggy('transaction', extractPluggyTxId(tx))
     await db.transactions.delete(id)
     set(s => ({ transactions: s.transactions.filter(x => x.id !== id) }))
   },
@@ -224,6 +231,9 @@ export const useStore = create<AppState>((set, get) => ({
     set(s => ({ investments: s.investments.map(x => x.id === inv.id ? inv : x) }))
   },
   deleteInvestment: async (id) => {
+    // Same tombstone treatment for Pluggy-imported investments.
+    const inv = get().investments.find(x => x.id === id)
+    if (inv) await tombstoneIfPluggy('investment', extractPluggyInvId(inv))
     await db.investments.delete(id)
     set(s => ({ investments: s.investments.filter(x => x.id !== id) }))
   },
