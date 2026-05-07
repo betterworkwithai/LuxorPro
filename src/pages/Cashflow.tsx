@@ -8,7 +8,7 @@ import { DuplicatesSection } from '../components/sections/DuplicatesSection'
 import { InvestmentModal } from '../components/modals/InvestmentModal'
 import {
   PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
-  BarChart, Bar, XAxis, YAxis,
+  BarChart, Bar, XAxis, YAxis, ReferenceLine,
 } from 'recharts'
 import { useStore } from '../store/useStore'
 import { PageHeader } from '../components/ui/PageHeader'
@@ -530,9 +530,23 @@ export default function Cashflow() {
   }, [transactions, periodMode, periodMonth, periodYear, curMonth, toBRL])
 
   // ── Investments bar chart data — same period bucketing as income/expense ──
+  // Visualization convention:
+  //   • aportes  — positive (money INTO investments, light blue, bar above zero)
+  //   • resgates — negative (money OUT of investments, orange, bar below zero)
+  //   • net      — signed sum (gray, signals net flow direction at a glance)
   const investmentsBarData = useMemo(() => {
     const aporteFilter   = (t: Transaction) => t.type === 'expense' && isInvestmentTx(t)
     const resgateFilter  = (t: Transaction) => t.type === 'income'  && isInvestmentTx(t)
+    const bucketize = (txs: Transaction[], label: string) => {
+      const aportes  = txs.filter(aporteFilter).reduce((s, t) => s + toBRL(t), 0)
+      const resgates = txs.filter(resgateFilter).reduce((s, t) => s + toBRL(t), 0)
+      return {
+        label,
+        aportes,             // always >= 0
+        resgates: -resgates, // displayed below zero
+        net:      aportes - resgates,
+      }
+    }
     if (periodMode === 'monthly') {
       const weeks = [
         { label: 'Sem 1', start: 1,  end: 7  },
@@ -542,17 +556,13 @@ export default function Cashflow() {
       ]
       const prefix = periodMonth + '-'
       const monthTxs = transactions.filter(t => t.date.startsWith(prefix))
-      return weeks.map(w => {
-        const txs = monthTxs.filter(t => {
+      return weeks.map(w => bucketize(
+        monthTxs.filter(t => {
           const day = parseInt(t.date.split('-')[2])
           return day >= w.start && day <= w.end
-        })
-        return {
-          label: w.label,
-          aportes:  txs.filter(aporteFilter).reduce((s, t) => s + toBRL(t), 0),
-          resgates: txs.filter(resgateFilter).reduce((s, t) => s + toBRL(t), 0),
-        }
-      })
+        }),
+        w.label,
+      ))
     }
     if (periodMode === 'ytd') {
       return Array.from({ length: curMonth }, (_, i) => {
@@ -561,11 +571,7 @@ export default function Cashflow() {
           const [ty, tm] = t.date.split('-')
           return parseInt(ty) === periodYear && parseInt(tm) === m
         })
-        return {
-          label: monthName(m).slice(0, 3),
-          aportes:  txs.filter(aporteFilter).reduce((s, t) => s + toBRL(t), 0),
-          resgates: txs.filter(resgateFilter).reduce((s, t) => s + toBRL(t), 0),
-        }
+        return bucketize(txs, monthName(m).slice(0, 3))
       })
     }
     return Array.from({ length: 12 }, (_, i) => {
@@ -574,11 +580,7 @@ export default function Cashflow() {
         const [ty, tm] = t.date.split('-')
         return parseInt(ty) === periodYear && parseInt(tm) === m
       })
-      return {
-        label: monthName(m).slice(0, 3),
-        aportes:  txs.filter(aporteFilter).reduce((s, t) => s + toBRL(t), 0),
-        resgates: txs.filter(resgateFilter).reduce((s, t) => s + toBRL(t), 0),
-      }
+      return bucketize(txs, monthName(m).slice(0, 3))
     })
   }, [transactions, periodMode, periodMonth, periodYear, curMonth, toBRL])
 
@@ -1092,17 +1094,36 @@ export default function Cashflow() {
               <CardTitle>Aportes vs Resgates — {periodLabel}</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={investmentsBarData} barCategoryGap="30%">
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={investmentsBarData} barCategoryGap="20%">
                   <XAxis dataKey="label" tick={{ fill: '#55556a', fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis tickFormatter={v => `R$${(v / 1000).toFixed(0)}k`} tick={{ fill: '#55556a', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis
+                    tickFormatter={v => {
+                      const n = Number(v)
+                      const k = Math.abs(n) / 1000
+                      return `${n < 0 ? '-' : ''}R$${k.toFixed(0)}k`
+                    }}
+                    tick={{ fill: '#55556a', fontSize: 11 }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <ReferenceLine y={0} stroke="#1e1e2e" strokeWidth={1} />
                   <Tooltip
-                    formatter={(v: any, name: string) => [formatBRL(Number(v)), name === 'aportes' ? 'Aportes' : 'Resgates']}
+                    formatter={(v: any, name: string) => {
+                      // Resgates are stored negative for visualization — show abs in tooltip.
+                      const n = Number(v)
+                      const display = name === 'resgates' ? Math.abs(n) : n
+                      const label =
+                        name === 'aportes'  ? 'Aportes'  :
+                        name === 'resgates' ? 'Resgates' : 'Net'
+                      return [formatBRL(display), label]
+                    }}
                     contentStyle={{ background: '#0d0d14', border: '1px solid #1e1e2e', borderRadius: 12, fontSize: 12, color: '#fff' }}
                     itemStyle={{ color: '#fff' }} labelStyle={{ color: '#fff', fontWeight: 600 }}
                   />
                   <Bar dataKey="aportes"  name="Aportes"  fill="#00d4ff" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="resgates" name="Resgates" fill="#ff7a00" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="resgates" name="Resgates" fill="#ff7a00" radius={[0, 0, 4, 4]} />
+                  <Bar dataKey="net"      name="Net"      fill="#8888aa" radius={[4, 4, 4, 4]} />
                 </BarChart>
               </ResponsiveContainer>
               <div className="mt-3 flex items-center justify-around text-xs flex-wrap gap-3">
@@ -1117,7 +1138,8 @@ export default function Cashflow() {
                   <span className="font-bold text-[#ff7a00]">{formatBRL(investResgates)}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[#8888aa]">Saldo líquido:</span>
+                  <span className="w-2.5 h-2.5 rounded-sm bg-[#8888aa]" />
+                  <span className="text-[#8888aa]">Net:</span>
                   <span className={clsx('font-bold', netInvestment >= 0 ? 'text-[#00d4ff]' : 'text-[#ff7a00]')}>
                     {netInvestment >= 0 ? '+' : ''}{formatBRL(netInvestment)}
                   </span>
