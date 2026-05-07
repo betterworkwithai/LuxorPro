@@ -1057,7 +1057,7 @@ export default function Dashboard() {
               </Card>
 
               <Card>
-                <CardHeader><CardTitle>Alocação Por Classe de Ativo</CardTitle></CardHeader>
+                <CardHeader><CardTitle>Alocação Por Tipo de Produto</CardTitle></CardHeader>
                 <CardContent>
                   {allocationByClass.length === 0 ? (
                     <div className="h-56 flex items-center justify-center text-xs text-[#55556a]">Sem dados</div>
