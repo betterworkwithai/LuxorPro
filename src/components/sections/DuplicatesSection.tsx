@@ -18,7 +18,7 @@ export function DuplicatesSection() {
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set())
   const [busy, setBusy]             = useState(false)
   const [doneCount, setDoneCount]   = useState<number | null>(null)
-  const [open, setOpen]             = useState(true)
+  const [open, setOpen]             = useState(false)
 
   const groups = useMemo(
     () => findAllDuplicateGroups(transactions),
