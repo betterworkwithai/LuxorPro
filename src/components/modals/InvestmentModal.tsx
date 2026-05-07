@@ -144,6 +144,19 @@ interface Props {
   open: boolean
   onClose: () => void
   initial?: Investment
+  /** Pre-fill the form from an existing transaction (e.g. user is converting
+   *  a Pluggy-imported "expense" that was actually a transfer to a broker
+   *  into a real Investment record). Quantity defaults to 1, currentPrice
+   *  and avgCost are seeded with the transaction amount, name + purchase
+   *  date come from the transaction. */
+  seedFromTransaction?: {
+    description: string
+    amount:      number
+    date:        string
+  }
+  /** Called after a successful save when the modal was opened in
+   *  seedFromTransaction mode — used to delete the source transaction. */
+  onSeedSaved?: () => void | Promise<void>
 }
 
 const STEPS = [
@@ -205,7 +218,7 @@ function InstitutionField({ sel, custom, allInstitutions, onSel, onCustom }: {
   )
 }
 
-export function InvestmentModal({ open, onClose, initial }: Props) {
+export function InvestmentModal({ open, onClose, initial, seedFromTransaction, onSeedSaved }: Props) {
   const { addInvestment, updateInvestment, investments, settings, saveCustomInstitution } = useStore()
 
   // Only show institutions already in use + any the user has manually saved
@@ -214,7 +227,26 @@ export function InvestmentModal({ open, onClose, initial }: Props) {
     ...(settings.customInstitutions ?? []),
   ])).sort((a, b) => a.localeCompare(b, 'pt-BR'))
 
-  const [f, setF]             = useState(() => initial ? fromInvestment(initial, allInstitutions) : blank())
+  // Build the initial form state — from an existing Investment, from a
+  // transaction-seed (one-click conversion), or blank.
+  const buildInitial = () => {
+    if (initial) return fromInvestment(initial, allInstitutions)
+    const base = blank()
+    if (seedFromTransaction) {
+      const amt = String(seedFromTransaction.amount.toFixed(2))
+      return {
+        ...base,
+        name:         seedFromTransaction.description,
+        quantity:     '1',
+        avgCost:      amt,
+        currentPrice: amt,
+        purchaseDate: seedFromTransaction.date,
+      }
+    }
+    return base
+  }
+
+  const [f, setF]             = useState(buildInitial)
   const [step, setStep]       = useState(0)
   const [saving, setSaving]   = useState(false)
   const [history, setHistory] = useState<PricePoint[]>(initial?.priceHistory ?? [])
@@ -223,11 +255,11 @@ export function InvestmentModal({ open, onClose, initial }: Props) {
 
   useEffect(() => {
     if (!open) return
-    setF(initial ? fromInvestment(initial, allInstitutions) : blank())
+    setF(buildInitial())
     setHistory(initial?.priceHistory ?? [])
     setStep(0)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, initial?.id])
+  }, [open, initial?.id, seedFromTransaction?.description, seedFromTransaction?.amount, seedFromTransaction?.date])
 
   const upd = (k: string, v: string | number) => setF(p => ({ ...p, [k]: v }))
 
@@ -332,6 +364,10 @@ export function InvestmentModal({ open, onClose, initial }: Props) {
     }
     if (initial) await updateInvestment({ ...payload, id: initial.id })
     else         await addInvestment(payload)
+    // If this was a transaction conversion, let the caller delete the source tx.
+    if (seedFromTransaction && onSeedSaved) {
+      try { await onSeedSaved() } catch (e) { console.error('[InvestmentModal] onSeedSaved failed:', e) }
+    }
     setSaving(false)
     onClose()
   }

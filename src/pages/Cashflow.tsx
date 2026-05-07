@@ -2,9 +2,10 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react'
 import {
   Search, Plus, Download, Trash2, Paperclip,
   ChevronUp, ChevronDown, ArrowUpDown, Repeat, Pencil, ToggleLeft, ToggleRight,
-  ChevronLeft, ChevronRight, AlertTriangle,
+  ChevronLeft, ChevronRight, AlertTriangle, TrendingUp,
 } from 'lucide-react'
 import { DuplicatesSection } from '../components/sections/DuplicatesSection'
+import { InvestmentModal } from '../components/modals/InvestmentModal'
 import {
   PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis,
@@ -358,6 +359,7 @@ export default function Cashflow() {
   const [recPage,      setRecPage]      = useState(1)
   const REC_PAGE_SIZE = 5
   const [editTx,       setEditTx]       = useState<Transaction | undefined>()
+  const [convertTx,    setConvertTx]    = useState<Transaction | undefined>()
   const [expandedCatKeys, setExpandedCatKeys] = useState<Set<string>>(new Set())
   const toggleCatKey = (key: string) =>
     setExpandedCatKeys(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n })
@@ -1323,6 +1325,12 @@ export default function Cashflow() {
                           {isDisabled ? <ToggleLeft className="w-3.5 h-3.5" /> : <ToggleRight className="w-3.5 h-3.5" />}
                         </button>
                         <button
+                          title="Converter em Investimento"
+                          onClick={() => setConvertTx(t)}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-[#00ff88]/10 text-[#55556a] hover:text-[#00ff88]">
+                          <TrendingUp className="w-3.5 h-3.5" />
+                        </button>
+                        <button
                           title="Editar"
                           onClick={() => setEditTx(t)}
                           className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-[#1e1e2e] text-[#55556a] hover:text-[#e8e8f0]">
@@ -1557,6 +1565,10 @@ export default function Cashflow() {
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           {(t.attachmentIds?.length ?? 0) > 0 && <Paperclip className="w-3.5 h-3.5 text-[#00d4ff]" />}
                           <VisibilityToggle transaction={t} />
+                          <button onClick={() => setConvertTx(t)}
+                            className="w-6 h-6 rounded-lg hover:bg-[#00ff88]/15 text-[#55556a] hover:text-[#00ff88] flex items-center justify-center transition-colors" title="Converter em Investimento">
+                            <TrendingUp className="w-3.5 h-3.5" />
+                          </button>
                           <button onClick={() => setEditTx(t)}
                             className="w-6 h-6 rounded-lg hover:bg-[#00d4ff]/15 text-[#55556a] hover:text-[#00d4ff] flex items-center justify-center transition-colors" title="Editar">
                             <Pencil className="w-3.5 h-3.5" />
@@ -1775,6 +1787,18 @@ export default function Cashflow() {
         open={showSubModal}
         onClose={() => { setShowSubModal(false); setEditSub(undefined) }}
         initial={editSub}
+      />
+      <InvestmentModal
+        open={!!convertTx}
+        onClose={() => setConvertTx(undefined)}
+        seedFromTransaction={convertTx ? {
+          description: convertTx.description,
+          amount:      convertTx.amount,
+          date:        convertTx.date,
+        } : undefined}
+        onSeedSaved={async () => {
+          if (convertTx) await deleteTransaction(convertTx.id)
+        }}
       />
     </div>
   )
