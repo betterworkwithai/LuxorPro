@@ -263,6 +263,9 @@ function mapTransaction(
  * Build a lookup of normalized transaction descriptions → most-frequently used
  * category id, scanned from the user's existing transactions. Used at import
  * time so future Pluggy imports inherit the user's classification choices.
+ *
+ * Stores the original full description as the key — substring matches are
+ * resolved at lookup time in smartCategory.
  */
 function buildHistoryCategoryMap(transactions: Transaction[]): Map<string, string> {
   const counts = new Map<string, Map<string, number>>()
@@ -286,31 +289,79 @@ function buildHistoryCategoryMap(transactions: Transaction[]): Map<string, strin
 }
 
 /**
+ * "Merchant key" — strips out variable parts of a transaction description so
+ * "UBER *TRIP 12345 02/03" and "UBER *TRIP 67890 18/03" collapse to the same
+ * key ("uber"). Used as a substring fallback before keyword rules.
+ */
+function merchantKey(desc: string): string {
+  return desc
+    .toLowerCase()
+    .replace(/[*\-_]+/g, ' ')                 // separators
+    .replace(/\b\d+([,.\d]*)/g, '')           // numbers (prices, ids)
+    .replace(/\b\d{1,2}\/\d{1,2}(\/\d{2,4})?\b/g, '')  // dates DD/MM
+    .replace(/\b\d+x\d+\b/g, '')              // installment markers like "02x10"
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(' ')
+    .filter(w => w.length >= 3)               // drop tiny/noise tokens
+    .slice(0, 3)                              // first 3 significant words
+    .join(' ')
+}
+
+/**
  * Pick a category for a Pluggy transaction. Order of precedence:
- *   1. User history — if the user has classified this exact description before,
- *      reuse the most-frequent category they chose.
- *   2. Local keyword rules — leverages the autoCategorize ruleset already
- *      maintained in src/lib/invoice/autoCategorize.ts (Uber → Transporte,
- *      IOF → Impostos, Netflix → Streaming, etc.).
- *   3. Pluggy's category hint — falls back to mapCategory.
+ *   1. User history — exact description match (most-frequent category).
+ *   2. User history — merchant-key fuzzy match (strips dates, ids, prices
+ *      and matches by significant words, so "UBER *TRIP 12345 02/03" pairs
+ *      with "UBER *TRIP 67890 18/03"). Avoids the 'outros' default whenever
+ *      a similar transaction has been classified before.
+ *   3. Local keyword rules — autoCategorize (Uber → Transporte, IOF →
+ *      Impostos, Netflix → Streaming, etc.).
+ *   4. Pluggy's category hint — falls back to mapCategory.
  */
 function smartCategory(
   tx:        PluggyTransaction,
   type:      'income' | 'expense',
   history?:  Map<string, string>,
 ): string {
-  // 1. User history match (exact description, normalized)
-  const key = (tx.description ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
-  if (key && history) {
-    const seen = history.get(key)
+  const desc = (tx.description ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
+
+  // 1. Exact description match in history
+  if (desc && history) {
+    const seen = history.get(desc)
     if (seen) return seen
   }
-  // 2. Local keyword rules
+
+  // 2. Merchant-key (fuzzy) match — find any history entry whose merchantKey
+  //    intersects with this tx's merchantKey. Picks the most-recently seen
+  //    match by virtue of Map insertion order.
+  if (desc && history && history.size > 0) {
+    const incomingKey = merchantKey(desc)
+    if (incomingKey.length >= 3) {
+      for (const [seenDesc, seenCat] of history) {
+        const seenKey = merchantKey(seenDesc)
+        if (!seenKey) continue
+        // Match if either key fully contains the other AND the shorter key
+        // is at least 4 chars (avoid "uber" matching "ubereats" too aggressively
+        // — but those would actually share a key prefix and still match safely).
+        if (
+          (seenKey === incomingKey) ||
+          (seenKey.length >= 4 && incomingKey.includes(seenKey)) ||
+          (incomingKey.length >= 4 && seenKey.includes(incomingKey))
+        ) {
+          return seenCat
+        }
+      }
+    }
+  }
+
+  // 3. Local keyword rules
   const auto = autoCategorize(tx.description ?? '')
   if (auto.type === type && auto.category !== 'outros' && auto.category !== 'other_income') {
     return auto.category
   }
-  // 3. Pluggy hint fallback
+
+  // 4. Pluggy hint fallback
   return mapCategory(tx.category, type)
 }
 
@@ -582,6 +633,9 @@ export default function Connections() {
 
       for (const tx of transactions) {
         if (isAlreadyImportedTx(tx.id)) continue
+        // Drop dust — sub-5-cent transactions are typically fee crumbs (IOF
+        // rounding, FX-conversion remainders) that just clutter the list.
+        if (Math.abs(tx.amount) < 0.05) continue
         const account = accountMap[tx.accountId]
         if (!account) continue
         await addTransaction(

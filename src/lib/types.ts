@@ -232,7 +232,7 @@ export const CATEGORIES: Category[] = [
   { id: 'software',    name: 'Software/SaaS',    icon: '💻', color: '#8b5cf6', type: 'expense' },
   { id: 'boleto',      name: 'Boleto',           icon: '📄', color: '#55556a', type: 'expense' },
   { id: 'pix_out',     name: 'PIX Enviado',      icon: '⚡', color: '#ff4466', type: 'expense' },
-  { id: 'investimento',name: 'Investimento',     icon: '📊', color: '#00d4ff', type: 'expense' },
+  { id: 'investimento',name: 'Investimento',     icon: '📊', color: '#00d4ff', type: 'both' },
   { id: 'imposto',     name: 'Impostos',         icon: '🧾', color: '#ff4466', type: 'expense' },
   { id: 'outros',      name: 'Outros',           icon: '📦', color: '#55556a', type: 'expense' },
 ]

@@ -471,8 +471,14 @@ export default function Cashflow() {
     [transactions, periodIncludes, effectiveDate]
   )
 
+  // Investment txs are excluded from the income/expense bar chart and tracked
+  // in a parallel "Aportes vs Resgates" chart further below.
+  const isInvestmentTx = (t: Transaction) => t.category === 'investimento'
+
   // ── Bar chart data — adapts to period mode ──
   const cashflowBarData = useMemo(() => {
+    const expenseFilter = (t: Transaction) => t.type === 'expense' && !isInvestmentTx(t)
+    const incomeFilter  = (t: Transaction) => t.type === 'income'  && !isInvestmentTx(t)
     if (periodMode === 'monthly') {
       const weeks = [
         { label: 'Sem 1', start: 1,  end: 7  },
@@ -489,8 +495,8 @@ export default function Cashflow() {
         })
         return {
           label: w.label,
-          income:   txs.filter(t => t.type === 'income').reduce((s, t) => s + toBRL(t), 0),
-          expenses: txs.filter(t => t.type === 'expense').reduce((s, t) => s + toBRL(t), 0),
+          income:   txs.filter(incomeFilter).reduce((s, t) => s + toBRL(t), 0),
+          expenses: txs.filter(expenseFilter).reduce((s, t) => s + toBRL(t), 0),
         }
       })
     }
@@ -503,8 +509,8 @@ export default function Cashflow() {
         })
         return {
           label: monthName(m).slice(0, 3),
-          income:   txs.filter(t => t.type === 'income').reduce((s, t) => s + toBRL(t), 0),
-          expenses: txs.filter(t => t.type === 'expense').reduce((s, t) => s + toBRL(t), 0),
+          income:   txs.filter(incomeFilter).reduce((s, t) => s + toBRL(t), 0),
+          expenses: txs.filter(expenseFilter).reduce((s, t) => s + toBRL(t), 0),
         }
       })
     }
@@ -517,8 +523,61 @@ export default function Cashflow() {
       })
       return {
         label: monthName(m).slice(0, 3),
-        income:   txs.filter(t => t.type === 'income').reduce((s, t) => s + toBRL(t), 0),
-        expenses: txs.filter(t => t.type === 'expense').reduce((s, t) => s + toBRL(t), 0),
+        income:   txs.filter(incomeFilter).reduce((s, t) => s + toBRL(t), 0),
+        expenses: txs.filter(expenseFilter).reduce((s, t) => s + toBRL(t), 0),
+      }
+    })
+  }, [transactions, periodMode, periodMonth, periodYear, curMonth, toBRL])
+
+  // ── Investments bar chart data — same period bucketing as income/expense ──
+  const investmentsBarData = useMemo(() => {
+    const aporteFilter   = (t: Transaction) => t.type === 'expense' && isInvestmentTx(t)
+    const resgateFilter  = (t: Transaction) => t.type === 'income'  && isInvestmentTx(t)
+    if (periodMode === 'monthly') {
+      const weeks = [
+        { label: 'Sem 1', start: 1,  end: 7  },
+        { label: 'Sem 2', start: 8,  end: 14 },
+        { label: 'Sem 3', start: 15, end: 21 },
+        { label: 'Sem 4', start: 22, end: 31 },
+      ]
+      const prefix = periodMonth + '-'
+      const monthTxs = transactions.filter(t => t.date.startsWith(prefix))
+      return weeks.map(w => {
+        const txs = monthTxs.filter(t => {
+          const day = parseInt(t.date.split('-')[2])
+          return day >= w.start && day <= w.end
+        })
+        return {
+          label: w.label,
+          aportes:  txs.filter(aporteFilter).reduce((s, t) => s + toBRL(t), 0),
+          resgates: txs.filter(resgateFilter).reduce((s, t) => s + toBRL(t), 0),
+        }
+      })
+    }
+    if (periodMode === 'ytd') {
+      return Array.from({ length: curMonth }, (_, i) => {
+        const m = i + 1
+        const txs = transactions.filter(t => {
+          const [ty, tm] = t.date.split('-')
+          return parseInt(ty) === periodYear && parseInt(tm) === m
+        })
+        return {
+          label: monthName(m).slice(0, 3),
+          aportes:  txs.filter(aporteFilter).reduce((s, t) => s + toBRL(t), 0),
+          resgates: txs.filter(resgateFilter).reduce((s, t) => s + toBRL(t), 0),
+        }
+      })
+    }
+    return Array.from({ length: 12 }, (_, i) => {
+      const m = i + 1
+      const txs = transactions.filter(t => {
+        const [ty, tm] = t.date.split('-')
+        return parseInt(ty) === periodYear && parseInt(tm) === m
+      })
+      return {
+        label: monthName(m).slice(0, 3),
+        aportes:  txs.filter(aporteFilter).reduce((s, t) => s + toBRL(t), 0),
+        resgates: txs.filter(resgateFilter).reduce((s, t) => s + toBRL(t), 0),
       }
     })
   }, [transactions, periodMode, periodMonth, periodYear, curMonth, toBRL])
@@ -1025,6 +1084,48 @@ export default function Cashflow() {
             </ResponsiveContainer>
           </CardContent>
         </Card>
+
+        {/* ── Aportes vs Resgates ── */}
+        {(investAportes > 0 || investResgates > 0) && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Aportes vs Resgates — {periodLabel}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={investmentsBarData} barCategoryGap="30%">
+                  <XAxis dataKey="label" tick={{ fill: '#55556a', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis tickFormatter={v => `R$${(v / 1000).toFixed(0)}k`} tick={{ fill: '#55556a', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    formatter={(v: any, name: string) => [formatBRL(Number(v)), name === 'aportes' ? 'Aportes' : 'Resgates']}
+                    contentStyle={{ background: '#0d0d14', border: '1px solid #1e1e2e', borderRadius: 12, fontSize: 12, color: '#fff' }}
+                    itemStyle={{ color: '#fff' }} labelStyle={{ color: '#fff', fontWeight: 600 }}
+                  />
+                  <Bar dataKey="aportes"  name="Aportes"  fill="#00d4ff" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="resgates" name="Resgates" fill="#ff7a00" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+              <div className="mt-3 flex items-center justify-around text-xs flex-wrap gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-sm bg-[#00d4ff]" />
+                  <span className="text-[#8888aa]">Aportes:</span>
+                  <span className="font-bold text-[#00d4ff]">{formatBRL(investAportes)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-sm bg-[#ff7a00]" />
+                  <span className="text-[#8888aa]">Resgates:</span>
+                  <span className="font-bold text-[#ff7a00]">{formatBRL(investResgates)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[#8888aa]">Saldo líquido:</span>
+                  <span className={clsx('font-bold', netInvestment >= 0 ? 'text-[#00d4ff]' : 'text-[#ff7a00]')}>
+                    {netInvestment >= 0 ? '+' : ''}{formatBRL(netInvestment)}
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* ── Duplicatas (lançamentos com mesma data, descrição e valor) ── */}
         <DuplicatesSection />
