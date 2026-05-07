@@ -476,9 +476,23 @@ export default function Cashflow() {
   const isInvestmentTx = (t: Transaction) => t.category === 'investimento'
 
   // ── Bar chart data — adapts to period mode ──
+  // Visualization convention (mirrors Aportes vs Resgates):
+  //   • income   — positive (green, bar above zero)
+  //   • expenses — negative (red, bar below zero)
+  //   • net      — signed sum (gray, indicates direction at a glance)
   const cashflowBarData = useMemo(() => {
     const expenseFilter = (t: Transaction) => t.type === 'expense' && !isInvestmentTx(t)
     const incomeFilter  = (t: Transaction) => t.type === 'income'  && !isInvestmentTx(t)
+    const bucketize = (txs: Transaction[], label: string) => {
+      const income   = txs.filter(incomeFilter).reduce((s, t) => s + toBRL(t), 0)
+      const expenses = txs.filter(expenseFilter).reduce((s, t) => s + toBRL(t), 0)
+      return {
+        label,
+        income,                // always >= 0
+        expenses: -expenses,   // displayed below zero
+        net:      income - expenses,
+      }
+    }
     if (periodMode === 'monthly') {
       const weeks = [
         { label: 'Sem 1', start: 1,  end: 7  },
@@ -488,17 +502,13 @@ export default function Cashflow() {
       ]
       const prefix = periodMonth + '-'
       const monthTxs = transactions.filter(t => t.date.startsWith(prefix))
-      return weeks.map(w => {
-        const txs = monthTxs.filter(t => {
+      return weeks.map(w => bucketize(
+        monthTxs.filter(t => {
           const day = parseInt(t.date.split('-')[2])
           return day >= w.start && day <= w.end
-        })
-        return {
-          label: w.label,
-          income:   txs.filter(incomeFilter).reduce((s, t) => s + toBRL(t), 0),
-          expenses: txs.filter(expenseFilter).reduce((s, t) => s + toBRL(t), 0),
-        }
-      })
+        }),
+        w.label,
+      ))
     }
     if (periodMode === 'ytd') {
       return Array.from({ length: curMonth }, (_, i) => {
@@ -507,25 +517,16 @@ export default function Cashflow() {
           const [ty, tm] = t.date.split('-')
           return parseInt(ty) === periodYear && parseInt(tm) === m
         })
-        return {
-          label: monthName(m).slice(0, 3),
-          income:   txs.filter(incomeFilter).reduce((s, t) => s + toBRL(t), 0),
-          expenses: txs.filter(expenseFilter).reduce((s, t) => s + toBRL(t), 0),
-        }
+        return bucketize(txs, monthName(m).slice(0, 3))
       })
     }
-    // yearly — all 12 months
     return Array.from({ length: 12 }, (_, i) => {
       const m = i + 1
       const txs = transactions.filter(t => {
         const [ty, tm] = t.date.split('-')
         return parseInt(ty) === periodYear && parseInt(tm) === m
       })
-      return {
-        label: monthName(m).slice(0, 3),
-        income:   txs.filter(incomeFilter).reduce((s, t) => s + toBRL(t), 0),
-        expenses: txs.filter(expenseFilter).reduce((s, t) => s + toBRL(t), 0),
-      }
+      return bucketize(txs, monthName(m).slice(0, 3))
     })
   }, [transactions, periodMode, periodMonth, periodYear, curMonth, toBRL])
 
@@ -1071,19 +1072,57 @@ export default function Cashflow() {
             <CardTitle>Receitas vs Despesas — {periodLabel}</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={cashflowBarData} barCategoryGap="30%">
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={cashflowBarData} barCategoryGap="20%">
                 <XAxis dataKey="label" tick={{ fill: '#55556a', fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis tickFormatter={v => `R$${(v / 1000).toFixed(0)}k`} tick={{ fill: '#55556a', fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis
+                  tickFormatter={v => {
+                    const n = Number(v)
+                    const k = Math.abs(n) / 1000
+                    return `${n < 0 ? '-' : ''}R$${k.toFixed(0)}k`
+                  }}
+                  tick={{ fill: '#55556a', fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <ReferenceLine y={0} stroke="#1e1e2e" strokeWidth={1} />
                 <Tooltip
-                  formatter={(v: any, name: string) => [formatBRL(Number(v)), name === 'income' ? 'Receitas' : 'Despesas']}
+                  formatter={(v: any, name: string) => {
+                    // Despesas are stored negative for visualization — show abs in tooltip.
+                    const n = Number(v)
+                    const display = name === 'expenses' ? Math.abs(n) : n
+                    const label =
+                      name === 'income'   ? 'Receitas' :
+                      name === 'expenses' ? 'Despesas' : 'Net'
+                    return [formatBRL(display), label]
+                  }}
                   contentStyle={{ background: '#0d0d14', border: '1px solid #1e1e2e', borderRadius: 12, fontSize: 12, color: '#fff' }}
                   itemStyle={{ color: '#fff' }} labelStyle={{ color: '#fff', fontWeight: 600 }}
                 />
                 <Bar dataKey="income"   name="Receitas" fill="#00ff88" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="expenses" name="Despesas" fill="#ff4466" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="expenses" name="Despesas" fill="#ff4466" radius={[0, 0, 4, 4]} />
+                <Bar dataKey="net"      name="Net"      fill="#8888aa" radius={[4, 4, 4, 4]} />
               </BarChart>
             </ResponsiveContainer>
+            <div className="mt-3 flex items-center justify-around text-xs flex-wrap gap-3">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-sm bg-[#00ff88]" />
+                <span className="text-[#8888aa]">Receitas:</span>
+                <span className="font-bold text-[#00ff88]">{formatBRL(cleanIncome)}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-sm bg-[#ff4466]" />
+                <span className="text-[#8888aa]">Despesas:</span>
+                <span className="font-bold text-[#ff4466]">{formatBRL(cleanExpenses)}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-sm bg-[#8888aa]" />
+                <span className="text-[#8888aa]">Net:</span>
+                <span className={clsx('font-bold', (cleanIncome - cleanExpenses) >= 0 ? 'text-[#00ff88]' : 'text-[#ff4466]')}>
+                  {(cleanIncome - cleanExpenses) >= 0 ? '+' : ''}{formatBRL(cleanIncome - cleanExpenses)}
+                </span>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
