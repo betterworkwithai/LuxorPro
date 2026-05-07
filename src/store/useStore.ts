@@ -17,6 +17,7 @@ import {
 import {
   tombstoneIfPluggy, extractPluggyTxId, extractPluggyInvId,
 } from '../lib/pluggyTombstones'
+import { needsNormalization, normalizeAssetClass } from '../lib/normalizeAssetClass'
 
 /**
  * Resolve the user's display name from (in order):
@@ -192,7 +193,38 @@ export const useStore = create<AppState>((set, get) => ({
         if (settings !== loadedSettings) await db.settings.save(settings)
       }
 
-      set({ transactions, investments, taxItems, attachments, subscriptions, goals, settings, isLoading: false })
+      // ── One-time asset-class normalization ─────────────────────────────
+      // Any investment carrying a non-canonical class (legacy custom strings
+      // like "Pós-Fixado", "RV Ibovespa", "Multimercados", "US Treasury",
+      // "Alt. PE/VC/Real Assets", etc.) gets snapped to one of the 13
+      // canonical classes used by allocation, suitability, and Pluggy
+      // import. We use the original string + name + ticker + location as
+      // signals; everything that can't be classified falls into 'Other'.
+      // The migration writes the normalized class back to Supabase so
+      // future sessions don't re-do the work.
+      const normalizedInvestments = investments.map(inv => {
+        if (!needsNormalization(inv)) return inv
+        const newClass = normalizeAssetClass(inv)
+        return { ...inv, assetClass: newClass }
+      })
+      const changed = normalizedInvestments.filter(
+        (inv, i) => inv.assetClass !== investments[i].assetClass,
+      )
+      if (changed.length > 0) {
+        // Persist asynchronously — UI doesn't need to wait for the writes.
+        for (const inv of changed) {
+          db.investments.upsert(inv).catch(err =>
+            console.warn('[init] normalize asset class persist failed for', inv.id, err),
+          )
+        }
+        console.log(`[init] Normalized ${changed.length} investment asset class(es)`)
+      }
+
+      set({
+        transactions,
+        investments: normalizedInvestments,
+        taxItems, attachments, subscriptions, goals, settings, isLoading: false,
+      })
     } catch (err) {
       console.error('[init] failed to load data:', err)
       set({ isLoading: false })
@@ -222,13 +254,20 @@ export const useStore = create<AppState>((set, get) => ({
 
   // ── Investments ────────────────────────────
   addInvestment: async (data) => {
-    const i: Investment = { ...data, id: nanoid() }
+    // Snap any non-canonical asset class to its best-guess canonical bucket
+    // so downstream views (Ativos Consolidados, allocation, suitability) can
+    // rely on a closed set of classes.
+    const normalizedClass = needsNormalization(data) ? normalizeAssetClass(data) : data.assetClass
+    const i: Investment = { ...data, assetClass: normalizedClass, id: nanoid() }
     await db.investments.upsert(i)
     set(s => ({ investments: [i, ...s.investments] }))
   },
   updateInvestment: async (inv) => {
-    await db.investments.upsert(inv)
-    set(s => ({ investments: s.investments.map(x => x.id === inv.id ? inv : x) }))
+    const normalized: Investment = needsNormalization(inv)
+      ? { ...inv, assetClass: normalizeAssetClass(inv) }
+      : inv
+    await db.investments.upsert(normalized)
+    set(s => ({ investments: s.investments.map(x => x.id === normalized.id ? normalized : x) }))
   },
   deleteInvestment: async (id) => {
     // Same tombstone treatment for Pluggy-imported investments.
