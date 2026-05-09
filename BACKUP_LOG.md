@@ -12,6 +12,31 @@ git restore --source=<tag-name> .    # roll specific files back
 
 ---
 
+## 2026-05-09 · end-of-day-1
+
+**Tag:** `backup/2026-05-09-end-of-day-1`
+**Commit:** `6146694` (deployed to www.luxorpro.com.br as `luxorpro-1dimby68t`)
+
+End of Growth Plan Day 1. Live in production:
+
+- **PostHog** analytics — pageviews + 6 funnel events: `signup_completed`,
+  `login_completed`, `trial_started`, `trial_to_paid`,
+  `first_pluggy_connect`, `first_transaction_added`
+- **Sentry** error monitoring — production-only, 10% trace sampling,
+  filters known noise (ResizeObserver, PluggyConnect cancellations)
+- 3 Vercel env vars set: `VITE_POSTHOG_KEY`, `VITE_POSTHOG_HOST`,
+  `VITE_SENTRY_DSN`
+- New `src/lib/analytics.ts` wrapper — single integration point so
+  rest of the app calls `track()` without coupling to providers
+- Logout flows reset analytics user identity
+
+Restore with:
+```bash
+git checkout backup/2026-05-09-end-of-day-1
+```
+
+---
+
 ## 2026-05-06 · pre-cashflow-investment-split
 
 **Tag:** `backup/2026-05-06-pre-cashflow-investment-split`
