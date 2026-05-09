@@ -713,6 +713,21 @@ export default function Connections() {
       setStatus({ type: 'done', count: { tx: txCount, inv: invCount } })
       setTimeout(() => setStatus({ type: 'idle' }), 5000)
 
+      // Funnel: fire once per user when their first Pluggy item connects.
+      // We use localStorage to dedupe across re-syncs of the same item.
+      try {
+        const flagKey = 'luxor_funnel_first_pluggy'
+        if (!localStorage.getItem(flagKey)) {
+          const { track } = await import('../lib/analytics')
+          track('first_pluggy_connect', {
+            connector: pluggyItem.connector?.name,
+            tx_imported: txCount,
+            inv_imported: invCount,
+          })
+          localStorage.setItem(flagKey, '1')
+        }
+      } catch { /* best-effort */ }
+
     } catch (err) {
       setAutoSyncMsg(null)
       setStatus({ type: 'error', message: (err as Error).message })

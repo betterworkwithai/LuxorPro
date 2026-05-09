@@ -38,6 +38,10 @@ export function Sidebar() {
   }, [])
 
   async function handleLogout() {
+    try {
+      const { resetUser } = await import('../../lib/analytics')
+      resetUser()
+    } catch { /* best-effort */ }
     localStorage.removeItem(LOCAL_AUTH_KEY) // clear local session flag
     await supabase.auth.signOut()           // clear Supabase session (no-op if not configured)
     window.location.reload()

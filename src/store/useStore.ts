@@ -236,8 +236,17 @@ export const useStore = create<AppState>((set, get) => ({
   // ── Transactions ───────────────────────────
   addTransaction: async (data) => {
     const t: Transaction = { ...data, id: nanoid(), createdAt: new Date().toISOString() }
+    const wasEmpty = get().transactions.length === 0
     await db.transactions.upsert(t)
     set(s => ({ transactions: [t, ...s.transactions] }))
+    // Funnel: fire once on the user's first-ever transaction. wasEmpty
+    // catches both manual entries and the first imported batch.
+    if (wasEmpty) {
+      try {
+        const { track } = await import('../lib/analytics')
+        track('first_transaction_added', { source: data.tags?.find(x => x.startsWith('pluggy:')) ? 'pluggy' : 'manual' })
+      } catch { /* analytics is best-effort */ }
+    }
   },
   updateTransaction: async (t) => {
     await db.transactions.upsert(t)

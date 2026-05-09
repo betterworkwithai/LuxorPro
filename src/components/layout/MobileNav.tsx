@@ -48,6 +48,10 @@ export function MobileNav() {
   }, [open])
 
   async function handleLogout() {
+    try {
+      const { resetUser } = await import('../../lib/analytics')
+      resetUser()
+    } catch { /* best-effort */ }
     localStorage.removeItem(LOCAL_AUTH_KEY)
     await supabase.auth.signOut()
     window.location.reload()

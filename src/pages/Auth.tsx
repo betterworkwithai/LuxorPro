@@ -3,6 +3,7 @@ import { Mail, Lock, User, Eye, EyeOff, ArrowLeft, CheckCircle2, AlertCircle, Lo
 import { supabase, SUPABASE_CONFIGURED } from '../lib/supabase'
 import { LOCAL_AUTH_KEY } from '../App'
 import { markNewUser } from '../lib/stripe'
+import { identifyUser, track } from '../lib/analytics'
 import { clsx } from 'clsx'
 
 type Tab = 'login' | 'signup' | 'reset'
@@ -95,9 +96,13 @@ function LoginForm({ onForgot }: { onForgot: () => void }) {
     setError('')
     if (!email || !password) { setError('Preencha e-mail e senha.'); return }
     setLoading(true)
-    const { error: err } = await supabase.auth.signInWithPassword({ email, password })
+    const { data, error: err } = await supabase.auth.signInWithPassword({ email, password })
     setLoading(false)
     if (err) setError(translateError(err.message))
+    else if (data?.user?.id) {
+      identifyUser(data.user.id, { email: data.user.email })
+      track('login_completed')
+    }
   }
 
   return (
@@ -184,7 +189,7 @@ function SignupForm() {
     if (password.length < 8)  { setError('A senha deve ter pelo menos 8 caracteres.'); return }
     if (password !== confirm) { setError('As senhas não coincidem.'); return }
     setLoading(true)
-    const { error: err } = await supabase.auth.signUp({
+    const { data: signUpData, error: err } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -201,6 +206,14 @@ function SignupForm() {
         localStorage.setItem('luxor_signup_suitability', suitability)
         markNewUser()
       } catch {}
+      // ── Funnel: signup_completed ─────────────────────────────────────────
+      // We track the signup intent here regardless of email-confirmation
+      // status. The trial_started event fires later when the user lands in
+      // /app for the first time after confirming.
+      if (signUpData?.user?.id) {
+        identifyUser(signUpData.user.id, { suitability })
+      }
+      track('signup_completed', { suitability, has_email_confirmation_pending: !signUpData?.session })
       setSuccess(true)
     }
   }
