@@ -1,0 +1,728 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Luxor — Dashboard V2 Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+  :root {
+    --bg-canvas: #0a0a0f;
+    --bg-card: #0f1018;
+    --bg-card-emph: #131426;
+    --bg-card-hover: #161729;
+    --border-card: #1e1e30;
+    --border-soft: #14152c;
+    --text-primary: #e8e8f0;
+    --text-secondary: #8888aa;
+    --text-muted: #55556a;
+    --success: #00ff88;
+    --danger: #ff4466;
+    --info: #00d4ff;
+    --warning: #f59e0b;
+    --primary: #ff7a00;
+  }
+  html, body {
+    background: var(--bg-canvas);
+    color: var(--text-primary);
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+  .caption {
+    font-size: 11px; line-height: 16px; font-weight: 600;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 16px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.5), 0 0 0 1px rgba(0,212,255,.04);
+    transition: all 240ms cubic-bezier(.22,.61,.36,1);
+  }
+  .card-emph {
+    background: var(--bg-card-emph);
+    border: 1px solid var(--border-card);
+    border-radius: 20px;
+    box-shadow: 0 4px 24px rgba(11,20,38,.6), 0 0 0 1px rgba(255,122,0,.08);
+  }
+  .card-clickable:hover {
+    background: var(--bg-card-hover);
+    border-color: rgba(0,212,255,.3);
+    transform: translateY(-1px);
+  }
+  .alert-chip {
+    border-radius: 12px;
+    padding: 10px 14px;
+    display: flex; align-items: center; gap: 10px;
+    transition: all 180ms ease-out;
+    cursor: pointer;
+  }
+  .alert-chip:hover { transform: translateX(2px); }
+  .fab {
+    background: var(--primary); color: #0a0a0f;
+    box-shadow: 0 8px 32px rgba(255,122,0,.4), 0 0 0 1px rgba(255,255,255,.1) inset;
+    transition: all 240ms cubic-bezier(.22,.61,.36,1);
+  }
+  .fab:hover { transform: translateY(-2px) scale(1.04); box-shadow: 0 12px 40px rgba(255,122,0,.55), 0 0 0 1px rgba(255,255,255,.15) inset; }
+  .pill {
+    font-size: 11px; padding: 4px 9px; border-radius: 9999px;
+    font-weight: 600; display: inline-flex; align-items: center; gap: 4px;
+  }
+  .period-tab {
+    padding: 4px 10px; border-radius: 8px;
+    font-size: 12px; font-weight: 600;
+    color: var(--text-secondary);
+    transition: all 180ms ease-out;
+    cursor: pointer;
+  }
+  .period-tab.active {
+    background: rgba(0,212,255,.1);
+    color: var(--info);
+    border: 1px solid rgba(0,212,255,.2);
+  }
+  .period-tab:not(.active):hover { color: var(--text-primary); }
+  /* Pyramid */
+  .pyr-layer {
+    transition: all 240ms cubic-bezier(.22,.61,.36,1);
+  }
+  .pyr-apex {
+    filter: drop-shadow(0 0 14px rgba(255,180,60,.85)) drop-shadow(0 0 28px rgba(255,122,0,.45));
+    animation: lx-glow 3.6s ease-in-out infinite;
+  }
+  @keyframes lx-glow {
+    0%, 100% { filter: drop-shadow(0 0 14px rgba(255,180,60,.85)) drop-shadow(0 0 28px rgba(255,122,0,.45)); }
+    50%      { filter: drop-shadow(0 0 22px rgba(255,200,90,1))   drop-shadow(0 0 40px rgba(255,122,0,.6)); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pyr-apex { animation: none; }
+  }
+  .pyr-current {
+    filter: drop-shadow(0 0 8px rgba(0,212,255,.5));
+  }
+  .pyr-tier-label .tier-name { font-weight: 700; }
+  .pyr-tier-label .tier-bracket { font-weight: 500; }
+  /* Reveal */
+  .reveal { opacity: 0; transform: translateY(8px); transition: all 320ms cubic-bezier(.22,.61,.36,1); }
+  .reveal.is-visible { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .reveal { opacity: 1; transform: none; transition: none; }
+    .fab, .card-clickable, .alert-chip { transition: none; }
+  }
+  /* Subtle dot grid for hero */
+  .dot-grid {
+    background-image: radial-gradient(circle at 1px 1px, rgba(0,212,255,.06) 1px, transparent 0);
+    background-size: 22px 22px;
+  }
+  /* Allocation donut hover */
+  .arc { transition: opacity 180ms ease-out; cursor: pointer; }
+  .arc:hover { opacity: 0.85; }
+  /* Sidebar */
+  .sidebar-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 9px 12px; border-radius: 10px;
+    color: var(--text-secondary);
+    font-size: 13px; font-weight: 500;
+    transition: all 180ms ease-out;
+    cursor: pointer;
+  }
+  .sidebar-item:hover { background: var(--bg-card); color: var(--text-primary); }
+  .sidebar-item.active {
+    background: rgba(255,122,0,.1);
+    color: var(--primary);
+    border: 1px solid rgba(255,122,0,.2);
+  }
+  /* Top movers row */
+  .mover-row {
+    padding: 8px 12px; border-radius: 10px;
+    transition: background 180ms ease-out;
+    cursor: pointer;
+  }
+  .mover-row:hover { background: var(--bg-card-hover); }
+</style>
+</head>
+<body>
+
+<!-- ─── LAYOUT WRAPPER ───────────────────────────────────────── -->
+<div class="flex min-h-screen">
+
+  <!-- SIDEBAR -->
+  <aside class="hidden lg:flex flex-col w-56 flex-shrink-0 border-r border-[#1e1e30] bg-[#0a0a0f] py-5 px-3">
+    <div class="flex items-center gap-2.5 px-2 pb-5 mb-3 border-b border-[#1e1e30]">
+      <img src="/logo.png" alt="Luxor.Pro" class="w-9 h-9 rounded-xl object-contain" />
+      <span class="text-base font-bold tracking-tight">Luxor<span class="text-slate-500">.</span><span style="color:#ff7a00">Pro</span></span>
+    </div>
+    <nav class="flex-1 space-y-1">
+      <a class="sidebar-item active"><i data-lucide="layout-dashboard" class="w-4 h-4"></i> Painel Consolidado</a>
+      <a class="sidebar-item"><i data-lucide="arrow-left-right" class="w-4 h-4"></i> Receitas e Despesas</a>
+      <a class="sidebar-item"><i data-lucide="trending-up" class="w-4 h-4"></i> Investimentos</a>
+      <a class="sidebar-item"><i data-lucide="target" class="w-4 h-4"></i> Minhas Metas</a>
+      <a class="sidebar-item"><i data-lucide="file-search" class="w-4 h-4"></i> IA de Documentos</a>
+      <a class="sidebar-item"><i data-lucide="link-2" class="w-4 h-4"></i> Open Finance</a>
+      <a class="sidebar-item"><i data-lucide="calculator" class="w-4 h-4"></i> Ferramentas</a>
+    </nav>
+    <div class="mt-4 pt-4 border-t border-[#1e1e30]">
+      <a class="sidebar-item"><i data-lucide="settings" class="w-4 h-4"></i> Configurações</a>
+      <div class="flex items-center gap-2 px-3 py-2 mt-2 rounded-lg bg-[#0f1018] border border-[#1e1e30]">
+        <span class="w-6 h-6 rounded-full flex items-center justify-center" style="background:rgba(255,122,0,.15);color:#ff7a00"><i data-lucide="user" class="w-3 h-3"></i></span>
+        <span class="text-[11px] text-[#8888aa] truncate font-mono">gabriel@luxor</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="flex-1 min-w-0">
+
+    <!-- ─── PAGE HEADER ───────────────────────────────────────── -->
+    <header class="sticky top-0 z-30 px-6 py-4 border-b border-[#1e1e30] bg-[#0a0a0f]/95 backdrop-blur-xl">
+      <div class="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <h1 class="text-base sm:text-lg font-bold tracking-tight">Painel Consolidado</h1>
+          <p class="text-xs text-[#55556a] mt-0.5">Bom dia, Gabriel · sexta-feira, 9 de maio</p>
+        </div>
+        <div class="flex items-center gap-3 flex-wrap">
+          <!-- Period selector — single instance for the whole page -->
+          <div class="flex items-center gap-1 p-1 rounded-xl bg-[#0f1018] border border-[#1e1e30]">
+            <span class="period-tab">1M</span>
+            <span class="period-tab">6M</span>
+            <span class="period-tab active">YTD</span>
+            <span class="period-tab">1Y</span>
+            <span class="period-tab">ALL</span>
+          </div>
+          <button class="px-3 py-2 rounded-xl text-xs font-semibold border border-[#1e1e30] bg-[#0f1018] text-[#8888aa] hover:text-white hover:border-[#00d4ff]/30 transition-colors flex items-center gap-1.5">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+            Sincronizar
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <div class="p-6 space-y-6 max-w-[1400px] mx-auto">
+
+      <!-- ─── HERO — NET WORTH ─────────────────────────────────── -->
+      <section class="card-emph dot-grid p-6 sm:p-8 reveal">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div class="flex-1 min-w-0">
+            <p class="caption">Patrimônio Total</p>
+            <div class="flex items-baseline gap-3 mt-1.5 flex-wrap">
+              <span class="num text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight">R$ 1.247.832</span>
+              <span class="pill" style="background:rgba(0,255,136,.12);color:#00ff88;border:1px solid rgba(0,255,136,.25)">
+                <i data-lucide="arrow-up-right" class="w-3 h-3"></i>
+                +R$ 46.218 · +3,9% YTD
+              </span>
+            </div>
+            <div class="mt-4 flex items-center gap-3 text-xs text-[#8888aa] flex-wrap">
+              <span class="flex items-center gap-1.5"><i data-lucide="trending-up" class="w-3.5 h-3.5" style="color:#00d4ff"></i> Projeção 12 meses: <span class="num text-white font-semibold">R$ 1.42M</span></span>
+              <span class="text-[#2a2a3e]">·</span>
+              <span class="flex items-center gap-1.5"><i data-lucide="award" class="w-3.5 h-3.5" style="color:#ff7a00"></i> 3º andar · Independência (top 5%)</span>
+              <span class="text-[#2a2a3e]">·</span>
+              <span class="flex items-center gap-1.5"><i data-lucide="layers" class="w-3.5 h-3.5"></i> 14 ativos · 7 contas</span>
+            </div>
+          </div>
+
+          <!-- Sparkline -->
+          <div class="lg:w-72 lg:flex-shrink-0">
+            <p class="caption mb-2">Últimos 30 dias</p>
+            <svg viewBox="0 0 280 80" class="w-full h-20" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="spark-grad" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stop-color="#00d4ff" stop-opacity="0.35"/>
+                  <stop offset="100%" stop-color="#00d4ff" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+              <path d="M 0 60 L 14 56 L 28 58 L 42 50 L 56 52 L 70 44 L 84 42 L 98 38 L 112 42 L 126 36 L 140 30 L 154 32 L 168 28 L 182 22 L 196 26 L 210 18 L 224 22 L 238 16 L 252 14 L 266 12 L 280 10 L 280 80 L 0 80 Z"
+                    fill="url(#spark-grad)" />
+              <path d="M 0 60 L 14 56 L 28 58 L 42 50 L 56 52 L 70 44 L 84 42 L 98 38 L 112 42 L 126 36 L 140 30 L 154 32 L 168 28 L 182 22 L 196 26 L 210 18 L 224 22 L 238 16 L 252 14 L 266 12 L 280 10"
+                    fill="none" stroke="#00d4ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── ATTENTION STRIP ──────────────────────────────────── -->
+      <section class="space-y-2.5 reveal">
+        <p class="caption">Vale sua atenção hoje</p>
+        <div class="grid md:grid-cols-3 gap-2.5">
+          <div class="alert-chip card" style="border-color:rgba(245,158,11,.25); background:rgba(245,158,11,.04)">
+            <span class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style="background:rgba(245,158,11,.12);color:#f59e0b"><i data-lucide="alert-triangle" class="w-4 h-4"></i></span>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-semibold truncate">Carteira fora da meta</p>
+              <p class="text-[11px] text-[#8888aa] truncate">Renda variável 8% acima do alvo. Rebalancear?</p>
+            </div>
+            <i data-lucide="arrow-right" class="w-4 h-4 text-[#55556a] flex-shrink-0"></i>
+          </div>
+          <div class="alert-chip card" style="border-color:rgba(0,212,255,.25); background:rgba(0,212,255,.04)">
+            <span class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style="background:rgba(0,212,255,.12);color:#00d4ff"><i data-lucide="sparkles" class="w-4 h-4"></i></span>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-semibold truncate">3 lançamentos para revisar</p>
+              <p class="text-[11px] text-[#8888aa] truncate">IA detectou possíveis aportes em despesas</p>
+            </div>
+            <i data-lucide="arrow-right" class="w-4 h-4 text-[#55556a] flex-shrink-0"></i>
+          </div>
+          <div class="alert-chip card" style="border-color:rgba(255,68,102,.25); background:rgba(255,68,102,.04)">
+            <span class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style="background:rgba(255,68,102,.12);color:#ff4466"><i data-lucide="calendar-clock" class="w-4 h-4"></i></span>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-semibold truncate">Cartão Itaú vence em 3 dias</p>
+              <p class="text-[11px] text-[#8888aa] truncate">R$ 4.823,15 · ainda não programado</p>
+            </div>
+            <i data-lucide="arrow-right" class="w-4 h-4 text-[#55556a] flex-shrink-0"></i>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── KPI STRIP ─────────────────────────────────────────── -->
+      <section class="grid grid-cols-2 lg:grid-cols-4 gap-3 reveal">
+        <div class="card p-4">
+          <div class="flex items-center justify-between">
+            <p class="caption">Saldo do mês</p>
+            <span class="pill" style="background:rgba(0,255,136,.1);color:#00ff88"><i data-lucide="arrow-up" class="w-3 h-3"></i> +18%</span>
+          </div>
+          <p class="num text-2xl lg:text-[28px] font-bold tracking-tight mt-2">+R$ 8.412</p>
+          <p class="text-[11px] text-[#55556a] mt-1">vs +R$ 7.130 mês passado</p>
+        </div>
+        <div class="card p-4">
+          <div class="flex items-center justify-between">
+            <p class="caption">Aportes (mês)</p>
+            <span class="pill" style="background:rgba(0,212,255,.1);color:#00d4ff"><i data-lucide="arrow-up" class="w-3 h-3"></i> +12%</span>
+          </div>
+          <p class="num text-2xl lg:text-[28px] font-bold tracking-tight mt-2">R$ 6.500</p>
+          <p class="text-[11px] text-[#55556a] mt-1">52% da meta de R$ 12.500</p>
+        </div>
+        <div class="card p-4">
+          <div class="flex items-center justify-between">
+            <p class="caption">Performance YTD</p>
+            <span class="pill" style="background:rgba(0,255,136,.1);color:#00ff88"><i data-lucide="trending-up" class="w-3 h-3"></i> &gt; CDI</span>
+          </div>
+          <p class="num text-2xl lg:text-[28px] font-bold tracking-tight mt-2">+11,8%</p>
+          <p class="text-[11px] text-[#55556a] mt-1">CDI no período: 5,9%</p>
+        </div>
+        <div class="card p-4">
+          <div class="flex items-center justify-between">
+            <p class="caption">Taxa de poupança</p>
+            <span class="pill" style="background:rgba(245,158,11,.1);color:#f59e0b"><i data-lucide="minus" class="w-3 h-3"></i> -3pp</span>
+          </div>
+          <p class="num text-2xl lg:text-[28px] font-bold tracking-tight mt-2">28%</p>
+          <p class="text-[11px] text-[#55556a] mt-1">meta: 35%</p>
+        </div>
+      </section>
+
+      <!-- ─── BENTO GRID ───────────────────────────────────────── -->
+      <section class="grid grid-cols-1 lg:grid-cols-3 gap-4 reveal">
+
+        <!-- NET WORTH TREND — large -->
+        <div class="lg:col-span-2 card card-clickable p-5">
+          <div class="flex items-center justify-between mb-1">
+            <div>
+              <p class="caption">Evolução do Patrimônio</p>
+              <p class="text-sm text-[#8888aa] mt-0.5">vs CDI no mesmo período</p>
+            </div>
+            <div class="flex items-center gap-1 p-0.5 rounded-lg bg-[#0a0a0f] border border-[#1e1e30] text-xs">
+              <span class="period-tab text-[11px]" style="padding:3px 8px">1M</span>
+              <span class="period-tab text-[11px] active" style="padding:3px 8px">YTD</span>
+              <span class="period-tab text-[11px]" style="padding:3px 8px">1Y</span>
+            </div>
+          </div>
+
+          <svg viewBox="0 0 600 220" class="w-full h-56 mt-4" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="net-grad" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stop-color="#00d4ff" stop-opacity="0.30"/>
+                <stop offset="100%" stop-color="#00d4ff" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <!-- gridlines -->
+            <line x1="0" y1="50" x2="600" y2="50" stroke="#1e1e30" stroke-width="1"/>
+            <line x1="0" y1="100" x2="600" y2="100" stroke="#1e1e30" stroke-width="1"/>
+            <line x1="0" y1="150" x2="600" y2="150" stroke="#1e1e30" stroke-width="1"/>
+            <line x1="0" y1="200" x2="600" y2="200" stroke="#1e1e30" stroke-width="1"/>
+            <!-- CDI benchmark -->
+            <path d="M 0 195 L 50 192 L 100 188 L 150 184 L 200 178 L 250 174 L 300 168 L 350 162 L 400 156 L 450 150 L 500 144 L 550 138 L 600 132"
+                  fill="none" stroke="#55556a" stroke-width="1.5" stroke-dasharray="4 4"/>
+            <!-- Net worth -->
+            <path d="M 0 195 L 50 188 L 100 192 L 150 175 L 200 178 L 250 162 L 300 158 L 350 145 L 400 138 L 450 130 L 500 115 L 550 100 L 600 78
+                     L 600 220 L 0 220 Z"
+                  fill="url(#net-grad)" />
+            <path d="M 0 195 L 50 188 L 100 192 L 150 175 L 200 178 L 250 162 L 300 158 L 350 145 L 400 138 L 450 130 L 500 115 L 550 100 L 600 78"
+                  fill="none" stroke="#00d4ff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- end dot -->
+            <circle cx="600" cy="78" r="4" fill="#00d4ff" />
+            <circle cx="600" cy="78" r="8" fill="none" stroke="#00d4ff" stroke-opacity="0.3" stroke-width="2"/>
+            <!-- x labels -->
+            <text x="0"   y="218" fill="#55556a" font-size="11" font-family="Inter">jan</text>
+            <text x="100" y="218" fill="#55556a" font-size="11" font-family="Inter">fev</text>
+            <text x="200" y="218" fill="#55556a" font-size="11" font-family="Inter">mar</text>
+            <text x="300" y="218" fill="#55556a" font-size="11" font-family="Inter">abr</text>
+            <text x="400" y="218" fill="#55556a" font-size="11" font-family="Inter">mai</text>
+          </svg>
+
+          <div class="flex items-center gap-5 mt-3 text-xs">
+            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm" style="background:#00d4ff"></span><span class="text-[#8888aa]">Patrimônio</span> <span class="num font-semibold">+11,8%</span></span>
+            <span class="flex items-center gap-1.5"><span class="w-2.5 h-0.5 rounded-sm" style="background:#55556a;border-top:1px dashed #55556a"></span><span class="text-[#8888aa]">CDI</span> <span class="num text-[#8888aa]">+5,9%</span></span>
+          </div>
+        </div>
+
+        <!-- GOAL PROGRESS -->
+        <div class="card card-clickable p-5">
+          <p class="caption">Próximo andar da pirâmide</p>
+          <p class="text-sm text-[#8888aa] mt-0.5">Você está no <span class="text-[#00d4ff] font-semibold">3º andar · Independência</span> (R$ 1M – 3M)</p>
+
+          <!-- Pyramid: SVG geometry on left, HTML labels on right.
+               Real CSS font sizes — no viewBox scaling-down problem. -->
+          <div class="mt-5 flex items-stretch gap-3">
+            <!-- Pyramid (fixed aspect, ~140px wide) -->
+            <div class="relative flex-shrink-0 w-[140px]">
+              <svg viewBox="0 0 240 200" class="w-full h-auto">
+                <defs>
+                  <linearGradient id="apex-gold" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%"   stop-color="#ffc857"/>
+                    <stop offset="55%"  stop-color="#ff9a3f"/>
+                    <stop offset="100%" stop-color="#ff7a00"/>
+                  </linearGradient>
+                </defs>
+                <!-- L1 apex — GOAL -->
+                <polygon points="120,10 138,40 102,40"          class="pyr-layer pyr-apex"    fill="url(#apex-gold)"/>
+                <!-- L2 — Soberania -->
+                <polygon points="102,40 138,40 157,70 83,70"    class="pyr-layer"             fill="#2a2540"/>
+                <!-- L3 — Independência (current) -->
+                <polygon points="83,70 157,70 175,100 65,100"   class="pyr-layer pyr-current" fill="rgba(0,212,255,0.18)" stroke="#00d4ff" stroke-width="1"/>
+                <!-- L4–L6 — muted -->
+                <polygon points="65,100 175,100 193,130 47,130" class="pyr-layer"             fill="#1e1e30"/>
+                <polygon points="47,130 193,130 212,160 28,160" class="pyr-layer"             fill="#1e1e30"/>
+                <polygon points="28,160 212,160 230,190 10,190" class="pyr-layer"             fill="#1e1e30"/>
+              </svg>
+            </div>
+
+            <!-- Tier labels — real HTML, real CSS font sizes, perfectly readable -->
+            <div class="flex-1 min-w-0 grid grid-rows-6 text-xs">
+              <!-- L1 META -->
+              <div class="flex items-center gap-2 border-l-2 pl-2.5" style="border-color:#ffc857">
+                <div class="flex-1 min-w-0">
+                  <p class="font-bold leading-tight" style="color:#ffc857">Topo · 0,1%</p>
+                  <p class="text-[10px] text-[#8888aa] leading-tight">R$ 10M+</p>
+                </div>
+                <span class="caption" style="color:#ffc857;font-size:10px">META</span>
+              </div>
+              <!-- L2 -->
+              <div class="flex items-center border-l-2 border-[#2a2540] pl-2.5">
+                <div class="flex-1 min-w-0">
+                  <p class="font-bold leading-tight text-[#e8e8f0]">Soberania · 1%</p>
+                  <p class="text-[10px] text-[#8888aa] leading-tight">R$ 3M – 10M</p>
+                </div>
+              </div>
+              <!-- L3 — current -->
+              <div class="flex items-center gap-2 border-l-2 pl-2.5" style="border-color:#00d4ff">
+                <div class="flex-1 min-w-0">
+                  <p class="font-bold leading-tight" style="color:#00d4ff">Independência · 5%</p>
+                  <p class="text-[10px] text-[#8888aa] leading-tight">R$ 1M – 3M</p>
+                </div>
+                <span class="text-[10px] font-bold uppercase tracking-wider" style="color:#00d4ff">Você</span>
+              </div>
+              <!-- L4 -->
+              <div class="flex items-center border-l-2 border-[#2a2a3e] pl-2.5">
+                <div class="flex-1 min-w-0">
+                  <p class="font-bold leading-tight text-[#e8e8f0]">Conforto · 15%</p>
+                  <p class="text-[10px] text-[#8888aa] leading-tight">R$ 300k – 1M</p>
+                </div>
+              </div>
+              <!-- L5 -->
+              <div class="flex items-center border-l-2 border-[#2a2a3e] pl-2.5">
+                <div class="flex-1 min-w-0">
+                  <p class="font-bold leading-tight text-[#e8e8f0]">Estabilidade · 50%</p>
+                  <p class="text-[10px] text-[#8888aa] leading-tight">R$ 50k – 300k</p>
+                </div>
+              </div>
+              <!-- L6 -->
+              <div class="flex items-center border-l-2 border-[#2a2a3e] pl-2.5">
+                <div class="flex-1 min-w-0">
+                  <p class="font-bold leading-tight text-[#e8e8f0]">Base · bottom 50%</p>
+                  <p class="text-[10px] text-[#8888aa] leading-tight">&lt; R$ 50k</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Source citation -->
+          <p class="mt-3 text-[10px] text-[#55556a] leading-tight">
+            Estimativas: IBGE PNAD 2023 · WID.world BR 2022 · Credit Suisse 2023 · IRPF 2023
+          </p>
+
+          <div class="mt-4 space-y-1.5">
+            <div class="flex justify-between text-xs">
+              <span class="text-[#8888aa]">Distância para <span class="text-[#e8e8f0] font-semibold">Soberania</span> (top 1%)</span>
+              <span class="num font-semibold">R$ 1,75M</span>
+            </div>
+            <div class="w-full h-1.5 rounded-full bg-[#1e1e30] overflow-hidden">
+              <div class="h-full rounded-full" style="width:12%;background:linear-gradient(90deg,#ff7a00,#ffc857)"></div>
+            </div>
+            <div class="flex justify-between text-[10px] text-[#55556a]">
+              <span>R$ 1M</span>
+              <span class="num">12%</span>
+              <span>R$ 3M</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ALLOCATION DONUT -->
+        <div class="card card-clickable p-5">
+          <p class="caption">Alocação atual</p>
+          <p class="text-sm text-[#8888aa] mt-0.5">5 classes principais · drift 8%</p>
+
+          <div class="mt-4 flex items-center justify-center">
+            <svg viewBox="-110 -110 220 220" class="w-44 h-44">
+              <!-- Donut slices: order — Renda fixa 35, Ações BR 22, FIIs 15, ETFs offshore 14, Outros 14 -->
+              <!-- We compute arcs: full = 360deg. start at -90 -->
+              <!-- Renda fixa -->
+              <path class="arc" d="M 0 -85 A 85 85 0 0 1 79.86 -29.16 L 51.96 -18.97 A 55 55 0 0 0 0 -55 Z" fill="#00d4ff"/>
+              <!-- Ações BR -->
+              <path class="arc" d="M 79.86 -29.16 A 85 85 0 0 1 53.74 65.85 L 34.74 42.59 A 55 55 0 0 0 51.66 -18.86 Z" fill="#00ff88"/>
+              <!-- FIIs -->
+              <path class="arc" d="M 53.74 65.85 A 85 85 0 0 1 -33.43 78.14 L -21.62 50.55 A 55 55 0 0 0 34.74 42.59 Z" fill="#ff7a00"/>
+              <!-- ETFs offshore -->
+              <path class="arc" d="M -33.43 78.14 A 85 85 0 0 1 -83.06 -18.05 L -53.74 -11.68 A 55 55 0 0 0 -21.62 50.55 Z" fill="#8b5cf6"/>
+              <!-- Outros -->
+              <path class="arc" d="M -83.06 -18.05 A 85 85 0 0 1 0 -85 L 0 -55 A 55 55 0 0 0 -53.74 -11.68 Z" fill="#f59e0b"/>
+              <!-- center -->
+              <text x="0" y="-4" text-anchor="middle" font-size="11" fill="#8888aa" font-family="Inter" font-weight="600">PATRIMÔNIO</text>
+              <text x="0" y="14" text-anchor="middle" font-size="18" fill="white" font-weight="700" class="num" font-family="Inter">R$ 1,24M</text>
+            </svg>
+          </div>
+
+          <div class="mt-4 space-y-2 text-xs">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-sm" style="background:#00d4ff"></span>
+              <span class="flex-1 text-[#e8e8f0]">Renda Fixa</span>
+              <span class="num font-semibold">35%</span>
+              <span class="num text-[10px] text-[#55556a] w-10 text-right">+1pp</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-sm" style="background:#00ff88"></span>
+              <span class="flex-1 text-[#e8e8f0]">Ações B3</span>
+              <span class="num font-semibold">22%</span>
+              <span class="num text-[10px] w-10 text-right" style="color:#f59e0b">+8pp</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-sm" style="background:#ff7a00"></span>
+              <span class="flex-1 text-[#e8e8f0]">FIIs</span>
+              <span class="num font-semibold">15%</span>
+              <span class="num text-[10px] text-[#55556a] w-10 text-right">+0pp</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-sm" style="background:#8b5cf6"></span>
+              <span class="flex-1 text-[#e8e8f0]">ETFs Offshore</span>
+              <span class="num font-semibold">14%</span>
+              <span class="num text-[10px] text-[#55556a] w-10 text-right">-2pp</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-sm" style="background:#f59e0b"></span>
+              <span class="flex-1 text-[#e8e8f0]">Outros</span>
+              <span class="num font-semibold">14%</span>
+              <span class="num text-[10px] text-[#55556a] w-10 text-right">-7pp</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- TOP MOVERS — large -->
+        <div class="lg:col-span-2 card card-clickable p-5">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <p class="caption">Top movers · 7 dias</p>
+              <p class="text-sm text-[#8888aa] mt-0.5">Os ativos que mais mexeram seu patrimônio</p>
+            </div>
+            <button class="text-[11px] text-[#00d4ff] font-semibold hover:underline">Ver todos →</button>
+          </div>
+          <div class="grid sm:grid-cols-2 gap-x-6">
+            <!-- Best -->
+            <div>
+              <p class="caption mb-2" style="color:#00ff88">Maiores altas</p>
+              <div class="space-y-1">
+                <div class="mover-row flex items-center gap-3">
+                  <span class="text-xs text-[#55556a] w-4 num">1</span>
+                  <span class="flex-1">
+                    <span class="text-sm font-semibold">PETR4</span>
+                    <span class="text-[11px] text-[#55556a] block">Petrobras · Ações B3</span>
+                  </span>
+                  <span class="num text-sm font-bold" style="color:#00ff88">+8,4%</span>
+                  <span class="num text-[11px] text-[#8888aa] w-16 text-right">+R$ 4.180</span>
+                </div>
+                <div class="mover-row flex items-center gap-3">
+                  <span class="text-xs text-[#55556a] w-4 num">2</span>
+                  <span class="flex-1">
+                    <span class="text-sm font-semibold">VOO</span>
+                    <span class="text-[11px] text-[#55556a] block">S&P 500 ETF · USD</span>
+                  </span>
+                  <span class="num text-sm font-bold" style="color:#00ff88">+3,2%</span>
+                  <span class="num text-[11px] text-[#8888aa] w-16 text-right">+R$ 2.850</span>
+                </div>
+                <div class="mover-row flex items-center gap-3">
+                  <span class="text-xs text-[#55556a] w-4 num">3</span>
+                  <span class="flex-1">
+                    <span class="text-sm font-semibold">MXRF11</span>
+                    <span class="text-[11px] text-[#55556a] block">Maxi Renda · FII</span>
+                  </span>
+                  <span class="num text-sm font-bold" style="color:#00ff88">+2,1%</span>
+                  <span class="num text-[11px] text-[#8888aa] w-16 text-right">+R$ 920</span>
+                </div>
+              </div>
+            </div>
+            <!-- Worst -->
+            <div class="mt-5 sm:mt-0">
+              <p class="caption mb-2" style="color:#ff4466">Maiores quedas</p>
+              <div class="space-y-1">
+                <div class="mover-row flex items-center gap-3">
+                  <span class="text-xs text-[#55556a] w-4 num">1</span>
+                  <span class="flex-1">
+                    <span class="text-sm font-semibold">VALE3</span>
+                    <span class="text-[11px] text-[#55556a] block">Vale · Ações B3</span>
+                  </span>
+                  <span class="num text-sm font-bold" style="color:#ff4466">-4,7%</span>
+                  <span class="num text-[11px] text-[#8888aa] w-16 text-right">-R$ 1.640</span>
+                </div>
+                <div class="mover-row flex items-center gap-3">
+                  <span class="text-xs text-[#55556a] w-4 num">2</span>
+                  <span class="flex-1">
+                    <span class="text-sm font-semibold">QQQ</span>
+                    <span class="text-[11px] text-[#55556a] block">Nasdaq 100 · USD</span>
+                  </span>
+                  <span class="num text-sm font-bold" style="color:#ff4466">-2,9%</span>
+                  <span class="num text-[11px] text-[#8888aa] w-16 text-right">-R$ 1.080</span>
+                </div>
+                <div class="mover-row flex items-center gap-3">
+                  <span class="text-xs text-[#55556a] w-4 num">3</span>
+                  <span class="flex-1">
+                    <span class="text-sm font-semibold">HGLG11</span>
+                    <span class="text-[11px] text-[#55556a] block">CSHG Logística · FII</span>
+                  </span>
+                  <span class="num text-sm font-bold" style="color:#ff4466">-1,3%</span>
+                  <span class="num text-[11px] text-[#8888aa] w-16 text-right">-R$ 480</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CASHFLOW — small bento -->
+        <div class="card card-clickable p-5">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="caption">Receitas vs Despesas</p>
+              <p class="text-sm text-[#8888aa] mt-0.5">Mês corrente</p>
+            </div>
+          </div>
+          <!-- Compact dual bars -->
+          <div class="mt-5 space-y-3">
+            <div>
+              <div class="flex items-center justify-between text-xs mb-1.5">
+                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-sm" style="background:#00ff88"></span> Receitas</span>
+                <span class="num font-semibold" style="color:#00ff88">R$ 28.450</span>
+              </div>
+              <div class="w-full h-2 rounded-full bg-[#1e1e30] overflow-hidden">
+                <div class="h-full rounded-full" style="width:88%;background:#00ff88"></div>
+              </div>
+            </div>
+            <div>
+              <div class="flex items-center justify-between text-xs mb-1.5">
+                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-sm" style="background:#ff4466"></span> Despesas</span>
+                <span class="num font-semibold" style="color:#ff4466">R$ 20.038</span>
+              </div>
+              <div class="w-full h-2 rounded-full bg-[#1e1e30] overflow-hidden">
+                <div class="h-full rounded-full" style="width:62%;background:#ff4466"></div>
+              </div>
+            </div>
+            <div class="pt-3 mt-3 border-t border-[#1e1e30] flex items-center justify-between">
+              <span class="caption">Saldo</span>
+              <span class="num text-xl font-bold" style="color:#00ff88">+R$ 8.412</span>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ─── COLLAPSIBLE BELOW-FOLD ───────────────────────────── -->
+      <section class="space-y-2.5 reveal">
+        <details class="card group">
+          <summary class="cursor-pointer list-none flex items-center justify-between p-5 hover:bg-[#161729] transition-colors rounded-2xl">
+            <div class="flex items-center gap-3">
+              <span class="w-9 h-9 rounded-xl flex items-center justify-center" style="background:rgba(0,212,255,.1);color:#00d4ff"><i data-lucide="list" class="w-4 h-4"></i></span>
+              <div>
+                <p class="text-sm font-semibold">Atividade recente</p>
+                <p class="text-xs text-[#55556a]">Últimas 30 transações</p>
+              </div>
+            </div>
+            <span class="flex items-center gap-3">
+              <span class="caption num">30 itens</span>
+              <i data-lucide="chevron-down" class="w-4 h-4 text-[#55556a] transition-transform group-open:rotate-180"></i>
+            </span>
+          </summary>
+          <div class="px-5 pb-5">
+            <div class="overflow-hidden rounded-xl border border-[#1e1e30] divide-y divide-[#1e1e30]">
+              <div class="grid grid-cols-[80px_1fr_120px_100px] items-center px-3 py-2 text-[10px] uppercase tracking-wider text-[#55556a]"><span>Data</span><span>Descrição</span><span>Categoria</span><span class="text-right">Valor</span></div>
+              <div class="grid grid-cols-[80px_1fr_120px_100px] items-center px-3 py-2.5 text-xs hover:bg-[#161729]"><span class="num text-[#8888aa]">09/05</span><span class="font-medium">Aporte XP — IBOV ETF</span><span class="text-[#8888aa]">Investimento</span><span class="num font-semibold text-right">R$ 4.500</span></div>
+              <div class="grid grid-cols-[80px_1fr_120px_100px] items-center px-3 py-2.5 text-xs hover:bg-[#161729]"><span class="num text-[#8888aa]">08/05</span><span class="font-medium">Salário — Empresa X</span><span class="text-[#8888aa]">Salário</span><span class="num font-semibold text-right" style="color:#00ff88">+R$ 18.500</span></div>
+              <div class="grid grid-cols-[80px_1fr_120px_100px] items-center px-3 py-2.5 text-xs hover:bg-[#161729]"><span class="num text-[#8888aa]">07/05</span><span class="font-medium">Dividendos ITUB4</span><span class="text-[#8888aa]">Dividendos</span><span class="num font-semibold text-right" style="color:#00ff88">+R$ 312</span></div>
+              <div class="grid grid-cols-[80px_1fr_120px_100px] items-center px-3 py-2.5 text-xs hover:bg-[#161729]"><span class="num text-[#8888aa]">06/05</span><span class="font-medium">Restaurante Centro</span><span class="text-[#8888aa]">Alimentação</span><span class="num font-semibold text-right" style="color:#ff4466">-R$ 184</span></div>
+              <div class="grid grid-cols-[80px_1fr_120px_100px] items-center px-3 py-2.5 text-xs hover:bg-[#161729]"><span class="num text-[#8888aa]">05/05</span><span class="font-medium">Tesouro IPCA+ 2035</span><span class="text-[#8888aa]">Investimento</span><span class="num font-semibold text-right">R$ 2.000</span></div>
+            </div>
+          </div>
+        </details>
+
+        <details class="card group">
+          <summary class="cursor-pointer list-none flex items-center justify-between p-5 hover:bg-[#161729] transition-colors rounded-2xl">
+            <div class="flex items-center gap-3">
+              <span class="w-9 h-9 rounded-xl flex items-center justify-center" style="background:rgba(255,122,0,.1);color:#ff7a00"><i data-lucide="repeat" class="w-4 h-4"></i></span>
+              <div>
+                <p class="text-sm font-semibold">Recorrências do mês</p>
+                <p class="text-xs text-[#55556a]">8 ativas · próxima: Netflix em 4 dias</p>
+              </div>
+            </div>
+            <i data-lucide="chevron-down" class="w-4 h-4 text-[#55556a] transition-transform group-open:rotate-180"></i>
+          </summary>
+        </details>
+
+        <details class="card group">
+          <summary class="cursor-pointer list-none flex items-center justify-between p-5 hover:bg-[#161729] transition-colors rounded-2xl">
+            <div class="flex items-center gap-3">
+              <span class="w-9 h-9 rounded-xl flex items-center justify-center" style="background:rgba(139,92,246,.1);color:#8b5cf6"><i data-lucide="bar-chart-3" class="w-4 h-4"></i></span>
+              <div>
+                <p class="text-sm font-semibold">Por categoria · top 5</p>
+                <p class="text-xs text-[#55556a]">Alimentação, Moradia, Transporte, Saúde, Lazer</p>
+              </div>
+            </div>
+            <i data-lucide="chevron-down" class="w-4 h-4 text-[#55556a] transition-transform group-open:rotate-180"></i>
+          </summary>
+        </details>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<!-- ─── FAB ─────────────────────────────────────────────────── -->
+<div class="fixed bottom-6 right-6 z-40 flex flex-col gap-3 items-end">
+  <div class="hidden sm:flex flex-col gap-2 mb-1">
+    <button class="card-clickable card flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[#8888aa] hover:text-white"><i data-lucide="upload" class="w-3.5 h-3.5"></i> Importar CSV</button>
+    <button class="card-clickable card flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[#8888aa] hover:text-white"><i data-lucide="trending-up" class="w-3.5 h-3.5"></i> Novo Investimento</button>
+    <button class="card-clickable card flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[#8888aa] hover:text-white"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Sincronizar</button>
+  </div>
+  <button class="fab w-14 h-14 rounded-2xl flex items-center justify-center font-bold">
+    <i data-lucide="plus" class="w-6 h-6"></i>
+  </button>
+</div>
+
+<script>
+  lucide.createIcons();
+  // reveal-on-scroll
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) { e.target.classList.add('is-visible'); io.unobserve(e.target); }
+    });
+  }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+</script>
+
+</body>
+</html>

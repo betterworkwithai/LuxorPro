@@ -190,4 +190,101 @@
   .btn-danger {
     @apply inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold bg-[#ff4466]/10 border border-[#ff4466]/30 text-[#ff4466] transition-all hover:bg-[#ff4466]/20 hover:border-[#ff4466]/50 disabled:opacity-40 disabled:cursor-not-allowed;
   }
+
+  /* ─── V2 design tokens (Dashboard / Cashflow / Wealth refresh) ─── */
+  .v2-num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+  .v2-caption {
+    font-size: 11px; line-height: 16px; font-weight: 600;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    color: #55556a;
+  }
+  .v2-card {
+    background: #0f1018;
+    border: 1px solid #1e1e30;
+    border-radius: 16px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.5), 0 0 0 1px rgba(0,212,255,.04);
+    transition: all 240ms cubic-bezier(.22,.61,.36,1);
+  }
+  .v2-card-emph {
+    background: #131426;
+    border: 1px solid #1e1e30;
+    border-radius: 20px;
+    box-shadow: 0 4px 24px rgba(11,20,38,.6), 0 0 0 1px rgba(0,212,255,.08);
+  }
+  .v2-card-emph-green {
+    box-shadow: 0 4px 24px rgba(11,20,38,.6), 0 0 0 1px rgba(0,255,136,.10);
+  }
+  .v2-card-emph-cyan {
+    box-shadow: 0 4px 24px rgba(11,20,38,.6), 0 0 0 1px rgba(0,212,255,.12);
+  }
+  .v2-card-clickable:hover {
+    background: #161729;
+    border-color: rgba(0,212,255,.3);
+    transform: translateY(-1px);
+  }
+  .v2-fab {
+    background: #ff7a00; color: #0a0a0f;
+    box-shadow: 0 8px 32px rgba(255,122,0,.4), 0 0 0 1px rgba(255,255,255,.1) inset;
+    transition: all 240ms cubic-bezier(.22,.61,.36,1);
+  }
+  .v2-fab:hover { transform: translateY(-2px) scale(1.04); box-shadow: 0 12px 40px rgba(255,122,0,.55), 0 0 0 1px rgba(255,255,255,.15) inset; }
+  .v2-pill {
+    font-size: 11px; padding: 4px 9px; border-radius: 9999px;
+    font-weight: 600; display: inline-flex; align-items: center; gap: 4px;
+  }
+  .v2-period-tab {
+    padding: 4px 10px; border-radius: 8px;
+    font-size: 12px; font-weight: 600; color: #8888aa;
+    transition: all 180ms ease-out; cursor: pointer;
+  }
+  .v2-period-tab.active {
+    background: rgba(0,212,255,.1); color: #00d4ff;
+    border: 1px solid rgba(0,212,255,.2);
+  }
+  .v2-period-tab:not(.active):hover { color: #e8e8f0; }
+  .v2-alert-chip {
+    border-radius: 12px; padding: 10px 14px;
+    display: flex; align-items: center; gap: 10px;
+    transition: all 180ms ease-out; cursor: pointer;
+  }
+  .v2-alert-chip:hover { transform: translateX(2px); }
+  .v2-dot-grid {
+    background-image: radial-gradient(circle at 1px 1px, rgba(0,212,255,.06) 1px, transparent 0);
+    background-size: 22px 22px;
+  }
+  .v2-dot-grid-green {
+    background-image: radial-gradient(circle at 1px 1px, rgba(0,255,136,.06) 1px, transparent 0);
+    background-size: 22px 22px;
+  }
+  .v2-row-hover { transition: background 180ms ease-out; }
+  .v2-row-hover:hover { background: #161729; }
+  .v2-cat-bar { transition: width 320ms cubic-bezier(.22,.61,.36,1); }
+  .v2-heat-cell {
+    border-radius: 8px; padding: 10px 12px;
+    transition: transform 180ms ease-out; cursor: pointer;
+  }
+  .v2-heat-cell:hover { transform: scale(1.02); }
+  @keyframes v2-pulse-soft { 0%,100% { opacity: 1 } 50% { opacity: .65 } }
+  .v2-pulse { animation: v2-pulse-soft 2.4s ease-in-out infinite; }
+  @keyframes v2-glow {
+    0%, 100% { filter: drop-shadow(0 0 6px rgba(255,154,63,.55)); }
+    50%      { filter: drop-shadow(0 0 14px rgba(255,154,63,.85)); }
+  }
+  .v2-pyr-apex { animation: v2-glow 3.6s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce) {
+    .v2-pyr-apex, .v2-pulse { animation: none; }
+  }
+  /* Reveal-on-scroll for V2 sections */
+  .v2-reveal { opacity: 0; transform: translateY(8px); transition: all 320ms cubic-bezier(.22,.61,.36,1); }
+  .v2-reveal.is-visible { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) { .v2-reveal { opacity: 1; transform: none; transition: none; } }
+
+  /* Page-level text + font defaults so V2 surfaces aren't subject to
+     Tailwind's `text-foreground` (dark) default or the Playfair serif
+     applied to h1/h2 globally. Tailwind utility classes (text-[#xxx])
+     still override per-element. */
+  .v2-root { color: #e8e8f0; font-family: 'Inter', system-ui, sans-serif; }
+  .v2-root h1, .v2-root h2, .v2-root h3, .v2-root h4, .v2-root h5, .v2-root h6 {
+    font-family: 'Inter', system-ui, sans-serif;
+  }
 }

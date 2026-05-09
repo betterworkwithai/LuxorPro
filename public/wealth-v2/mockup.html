@@ -1,0 +1,948 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Luxor — Investimentos V2 Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+  :root {
+    --bg-canvas: #0a0a0f;
+    --bg-card: #0f1018;
+    --bg-card-emph: #131426;
+    --bg-card-hover: #161729;
+    --border-card: #1e1e30;
+    --border-soft: #14152c;
+    --text-primary: #e8e8f0;
+    --text-secondary: #8888aa;
+    --text-muted: #55556a;
+    --success: #00ff88;
+    --danger: #ff4466;
+    --info: #00d4ff;
+    --warning: #f59e0b;
+    --primary: #ff7a00;
+  }
+  html, body {
+    background: var(--bg-canvas);
+    color: var(--text-primary);
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+  .caption {
+    font-size: 11px; line-height: 16px; font-weight: 600;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 16px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.5), 0 0 0 1px rgba(0,212,255,.04);
+    transition: all 240ms cubic-bezier(.22,.61,.36,1);
+  }
+  .card-emph {
+    background: var(--bg-card-emph);
+    border: 1px solid var(--border-card);
+    border-radius: 20px;
+    box-shadow: 0 4px 24px rgba(11,20,38,.6), 0 0 0 1px rgba(0,212,255,.10);
+  }
+  .card-clickable:hover {
+    background: var(--bg-card-hover);
+    border-color: rgba(0,212,255,.3);
+    transform: translateY(-1px);
+  }
+  .alert-chip {
+    border-radius: 12px; padding: 10px 14px;
+    display: flex; align-items: center; gap: 10px;
+    transition: all 180ms ease-out; cursor: pointer;
+  }
+  .alert-chip:hover { transform: translateX(2px); }
+  .fab {
+    background: var(--primary); color: #0a0a0f;
+    box-shadow: 0 8px 32px rgba(255,122,0,.4), 0 0 0 1px rgba(255,255,255,.1) inset;
+    transition: all 240ms cubic-bezier(.22,.61,.36,1);
+  }
+  .fab:hover { transform: translateY(-2px) scale(1.04); box-shadow: 0 12px 40px rgba(255,122,0,.55), 0 0 0 1px rgba(255,255,255,.15) inset; }
+  .pill {
+    font-size: 11px; padding: 4px 9px; border-radius: 9999px;
+    font-weight: 600; display: inline-flex; align-items: center; gap: 4px;
+  }
+  .period-tab {
+    padding: 4px 10px; border-radius: 8px;
+    font-size: 12px; font-weight: 600; color: var(--text-secondary);
+    transition: all 180ms ease-out; cursor: pointer;
+  }
+  .period-tab.active {
+    background: rgba(0,212,255,.1); color: var(--info);
+    border: 1px solid rgba(0,212,255,.2);
+  }
+  .period-tab:not(.active):hover { color: var(--text-primary); }
+  .reveal { opacity: 0; transform: translateY(8px); transition: all 320ms cubic-bezier(.22,.61,.36,1); }
+  .reveal.is-visible { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } }
+  .dot-grid {
+    background-image: radial-gradient(circle at 1px 1px, rgba(0,212,255,.06) 1px, transparent 0);
+    background-size: 22px 22px;
+  }
+  .sidebar-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 9px 12px; border-radius: 10px;
+    color: var(--text-secondary);
+    font-size: 13px; font-weight: 500;
+    transition: all 180ms ease-out; cursor: pointer;
+  }
+  .sidebar-item:hover { background: var(--bg-card); color: var(--text-primary); }
+  .sidebar-item.active {
+    background: rgba(255,122,0,.1); color: var(--primary);
+    border: 1px solid rgba(255,122,0,.2);
+  }
+  .row-hover { transition: background 180ms ease-out; }
+  .row-hover:hover { background: var(--bg-card-hover); }
+  .cat-bar { transition: width 320ms cubic-bezier(.22,.61,.36,1); }
+  /* Heatmap cell */
+  .heat-cell {
+    border-radius: 8px; padding: 10px 12px;
+    transition: transform 180ms ease-out; cursor: pointer;
+  }
+  .heat-cell:hover { transform: scale(1.02); }
+  /* Gauge */
+  @keyframes pulse-soft { 0%,100% { opacity: 1 } 50% { opacity: .7 } }
+  .pulse { animation: pulse-soft 2.4s ease-in-out infinite; }
+</style>
+</head>
+<body>
+
+<div class="flex min-h-screen">
+
+  <!-- SIDEBAR -->
+  <aside class="hidden lg:flex flex-col w-56 flex-shrink-0 border-r border-[#1e1e30] bg-[#0a0a0f] py-5 px-3">
+    <div class="flex items-center gap-2.5 px-2 pb-5 mb-3 border-b border-[#1e1e30]">
+      <img src="/logo.png" alt="Luxor.Pro" class="w-9 h-9 rounded-xl object-contain" />
+      <span class="text-base font-bold tracking-tight">Luxor<span class="text-slate-500">.</span><span style="color:#ff7a00">Pro</span></span>
+    </div>
+    <nav class="flex-1 space-y-1">
+      <a class="sidebar-item"><i data-lucide="layout-dashboard" class="w-4 h-4"></i> Painel Consolidado</a>
+      <a class="sidebar-item"><i data-lucide="arrow-left-right" class="w-4 h-4"></i> Receitas e Despesas</a>
+      <a class="sidebar-item active"><i data-lucide="trending-up" class="w-4 h-4"></i> Investimentos</a>
+      <a class="sidebar-item"><i data-lucide="target" class="w-4 h-4"></i> Minhas Metas</a>
+      <a class="sidebar-item"><i data-lucide="file-search" class="w-4 h-4"></i> IA de Documentos</a>
+      <a class="sidebar-item"><i data-lucide="link-2" class="w-4 h-4"></i> Open Finance</a>
+      <a class="sidebar-item"><i data-lucide="calculator" class="w-4 h-4"></i> Ferramentas</a>
+    </nav>
+    <div class="mt-4 pt-4 border-t border-[#1e1e30]">
+      <a class="sidebar-item"><i data-lucide="settings" class="w-4 h-4"></i> Configurações</a>
+      <div class="flex items-center gap-2 px-3 py-2 mt-2 rounded-lg bg-[#0f1018] border border-[#1e1e30]">
+        <span class="w-6 h-6 rounded-full flex items-center justify-center" style="background:rgba(255,122,0,.15);color:#ff7a00"><i data-lucide="user" class="w-3 h-3"></i></span>
+        <span class="text-[11px] text-[#8888aa] truncate font-mono">gabriel@luxor</span>
+      </div>
+    </div>
+  </aside>
+
+  <main class="flex-1 min-w-0">
+
+    <!-- ─── PAGE HEADER ─────────────────────────────────────────── -->
+    <header class="sticky top-0 z-30 px-6 py-4 border-b border-[#1e1e30] bg-[#0a0a0f]/95 backdrop-blur-xl">
+      <div class="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <h1 class="text-base sm:text-lg font-bold tracking-tight">Investimentos</h1>
+          <p class="text-xs text-[#55556a] mt-0.5">12 contas · 47 ativos · última sincronização há 2h</p>
+        </div>
+        <div class="flex items-center gap-3 flex-wrap">
+          <div class="flex items-center gap-1 p-1 rounded-xl bg-[#0f1018] border border-[#1e1e30]">
+            <span class="period-tab">1M</span>
+            <span class="period-tab">3M</span>
+            <span class="period-tab active">YTD</span>
+            <span class="period-tab">12M</span>
+            <span class="period-tab">5A</span>
+            <span class="period-tab">Tudo</span>
+          </div>
+          <div class="flex items-center gap-1 p-1 rounded-xl bg-[#0f1018] border border-[#1e1e30]">
+            <span class="period-tab active">BRL</span>
+            <span class="period-tab">USD</span>
+            <span class="period-tab">EUR</span>
+          </div>
+          <button class="px-3 py-2 rounded-xl text-xs font-semibold border border-[#1e1e30] bg-[#0f1018] text-[#8888aa] hover:text-white hover:border-[#00d4ff]/30 transition-colors flex items-center gap-1.5">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            Exportar
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <div class="p-6 space-y-6 max-w-[1400px] mx-auto">
+
+      <!-- ─── HERO — PATRIMÔNIO TOTAL ─────────────────────────────── -->
+      <section class="card-emph dot-grid p-6 sm:p-8 reveal">
+        <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+          <div class="flex-1 min-w-0">
+            <p class="caption">Patrimônio investido · YTD</p>
+            <div class="flex items-baseline gap-3 mt-1.5 flex-wrap">
+              <span class="num text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight">R$ 1.247.832</span>
+              <span class="pill" style="background:rgba(0,255,136,.12);color:#00ff88;border:1px solid rgba(0,255,136,.25)">
+                <i data-lucide="arrow-up-right" class="w-3 h-3"></i>
+                +R$ 98.420 · +8,6%
+              </span>
+            </div>
+            <div class="mt-4 flex items-center gap-3 text-xs text-[#8888aa] flex-wrap">
+              <span class="flex items-center gap-1.5"><i data-lucide="trending-up" class="w-3.5 h-3.5" style="color:#00d4ff"></i> CDI YTD: <span class="num text-white font-semibold">+4,8%</span> · <span style="color:#00ff88" class="font-semibold">superando em 3,8pp</span></span>
+              <span class="text-[#2a2a3e]">·</span>
+              <span class="flex items-center gap-1.5"><i data-lucide="layers" class="w-3.5 h-3.5" style="color:#ff7a00"></i> 3º andar · <span class="text-white font-semibold">Independência</span></span>
+              <span class="text-[#2a2a3e]">·</span>
+              <span class="flex items-center gap-1.5"><i data-lucide="dollar-sign" class="w-3.5 h-3.5"></i> USD <span class="num text-white font-semibold">$ 247.580</span></span>
+            </div>
+          </div>
+
+          <!-- Performance line chart vs CDI -->
+          <div class="lg:w-80 lg:flex-shrink-0">
+            <div class="flex items-center justify-between mb-2">
+              <p class="caption">Carteira vs CDI · YTD</p>
+              <div class="flex items-center gap-2 text-[10px]">
+                <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full" style="background:#00ff88"></span><span class="text-[#8888aa]">Você</span></span>
+                <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full" style="background:#55556a"></span><span class="text-[#8888aa]">CDI</span></span>
+              </div>
+            </div>
+            <svg viewBox="0 0 320 90" class="w-full h-24" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="perf-grad" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stop-color="#00ff88" stop-opacity="0.25"/>
+                  <stop offset="100%" stop-color="#00ff88" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+              <line x1="0" y1="78" x2="320" y2="78" stroke="#1e1e30" stroke-width="1" stroke-dasharray="2 4"/>
+              <!-- CDI line (linear) -->
+              <path d="M0,75 L40,72 L80,68 L120,64 L160,60 L200,56 L240,52 L280,48 L320,44"
+                    fill="none" stroke="#55556a" stroke-width="1.5" stroke-dasharray="3 3"/>
+              <!-- Carteira line (volatile, ending higher) -->
+              <path d="M0,78 L20,74 L40,70 L60,76 L80,68 L100,62 L120,66 L140,54 L160,48 L180,52 L200,42 L220,38 L240,34 L260,30 L280,26 L300,22 L320,18"
+                    fill="none" stroke="#00ff88" stroke-width="2"/>
+              <path d="M0,78 L20,74 L40,70 L60,76 L80,68 L100,62 L120,66 L140,54 L160,48 L180,52 L200,42 L220,38 L240,34 L260,30 L280,26 L300,22 L320,18 L320,90 L0,90 Z"
+                    fill="url(#perf-grad)"/>
+              <circle cx="320" cy="18" r="3" fill="#00ff88"/>
+              <circle cx="320" cy="18" r="6" fill="#00ff88" opacity="0.25" class="pulse"/>
+            </svg>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── ATTENTION STRIP ─────────────────────────────────────── -->
+      <section class="space-y-2.5 reveal">
+        <p class="caption">Vale sua atenção esta semana</p>
+        <div class="grid md:grid-cols-3 gap-2.5">
+          <div class="alert-chip card" style="border-color:rgba(245,158,11,.25); background:rgba(245,158,11,.04)">
+            <span class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style="background:rgba(245,158,11,.12);color:#f59e0b"><i data-lucide="alert-triangle" class="w-4 h-4"></i></span>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-semibold truncate">Concentração em ITUB4 · 18%</p>
+              <p class="text-[11px] text-[#8888aa] truncate">Acima do limite sugerido de 10% por ativo</p>
+            </div>
+            <i data-lucide="arrow-right" class="w-4 h-4 text-[#55556a] flex-shrink-0"></i>
+          </div>
+          <div class="alert-chip card" style="border-color:rgba(0,212,255,.25); background:rgba(0,212,255,.04)">
+            <span class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style="background:rgba(0,212,255,.12);color:#00d4ff"><i data-lucide="gift" class="w-4 h-4"></i></span>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-semibold truncate">Dividendos a receber · R$ 1.840</p>
+              <p class="text-[11px] text-[#8888aa] truncate">5 pagamentos previstos nos próximos 30 dias</p>
+            </div>
+            <i data-lucide="arrow-right" class="w-4 h-4 text-[#55556a] flex-shrink-0"></i>
+          </div>
+          <div class="alert-chip card" style="border-color:rgba(255,122,0,.25); background:rgba(255,122,0,.04)">
+            <span class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style="background:rgba(255,122,0,.12);color:#ff7a00"><i data-lucide="scale" class="w-4 h-4"></i></span>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-semibold truncate">Rebalancear: -4pp em RF</p>
+              <p class="text-[11px] text-[#8888aa] truncate">Renda fixa fora do alvo do seu suitability</p>
+            </div>
+            <i data-lucide="arrow-right" class="w-4 h-4 text-[#55556a] flex-shrink-0"></i>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── KPI STRIP ─────────────────────────────────────────── -->
+      <section class="grid grid-cols-2 lg:grid-cols-4 gap-3 reveal">
+        <div class="card p-4">
+          <div class="flex items-center justify-between">
+            <p class="caption">Rentabilidade YTD</p>
+            <span class="pill" style="background:rgba(0,255,136,.1);color:#00ff88"><i data-lucide="arrow-up" class="w-3 h-3"></i> 178% CDI</span>
+          </div>
+          <p class="num text-2xl lg:text-[28px] font-bold tracking-tight mt-2" style="color:#00ff88">+8,6%</p>
+          <p class="text-[11px] text-[#55556a] mt-1">+R$ 98.420 nominal · CDI: 4,8%</p>
+        </div>
+        <div class="card p-4">
+          <div class="flex items-center justify-between">
+            <p class="caption">Aportes YTD</p>
+            <span class="pill" style="background:rgba(0,212,255,.1);color:#00d4ff"><i data-lucide="arrow-up" class="w-3 h-3"></i> +18%</span>
+          </div>
+          <p class="num text-2xl lg:text-[28px] font-bold tracking-tight mt-2" style="color:#00d4ff">R$ 32.500</p>
+          <p class="text-[11px] text-[#55556a] mt-1">5 meses · média R$ 6.500/mês</p>
+        </div>
+        <div class="card p-4">
+          <div class="flex items-center justify-between">
+            <p class="caption">Dividendos YTD</p>
+            <span class="pill" style="background:rgba(255,122,0,.1);color:#ff7a00"><i data-lucide="trending-up" class="w-3 h-3"></i> 0,38% mês</span>
+          </div>
+          <p class="num text-2xl lg:text-[28px] font-bold tracking-tight mt-2" style="color:#ff7a00">R$ 4.728</p>
+          <p class="text-[11px] text-[#55556a] mt-1">DY anualizado · 0,9%</p>
+        </div>
+        <div class="card p-4">
+          <div class="flex items-center justify-between">
+            <p class="caption">TIR (IRR)</p>
+            <span class="pill" style="background:rgba(0,255,136,.08);color:#8888aa"><i data-lucide="zap" class="w-3 h-3"></i> a.a.</span>
+          </div>
+          <p class="num text-2xl lg:text-[28px] font-bold tracking-tight mt-2">14,8%</p>
+          <p class="text-[11px] text-[#55556a] mt-1">retorno time-weighted desde 2022</p>
+        </div>
+      </section>
+
+      <!-- ─── BENTO GRID ───────────────────────────────────────── -->
+      <section class="grid grid-cols-1 lg:grid-cols-3 gap-4 reveal">
+
+        <!-- EVOLUÇÃO DO PATRIMÔNIO — large -->
+        <div class="lg:col-span-2 card card-clickable p-5">
+          <div class="flex items-center justify-between mb-1">
+            <div>
+              <p class="caption">Evolução do patrimônio</p>
+              <p class="text-sm text-[#8888aa] mt-0.5">YTD · aportes vs valorização</p>
+            </div>
+            <div class="flex items-center gap-3 text-xs">
+              <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm" style="background:#00d4ff"></span><span class="text-[#8888aa]">Aportes</span></span>
+              <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm" style="background:#00ff88"></span><span class="text-[#8888aa]">Valorização</span></span>
+              <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm" style="background:#8888aa"></span><span class="text-[#8888aa]">Total</span></span>
+            </div>
+          </div>
+
+          <svg viewBox="0 0 600 240" class="w-full h-60 mt-3" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="patrim-grad" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stop-color="#00d4ff" stop-opacity="0.30"/>
+                <stop offset="100%" stop-color="#00d4ff" stop-opacity="0"/>
+              </linearGradient>
+              <linearGradient id="valoriz-grad" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stop-color="#00ff88" stop-opacity="0.40"/>
+                <stop offset="100%" stop-color="#00ff88" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <!-- gridlines -->
+            <line x1="60" y1="20"  x2="600" y2="20"  stroke="#1e1e30" stroke-width="1"/>
+            <line x1="60" y1="70"  x2="600" y2="70"  stroke="#1e1e30" stroke-width="1"/>
+            <line x1="60" y1="120" x2="600" y2="120" stroke="#1e1e30" stroke-width="1"/>
+            <line x1="60" y1="170" x2="600" y2="170" stroke="#1e1e30" stroke-width="1"/>
+            <line x1="60" y1="210" x2="600" y2="210" stroke="#1e1e30" stroke-width="1"/>
+            <!-- y axis -->
+            <text x="0" y="24"  fill="#55556a" font-size="10" font-family="Inter">R$ 1,3M</text>
+            <text x="0" y="74"  fill="#55556a" font-size="10" font-family="Inter">R$ 1,2M</text>
+            <text x="0" y="124" fill="#55556a" font-size="10" font-family="Inter">R$ 1,15M</text>
+            <text x="0" y="174" fill="#55556a" font-size="10" font-family="Inter">R$ 1,1M</text>
+            <text x="0" y="214" fill="#55556a" font-size="10" font-family="Inter">R$ 1,05M</text>
+
+            <!-- Stacked area: aportes (cyan, baseline) + valorização (green, on top) -->
+            <!-- Aportes baseline path -->
+            <path d="M60,200 L150,180 L240,160 L330,140 L420,120 L510,100 L600,90 L600,210 L60,210 Z"
+                  fill="url(#patrim-grad)"/>
+            <path d="M60,200 L150,180 L240,160 L330,140 L420,120 L510,100 L600,90"
+                  fill="none" stroke="#00d4ff" stroke-width="1.5" stroke-dasharray="3 3"/>
+            <!-- Total line (volatile) -->
+            <path d="M60,200 L120,192 L180,170 L240,160 L300,138 L360,120 L420,108 L480,80 L540,60 L600,30"
+                  fill="url(#valoriz-grad)"/>
+            <path d="M60,200 L120,192 L180,170 L240,160 L300,138 L360,120 L420,108 L480,80 L540,60 L600,30"
+                  fill="none" stroke="#00ff88" stroke-width="2"/>
+
+            <!-- markers -->
+            <circle cx="600" cy="30" r="4" fill="#00ff88"/>
+            <circle cx="600" cy="30" r="8" fill="#00ff88" opacity="0.25" class="pulse"/>
+
+            <!-- x labels -->
+            <text x="60"  y="232" fill="#55556a" font-size="10" font-family="Inter" text-anchor="middle">Jan</text>
+            <text x="150" y="232" fill="#55556a" font-size="10" font-family="Inter" text-anchor="middle">Fev</text>
+            <text x="240" y="232" fill="#55556a" font-size="10" font-family="Inter" text-anchor="middle">Mar</text>
+            <text x="330" y="232" fill="#55556a" font-size="10" font-family="Inter" text-anchor="middle">Abr</text>
+            <text x="420" y="232" fill="#55556a" font-size="10" font-family="Inter" text-anchor="middle">Mai</text>
+          </svg>
+
+          <div class="mt-2 grid grid-cols-3 gap-3 pt-3 border-t border-[#1e1e30]">
+            <div>
+              <p class="caption">Saldo inicial</p>
+              <p class="num text-base font-bold mt-0.5">R$ 1.149.412</p>
+            </div>
+            <div>
+              <p class="caption">Aportes</p>
+              <p class="num text-base font-bold mt-0.5" style="color:#00d4ff">+R$ 32.500</p>
+            </div>
+            <div>
+              <p class="caption">Valorização</p>
+              <p class="num text-base font-bold mt-0.5" style="color:#00ff88">+R$ 65.920</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ALOCAÇÃO POR CLASSE — bar chart -->
+        <div class="card card-clickable p-5">
+          <div class="flex items-center justify-between mb-1">
+            <div>
+              <p class="caption">Alocação por classe</p>
+              <p class="text-sm text-[#8888aa] mt-0.5">13 classes · vs alvo do suitability</p>
+            </div>
+          </div>
+          <div class="mt-4 space-y-3">
+            <!-- Classe 1: Renda Fixa -->
+            <div>
+              <div class="flex items-center justify-between text-xs mb-1.5">
+                <span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full" style="background:#00d4ff"></span><span class="font-medium">Renda Fixa Pós</span></span>
+                <span class="num font-semibold">28% <span class="text-[10px] text-[#55556a] font-normal">· alvo 32%</span></span>
+              </div>
+              <div class="relative w-full h-2 rounded-full bg-[#1e1e30] overflow-hidden">
+                <div class="cat-bar h-full rounded-full" style="width:88%;background:#00d4ff"></div>
+                <div class="absolute top-0 h-full w-px bg-[#f59e0b]" style="left:100%"></div>
+              </div>
+            </div>
+            <!-- Classe 2: Ações BR -->
+            <div>
+              <div class="flex items-center justify-between text-xs mb-1.5">
+                <span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full" style="background:#00ff88"></span><span class="font-medium">Ações BR</span></span>
+                <span class="num font-semibold">22% <span class="text-[10px] text-[#55556a] font-normal">· alvo 20%</span></span>
+              </div>
+              <div class="w-full h-2 rounded-full bg-[#1e1e30] overflow-hidden">
+                <div class="cat-bar h-full rounded-full" style="width:69%;background:#00ff88"></div>
+              </div>
+            </div>
+            <!-- Classe 3: Ações Internacionais -->
+            <div>
+              <div class="flex items-center justify-between text-xs mb-1.5">
+                <span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full" style="background:#8b5cf6"></span><span class="font-medium">Ações EUA</span></span>
+                <span class="num font-semibold">15% <span class="text-[10px] text-[#55556a] font-normal">· alvo 15%</span></span>
+              </div>
+              <div class="w-full h-2 rounded-full bg-[#1e1e30] overflow-hidden">
+                <div class="cat-bar h-full rounded-full" style="width:47%;background:#8b5cf6"></div>
+              </div>
+            </div>
+            <!-- Classe 4: FIIs -->
+            <div>
+              <div class="flex items-center justify-between text-xs mb-1.5">
+                <span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full" style="background:#ec4899"></span><span class="font-medium">Fundos Imobiliários</span></span>
+                <span class="num font-semibold">12% <span class="text-[10px] text-[#55556a] font-normal">· alvo 10%</span></span>
+              </div>
+              <div class="w-full h-2 rounded-full bg-[#1e1e30] overflow-hidden">
+                <div class="cat-bar h-full rounded-full" style="width:38%;background:#ec4899"></div>
+              </div>
+            </div>
+            <!-- Classe 5: Cripto -->
+            <div>
+              <div class="flex items-center justify-between text-xs mb-1.5">
+                <span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full" style="background:#f59e0b"></span><span class="font-medium">Cripto</span></span>
+                <span class="num font-semibold">8% <span class="text-[10px] text-[#55556a] font-normal">· alvo 5%</span></span>
+              </div>
+              <div class="w-full h-2 rounded-full bg-[#1e1e30] overflow-hidden">
+                <div class="cat-bar h-full rounded-full" style="width:25%;background:#f59e0b"></div>
+              </div>
+            </div>
+            <!-- Classe 6: Previdência -->
+            <div>
+              <div class="flex items-center justify-between text-xs mb-1.5">
+                <span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full" style="background:#3b82f6"></span><span class="font-medium">Previdência</span></span>
+                <span class="num font-semibold">8% <span class="text-[10px] text-[#55556a] font-normal">· alvo 10%</span></span>
+              </div>
+              <div class="w-full h-2 rounded-full bg-[#1e1e30] overflow-hidden">
+                <div class="cat-bar h-full rounded-full" style="width:25%;background:#3b82f6"></div>
+              </div>
+            </div>
+            <!-- Outras -->
+            <div class="pt-2 mt-2 border-t border-[#1e1e30]">
+              <div class="flex items-center justify-between text-xs">
+                <span class="text-[#8888aa]">7 outras classes</span>
+                <span class="num text-[#8888aa]">7%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- DIVIDENDOS — calendário -->
+        <div class="card card-clickable p-5">
+          <div class="flex items-center justify-between mb-1">
+            <div>
+              <p class="caption">Dividendos · próximos 30 dias</p>
+              <p class="text-sm text-[#8888aa] mt-0.5">5 pagamentos · R$ 1.840 previstos</p>
+            </div>
+          </div>
+          <div class="mt-4 space-y-2 text-xs">
+            <div class="row-hover flex items-center gap-3 px-2 py-2 rounded-lg cursor-pointer">
+              <span class="w-9 text-center text-[10px] text-[#55556a] font-mono leading-tight">
+                <span class="block text-[#e8e8f0] font-bold text-sm">12</span>mai
+              </span>
+              <span class="flex-1 min-w-0">
+                <span class="font-medium block truncate">ITUB4 · Itaú Unibanco</span>
+                <span class="text-[10px] text-[#55556a]">R$ 0,21/cota · 1.480 cotas</span>
+              </span>
+              <span class="num font-semibold" style="color:#00ff88">+R$ 312</span>
+            </div>
+            <div class="row-hover flex items-center gap-3 px-2 py-2 rounded-lg cursor-pointer">
+              <span class="w-9 text-center text-[10px] text-[#55556a] font-mono leading-tight">
+                <span class="block text-[#e8e8f0] font-bold text-sm">15</span>mai
+              </span>
+              <span class="flex-1 min-w-0">
+                <span class="font-medium block truncate">HGLG11 · Logística</span>
+                <span class="text-[10px] text-[#55556a]">R$ 1,18/cota · 320 cotas</span>
+              </span>
+              <span class="num font-semibold" style="color:#00ff88">+R$ 378</span>
+            </div>
+            <div class="row-hover flex items-center gap-3 px-2 py-2 rounded-lg cursor-pointer">
+              <span class="w-9 text-center text-[10px] text-[#55556a] font-mono leading-tight">
+                <span class="block text-[#e8e8f0] font-bold text-sm">22</span>mai
+              </span>
+              <span class="flex-1 min-w-0">
+                <span class="font-medium block truncate">VALE3 · Vale</span>
+                <span class="text-[10px] text-[#55556a]">JCP · 200 cotas</span>
+              </span>
+              <span class="num font-semibold" style="color:#00ff88">+R$ 540</span>
+            </div>
+            <div class="row-hover flex items-center gap-3 px-2 py-2 rounded-lg cursor-pointer">
+              <span class="w-9 text-center text-[10px] text-[#55556a] font-mono leading-tight">
+                <span class="block text-[#e8e8f0] font-bold text-sm">28</span>mai
+              </span>
+              <span class="flex-1 min-w-0">
+                <span class="font-medium block truncate">XPLG11 · Logística</span>
+                <span class="text-[10px] text-[#55556a]">R$ 0,73/cota · 410 cotas</span>
+              </span>
+              <span class="num font-semibold" style="color:#00ff88">+R$ 299</span>
+            </div>
+            <div class="row-hover flex items-center gap-3 px-2 py-2 rounded-lg cursor-pointer">
+              <span class="w-9 text-center text-[10px] text-[#55556a] font-mono leading-tight">
+                <span class="block text-[#e8e8f0] font-bold text-sm">02</span>jun
+              </span>
+              <span class="flex-1 min-w-0">
+                <span class="font-medium block truncate">BBDC4 · Bradesco</span>
+                <span class="text-[10px] text-[#55556a]">JCP · 600 cotas</span>
+              </span>
+              <span class="num font-semibold" style="color:#00ff88">+R$ 311</span>
+            </div>
+          </div>
+          <div class="mt-3 pt-3 border-t border-[#1e1e30] flex items-center justify-between text-xs">
+            <span class="text-[#8888aa]">Total previsto</span>
+            <span class="num font-bold" style="color:#00ff88">+R$ 1.840</span>
+          </div>
+        </div>
+
+        <!-- TOP MOVERS — large -->
+        <div class="lg:col-span-2 card card-clickable p-5">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <p class="caption">Top movers · YTD</p>
+              <p class="text-sm text-[#8888aa] mt-0.5">Quem mais valorizou e quem mais derrubou</p>
+            </div>
+            <button class="text-[11px] text-[#00d4ff] font-semibold hover:underline">Ver todos →</button>
+          </div>
+          <div class="grid sm:grid-cols-2 gap-x-6">
+            <div>
+              <p class="caption mb-2" style="color:#00ff88">Maiores ganhos</p>
+              <div class="space-y-1">
+                <div class="row-hover flex items-center gap-3 px-2 py-2 rounded-lg cursor-pointer">
+                  <span class="text-xs text-[#55556a] w-4 num">1</span>
+                  <span class="flex-1 min-w-0">
+                    <span class="text-sm font-semibold block truncate flex items-center gap-2">PETR4 <span class="text-[10px] px-1.5 py-0.5 rounded bg-[#00d4ff]/10 text-[#00d4ff] border border-[#00d4ff]/20 font-mono">XP</span></span>
+                    <span class="text-[11px] text-[#55556a]">800 cotas · PM R$ 28,40</span>
+                  </span>
+                  <span class="text-right whitespace-nowrap">
+                    <span class="num text-sm font-bold block" style="color:#00ff88">+R$ 14.280</span>
+                    <span class="num text-[10px]" style="color:#00ff88">+38,2%</span>
+                  </span>
+                </div>
+                <div class="row-hover flex items-center gap-3 px-2 py-2 rounded-lg cursor-pointer">
+                  <span class="text-xs text-[#55556a] w-4 num">2</span>
+                  <span class="flex-1 min-w-0">
+                    <span class="text-sm font-semibold block truncate flex items-center gap-2">VOO <span class="text-[10px] px-1.5 py-0.5 rounded bg-[#00d4ff]/10 text-[#00d4ff] border border-[#00d4ff]/20 font-mono">Avenue</span></span>
+                    <span class="text-[11px] text-[#55556a]">42 cotas · S&amp;P 500 ETF</span>
+                  </span>
+                  <span class="text-right whitespace-nowrap">
+                    <span class="num text-sm font-bold block" style="color:#00ff88">+R$ 8.412</span>
+                    <span class="num text-[10px]" style="color:#00ff88">+22,1%</span>
+                  </span>
+                </div>
+                <div class="row-hover flex items-center gap-3 px-2 py-2 rounded-lg cursor-pointer">
+                  <span class="text-xs text-[#55556a] w-4 num">3</span>
+                  <span class="flex-1 min-w-0">
+                    <span class="text-sm font-semibold block truncate flex items-center gap-2">BTC <span class="text-[10px] px-1.5 py-0.5 rounded bg-[#f59e0b]/10 text-[#f59e0b] border border-[#f59e0b]/20 font-mono">Binance</span></span>
+                    <span class="text-[11px] text-[#55556a]">0,18 BTC · PM US$ 41k</span>
+                  </span>
+                  <span class="text-right whitespace-nowrap">
+                    <span class="num text-sm font-bold block" style="color:#00ff88">+R$ 6.840</span>
+                    <span class="num text-[10px]" style="color:#00ff88">+58,4%</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div class="mt-5 sm:mt-0">
+              <p class="caption mb-2" style="color:#ff4466">Maiores perdas</p>
+              <div class="space-y-1">
+                <div class="row-hover flex items-center gap-3 px-2 py-2 rounded-lg cursor-pointer">
+                  <span class="text-xs text-[#55556a] w-4 num">1</span>
+                  <span class="flex-1 min-w-0">
+                    <span class="text-sm font-semibold block truncate flex items-center gap-2">MGLU3 <span class="text-[10px] px-1.5 py-0.5 rounded bg-[#00d4ff]/10 text-[#00d4ff] border border-[#00d4ff]/20 font-mono">XP</span></span>
+                    <span class="text-[11px] text-[#55556a]">1.200 cotas · PM R$ 4,80</span>
+                  </span>
+                  <span class="text-right whitespace-nowrap">
+                    <span class="num text-sm font-bold block" style="color:#ff4466">−R$ 2.184</span>
+                    <span class="num text-[10px]" style="color:#ff4466">−24,8%</span>
+                  </span>
+                </div>
+                <div class="row-hover flex items-center gap-3 px-2 py-2 rounded-lg cursor-pointer">
+                  <span class="text-xs text-[#55556a] w-4 num">2</span>
+                  <span class="flex-1 min-w-0">
+                    <span class="text-sm font-semibold block truncate flex items-center gap-2">HGLG11 <span class="text-[10px] px-1.5 py-0.5 rounded bg-[#00d4ff]/10 text-[#00d4ff] border border-[#00d4ff]/20 font-mono">XP</span></span>
+                    <span class="text-[11px] text-[#55556a]">320 cotas · FII logística</span>
+                  </span>
+                  <span class="text-right whitespace-nowrap">
+                    <span class="num text-sm font-bold block" style="color:#ff4466">−R$ 1.420</span>
+                    <span class="num text-[10px]" style="color:#ff4466">−4,2%</span>
+                  </span>
+                </div>
+                <div class="row-hover flex items-center gap-3 px-2 py-2 rounded-lg cursor-pointer">
+                  <span class="text-xs text-[#55556a] w-4 num">3</span>
+                  <span class="flex-1 min-w-0">
+                    <span class="text-sm font-semibold block truncate flex items-center gap-2">BOVA11 <span class="text-[10px] px-1.5 py-0.5 rounded bg-[#00d4ff]/10 text-[#00d4ff] border border-[#00d4ff]/20 font-mono">XP</span></span>
+                    <span class="text-[11px] text-[#55556a]">180 cotas · Ibovespa ETF</span>
+                  </span>
+                  <span class="text-right whitespace-nowrap">
+                    <span class="num text-sm font-bold block" style="color:#ff4466">−R$ 720</span>
+                    <span class="num text-[10px]" style="color:#ff4466">−2,8%</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUITABILITY GAUGE -->
+        <div class="card card-clickable p-5">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="caption">Perfil · Suitability</p>
+              <p class="text-sm text-[#8888aa] mt-0.5">Moderado-arrojado</p>
+            </div>
+            <span class="pill" style="background:rgba(0,212,255,.1);color:#00d4ff">Atualizado</span>
+          </div>
+          <!-- Gauge SVG -->
+          <div class="mt-3 flex justify-center">
+            <svg viewBox="0 0 180 110" class="w-44">
+              <defs>
+                <linearGradient id="gauge-grad" x1="0" x2="1" y1="0" y2="0">
+                  <stop offset="0%"   stop-color="#00d4ff"/>
+                  <stop offset="50%"  stop-color="#00ff88"/>
+                  <stop offset="100%" stop-color="#ff7a00"/>
+                </linearGradient>
+              </defs>
+              <!-- track -->
+              <path d="M 20 100 A 70 70 0 0 1 160 100" fill="none" stroke="#1e1e30" stroke-width="14" stroke-linecap="round"/>
+              <!-- fill ~70% -->
+              <path d="M 20 100 A 70 70 0 0 1 145 47" fill="none" stroke="url(#gauge-grad)" stroke-width="14" stroke-linecap="round"/>
+              <!-- needle -->
+              <line x1="90" y1="100" x2="145" y2="47" stroke="#e8e8f0" stroke-width="2" stroke-linecap="round"/>
+              <circle cx="90" cy="100" r="5" fill="#e8e8f0"/>
+              <text x="90" y="92" text-anchor="middle" fill="#e8e8f0" font-size="14" font-weight="700" font-family="Inter">70</text>
+              <text x="20" y="108" fill="#55556a" font-size="9" font-family="Inter">Conservador</text>
+              <text x="160" y="108" text-anchor="end" fill="#55556a" font-size="9" font-family="Inter">Arrojado</text>
+            </svg>
+          </div>
+          <div class="mt-2 pt-3 border-t border-[#1e1e30] space-y-1.5 text-xs">
+            <div class="flex items-center justify-between">
+              <span class="text-[#8888aa]">Volatilidade carteira</span>
+              <span class="num font-semibold">12,4%</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-[#8888aa]">Sharpe (12m)</span>
+              <span class="num font-semibold" style="color:#00ff88">1,42</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-[#8888aa]">Max drawdown</span>
+              <span class="num font-semibold" style="color:#ff4466">−8,2%</span>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ─── HEATMAP — RENTABILIDADE POR CLASSE ─────────────────── -->
+      <section class="card card-clickable p-5 reveal">
+        <div class="flex items-center justify-between mb-1">
+          <div>
+            <p class="caption">Rentabilidade mensal · por classe</p>
+            <p class="text-sm text-[#8888aa] mt-0.5">Heatmap dos últimos 6 meses</p>
+          </div>
+          <div class="flex items-center gap-2 text-[10px]">
+            <span class="text-[#55556a]">−5%</span>
+            <span class="w-3 h-3 rounded" style="background:rgba(255,68,102,.6)"></span>
+            <span class="w-3 h-3 rounded" style="background:rgba(255,68,102,.25)"></span>
+            <span class="w-3 h-3 rounded" style="background:rgba(85,85,106,.4)"></span>
+            <span class="w-3 h-3 rounded" style="background:rgba(0,255,136,.25)"></span>
+            <span class="w-3 h-3 rounded" style="background:rgba(0,255,136,.6)"></span>
+            <span class="text-[#55556a]">+5%</span>
+          </div>
+        </div>
+
+        <div class="mt-4 overflow-x-auto">
+          <div class="grid grid-cols-[140px_repeat(6,1fr)] gap-1.5 min-w-[640px]">
+            <!-- Header -->
+            <div></div>
+            <div class="text-center text-[10px] text-[#55556a] font-semibold py-1">Dez</div>
+            <div class="text-center text-[10px] text-[#55556a] font-semibold py-1">Jan</div>
+            <div class="text-center text-[10px] text-[#55556a] font-semibold py-1">Fev</div>
+            <div class="text-center text-[10px] text-[#55556a] font-semibold py-1">Mar</div>
+            <div class="text-center text-[10px] text-[#55556a] font-semibold py-1">Abr</div>
+            <div class="text-center text-[10px] text-[#55556a] font-semibold py-1">Mai</div>
+            <!-- Renda Fixa -->
+            <div class="text-xs text-[#8888aa] flex items-center">Renda Fixa Pós</div>
+            <div class="heat-cell text-center text-xs num font-semibold" style="background:rgba(0,255,136,.15);color:#00ff88">+0,9%</div>
+            <div class="heat-cell text-center text-xs num font-semibold" style="background:rgba(0,255,136,.18);color:#00ff88">+1,0%</div>
+            <div class="heat-cell text-center text-xs num font-semibold" style="background:rgba(0,255,136,.15);color:#00ff88">+0,9%</div>
+            <div class="heat-cell text-center text-xs num font-semibold" style="background:rgba(0,255,136,.18);color:#00ff88">+1,0%</div>
+            <div class="heat-cell text-center text-xs num font-semibold" style="background:rgba(0,255,136,.15);color:#00ff88">+0,9%</div>
+            <div class="heat-cell text-center text-xs num font-semibold" style="background:rgba(0,255,136,.18);color:#00ff88">+1,0%</div>
+            <!-- Ações BR -->
+            <div class="text-xs text-[#8888aa] flex items-center">Ações BR</div>
+            <div class="heat-cell text-center text-xs num font-semibold" style="background:rgba(255,68,102,.30);color:#ff4466">−2,8%</div>
+            <div class="heat-cell text-center text-xs num font-semibold" style="background:rgba(0,255,136,.40);color:#00ff88">+4,2%</div>
+            <div class="heat-cell text-center text-xs num font-semibold" style="background:rgba(255,68,102,.18);color:#ff4466">−1,4%</div>
+            <div class="heat-cell text-center text-xs num font-semibold" style="background:rgba(0,255,136,.50);color:#00ff88">+5,8%</div>
+            <div class="heat-cell text-center text-xs num font-semibold" style="background:rgba(0,255,136,.30);color:#00ff88">+3,1%</div>
+            <div class="heat-cell text-center text-xs num font-semibold" style="background:rgba(0,255,136,.45);color:#00ff88">+4,8%</div>
+            <!-- Ações EUA -->
+            <div class="text-xs text-[#8888aa] flex items-center">Ações EUA</div>
+            <div class="heat-cell text-center text-xs num font-semibold" style="background:rgba(0,255,136,.40);color:#00ff88">+4,5%</div>
+            <div class="heat-cell text-center text-xs num font-semibold" style="background:rgba(0,255,136,.30);color:#00ff88">+3,2%</div>
+            <div class="heat-cell text-center text-xs num font-semibold" style="background:rgba(0,255,136,.50);color:#00ff88">+5,2%</div>
+            <div class="heat-cell text-center text-xs num font-semibold" style="background:rgba(255,68,102,.20);color:#ff4466">−1,8%</div>
+            <div class="heat-cell text-center text-xs num font-semibold" style="background:rgba(0,255,136,.35);color:#00ff88">+3,8%</div>
+            <div class="heat-cell text-center text-xs num font-semibold" style="background:rgba(0,255,136,.40);color:#00ff88">+4,1%</div>
+            <!-- FIIs -->
+            <div class="text-xs text-[#8888aa] flex items-center">Fundos Imobiliários</div>
+            <div class="heat-cell text-center text-xs num font-semibold" style="background:rgba(0,255,136,.20);color:#00ff88">+1,8%</div>
+            <div class="heat-cell text-center text-xs num font-semibold" style="background:rgba(255,68,102,.18);color:#ff4466">−1,2%</div>
+            <div class="heat-cell text-center text-xs num font-semibold" style="background:rgba(0,255,136,.18);color:#00ff88">+1,4%</div>
+            <div class="heat-cell text-center text-xs num font-semibold" style="background:rgba(255,68,102,.30);color:#ff4466">−2,4%</div>
+            <div class="heat-cell text-center text-xs num font-semibold" style="background:rgba(0,255,136,.20);color:#00ff88">+1,6%</div>
+            <div class="heat-cell text-center text-xs num font-semibold" style="background:rgba(255,68,102,.18);color:#ff4466">−1,1%</div>
+            <!-- Cripto -->
+            <div class="text-xs text-[#8888aa] flex items-center">Cripto</div>
+            <div class="heat-cell text-center text-xs num font-semibold" style="background:rgba(0,255,136,.55);color:#00ff88">+12,4%</div>
+            <div class="heat-cell text-center text-xs num font-semibold" style="background:rgba(255,68,102,.45);color:#ff4466">−6,8%</div>
+            <div class="heat-cell text-center text-xs num font-semibold" style="background:rgba(0,255,136,.55);color:#00ff88">+18,2%</div>
+            <div class="heat-cell text-center text-xs num font-semibold" style="background:rgba(0,255,136,.55);color:#00ff88">+8,4%</div>
+            <div class="heat-cell text-center text-xs num font-semibold" style="background:rgba(255,68,102,.30);color:#ff4466">−4,2%</div>
+            <div class="heat-cell text-center text-xs num font-semibold" style="background:rgba(0,255,136,.55);color:#00ff88">+14,8%</div>
+            <!-- Previdência -->
+            <div class="text-xs text-[#8888aa] flex items-center">Previdência</div>
+            <div class="heat-cell text-center text-xs num font-semibold" style="background:rgba(0,255,136,.18);color:#00ff88">+0,8%</div>
+            <div class="heat-cell text-center text-xs num font-semibold" style="background:rgba(0,255,136,.20);color:#00ff88">+1,1%</div>
+            <div class="heat-cell text-center text-xs num font-semibold" style="background:rgba(0,255,136,.18);color:#00ff88">+0,9%</div>
+            <div class="heat-cell text-center text-xs num font-semibold" style="background:rgba(0,255,136,.20);color:#00ff88">+1,2%</div>
+            <div class="heat-cell text-center text-xs num font-semibold" style="background:rgba(255,68,102,.15);color:#ff4466">−0,4%</div>
+            <div class="heat-cell text-center text-xs num font-semibold" style="background:rgba(0,255,136,.20);color:#00ff88">+1,1%</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── COLLAPSIBLE BELOW-FOLD ───────────────────────────── -->
+      <section class="space-y-2.5 reveal">
+
+        <!-- Posições -->
+        <details class="card group" open>
+          <summary class="cursor-pointer list-none flex items-center justify-between p-5 hover:bg-[#161729] transition-colors rounded-2xl">
+            <div class="flex items-center gap-3">
+              <span class="w-9 h-9 rounded-xl flex items-center justify-center" style="background:rgba(0,212,255,.1);color:#00d4ff"><i data-lucide="layers" class="w-4 h-4"></i></span>
+              <div>
+                <p class="text-sm font-semibold">Todas as posições · 47 ativos</p>
+                <p class="text-xs text-[#55556a]">Use os filtros para refinar por classe, conta ou ticker</p>
+              </div>
+            </div>
+            <span class="flex items-center gap-3">
+              <span class="caption num">47 ativos</span>
+              <i data-lucide="chevron-down" class="w-4 h-4 text-[#55556a] transition-transform group-open:rotate-180"></i>
+            </span>
+          </summary>
+          <div class="px-5 pb-5">
+            <!-- Filter bar -->
+            <div class="flex items-center gap-2 mb-3 flex-wrap">
+              <div class="flex-1 min-w-[200px] relative">
+                <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#55556a]"></i>
+                <input type="text" placeholder="Buscar ticker, ativo…" class="w-full pl-9 pr-3 py-2 text-xs rounded-lg bg-[#0a0a0f] border border-[#1e1e30] text-[#e8e8f0] placeholder:text-[#55556a] focus:outline-none focus:border-[#00d4ff]/40"/>
+              </div>
+              <button class="px-3 py-2 rounded-lg text-xs font-medium border border-[#1e1e30] bg-[#0a0a0f] text-[#8888aa] hover:text-white flex items-center gap-1.5"><i data-lucide="filter" class="w-3 h-3"></i> Classe</button>
+              <button class="px-3 py-2 rounded-lg text-xs font-medium border border-[#1e1e30] bg-[#0a0a0f] text-[#8888aa] hover:text-white flex items-center gap-1.5"><i data-lucide="building-2" class="w-3 h-3"></i> Conta</button>
+              <button class="px-3 py-2 rounded-lg text-xs font-medium border border-[#1e1e30] bg-[#0a0a0f] text-[#8888aa] hover:text-white flex items-center gap-1.5"><i data-lucide="arrow-down-up" class="w-3 h-3"></i> % carteira</button>
+            </div>
+            <!-- Table -->
+            <div class="overflow-x-auto">
+              <div class="min-w-[820px] overflow-hidden rounded-xl border border-[#1e1e30] divide-y divide-[#1e1e30]">
+                <div class="grid grid-cols-[100px_1fr_110px_110px_120px_110px_24px] items-center px-3 py-2 text-[10px] uppercase tracking-wider text-[#55556a]">
+                  <span>Ticker</span>
+                  <span>Ativo · classe</span>
+                  <span class="text-right">Qtd</span>
+                  <span class="text-right">PM / Atual</span>
+                  <span class="text-right">Posição</span>
+                  <span class="text-right">Retorno</span>
+                  <span></span>
+                </div>
+                <div class="grid grid-cols-[100px_1fr_110px_110px_120px_110px_24px] items-center px-3 py-2.5 text-xs row-hover">
+                  <span class="font-mono font-semibold" style="color:#00d4ff">PETR4</span>
+                  <span class="font-medium truncate">Petrobras PN<span class="text-[#55556a]"> · Ações BR</span></span>
+                  <span class="num text-right text-[#8888aa]">800</span>
+                  <span class="num text-right text-[#8888aa]">28,40 / 46,25</span>
+                  <span class="num text-right font-semibold">R$ 37.000</span>
+                  <span class="num text-right font-semibold" style="color:#00ff88">+38,2%</span>
+                  <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-[#55556a]"></i>
+                </div>
+                <div class="grid grid-cols-[100px_1fr_110px_110px_120px_110px_24px] items-center px-3 py-2.5 text-xs row-hover">
+                  <span class="font-mono font-semibold" style="color:#00d4ff">ITUB4</span>
+                  <span class="font-medium truncate">Itaú Unibanco PN<span class="text-[#55556a]"> · Ações BR</span></span>
+                  <span class="num text-right text-[#8888aa]">1.480</span>
+                  <span class="num text-right text-[#8888aa]">22,10 / 31,80</span>
+                  <span class="num text-right font-semibold">R$ 47.064</span>
+                  <span class="num text-right font-semibold" style="color:#00ff88">+43,9%</span>
+                  <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-[#55556a]"></i>
+                </div>
+                <div class="grid grid-cols-[100px_1fr_110px_110px_120px_110px_24px] items-center px-3 py-2.5 text-xs row-hover">
+                  <span class="font-mono font-semibold" style="color:#00d4ff">VOO</span>
+                  <span class="font-medium truncate">Vanguard S&amp;P 500<span class="text-[#55556a]"> · Ações EUA</span></span>
+                  <span class="num text-right text-[#8888aa]">42</span>
+                  <span class="num text-right text-[#8888aa]">$ 412 / $ 504</span>
+                  <span class="num text-right font-semibold">R$ 105.840</span>
+                  <span class="num text-right font-semibold" style="color:#00ff88">+22,1%</span>
+                  <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-[#55556a]"></i>
+                </div>
+                <div class="grid grid-cols-[100px_1fr_110px_110px_120px_110px_24px] items-center px-3 py-2.5 text-xs row-hover">
+                  <span class="font-mono font-semibold" style="color:#00d4ff">HGLG11</span>
+                  <span class="font-medium truncate">CSHG Logística<span class="text-[#55556a]"> · FII</span></span>
+                  <span class="num text-right text-[#8888aa]">320</span>
+                  <span class="num text-right text-[#8888aa]">168,40 / 161,30</span>
+                  <span class="num text-right font-semibold">R$ 51.616</span>
+                  <span class="num text-right font-semibold" style="color:#ff4466">−4,2%</span>
+                  <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-[#55556a]"></i>
+                </div>
+                <div class="grid grid-cols-[100px_1fr_110px_110px_120px_110px_24px] items-center px-3 py-2.5 text-xs row-hover">
+                  <span class="font-mono font-semibold" style="color:#00d4ff">CDB BTG</span>
+                  <span class="font-medium truncate">CDB BTG 110% CDI<span class="text-[#55556a]"> · Renda Fixa Pós</span></span>
+                  <span class="num text-right text-[#8888aa]">1</span>
+                  <span class="num text-right text-[#8888aa]">100k / 108,4k</span>
+                  <span class="num text-right font-semibold">R$ 108.420</span>
+                  <span class="num text-right font-semibold" style="color:#00ff88">+8,4%</span>
+                  <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-[#55556a]"></i>
+                </div>
+                <div class="grid grid-cols-[100px_1fr_110px_110px_120px_110px_24px] items-center px-3 py-2.5 text-xs row-hover">
+                  <span class="font-mono font-semibold" style="color:#f59e0b">BTC</span>
+                  <span class="font-medium truncate">Bitcoin<span class="text-[#55556a]"> · Cripto</span></span>
+                  <span class="num text-right text-[#8888aa]">0,18</span>
+                  <span class="num text-right text-[#8888aa]">$ 41k / $ 65k</span>
+                  <span class="num text-right font-semibold">R$ 58.420</span>
+                  <span class="num text-right font-semibold" style="color:#00ff88">+58,4%</span>
+                  <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-[#55556a]"></i>
+                </div>
+                <div class="grid grid-cols-[100px_1fr_110px_110px_120px_110px_24px] items-center px-3 py-2.5 text-xs row-hover">
+                  <span class="font-mono font-semibold" style="color:#00d4ff">MGLU3</span>
+                  <span class="font-medium truncate">Magazine Luiza ON<span class="text-[#55556a]"> · Ações BR</span></span>
+                  <span class="num text-right text-[#8888aa]">1.200</span>
+                  <span class="num text-right text-[#8888aa]">4,80 / 3,61</span>
+                  <span class="num text-right font-semibold">R$ 4.332</span>
+                  <span class="num text-right font-semibold" style="color:#ff4466">−24,8%</span>
+                  <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-[#55556a]"></i>
+                </div>
+                <div class="grid grid-cols-[100px_1fr_110px_110px_120px_110px_24px] items-center px-3 py-2.5 text-xs row-hover">
+                  <span class="font-mono font-semibold" style="color:#3b82f6">PGBL XP</span>
+                  <span class="font-medium truncate">XP Seguros PGBL<span class="text-[#55556a]"> · Previdência</span></span>
+                  <span class="num text-right text-[#8888aa]">—</span>
+                  <span class="num text-right text-[#8888aa]">—</span>
+                  <span class="num text-right font-semibold">R$ 99.820</span>
+                  <span class="num text-right font-semibold" style="color:#00ff88">+6,1%</span>
+                  <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-[#55556a]"></i>
+                </div>
+                <div class="px-3 py-3 text-center">
+                  <button class="text-[11px] text-[#8888aa] hover:text-white">Mostrar mais 39 ativos</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <!-- Histórico de aportes/resgates -->
+        <details class="card group">
+          <summary class="cursor-pointer list-none flex items-center justify-between p-5 hover:bg-[#161729] transition-colors rounded-2xl">
+            <div class="flex items-center gap-3">
+              <span class="w-9 h-9 rounded-xl flex items-center justify-center" style="background:rgba(0,212,255,.1);color:#00d4ff"><i data-lucide="arrow-down-up" class="w-4 h-4"></i></span>
+              <div>
+                <p class="text-sm font-semibold">Histórico de aportes e resgates</p>
+                <p class="text-xs text-[#55556a]">+R$ 32.500 aportes · −R$ 1.400 resgates · YTD</p>
+              </div>
+            </div>
+            <i data-lucide="chevron-down" class="w-4 h-4 text-[#55556a] transition-transform group-open:rotate-180"></i>
+          </summary>
+        </details>
+
+        <!-- Proventos -->
+        <details class="card group">
+          <summary class="cursor-pointer list-none flex items-center justify-between p-5 hover:bg-[#161729] transition-colors rounded-2xl">
+            <div class="flex items-center gap-3">
+              <span class="w-9 h-9 rounded-xl flex items-center justify-center" style="background:rgba(0,255,136,.1);color:#00ff88"><i data-lucide="gift" class="w-4 h-4"></i></span>
+              <div>
+                <p class="text-sm font-semibold">Proventos recebidos · 38 pagamentos</p>
+                <p class="text-xs text-[#55556a]">R$ 4.728 YTD · dividendos + JCP + rendimentos</p>
+              </div>
+            </div>
+            <i data-lucide="chevron-down" class="w-4 h-4 text-[#55556a] transition-transform group-open:rotate-180"></i>
+          </summary>
+        </details>
+
+        <!-- Rebalanceamento sugerido -->
+        <details class="card group">
+          <summary class="cursor-pointer list-none flex items-center justify-between p-5 hover:bg-[#161729] transition-colors rounded-2xl">
+            <div class="flex items-center gap-3">
+              <span class="w-9 h-9 rounded-xl flex items-center justify-center" style="background:rgba(255,122,0,.1);color:#ff7a00"><i data-lucide="scale" class="w-4 h-4"></i></span>
+              <div>
+                <p class="text-sm font-semibold">Rebalanceamento sugerido</p>
+                <p class="text-xs text-[#55556a]">Aporte os próximos R$ 6.500 em RF Pós para chegar no alvo</p>
+              </div>
+            </div>
+            <i data-lucide="chevron-down" class="w-4 h-4 text-[#55556a] transition-transform group-open:rotate-180"></i>
+          </summary>
+        </details>
+
+        <!-- Por conta/corretora -->
+        <details class="card group">
+          <summary class="cursor-pointer list-none flex items-center justify-between p-5 hover:bg-[#161729] transition-colors rounded-2xl">
+            <div class="flex items-center gap-3">
+              <span class="w-9 h-9 rounded-xl flex items-center justify-center" style="background:rgba(139,92,246,.1);color:#8b5cf6"><i data-lucide="building-2" class="w-4 h-4"></i></span>
+              <div>
+                <p class="text-sm font-semibold">Por corretora · 12 contas</p>
+                <p class="text-xs text-[#55556a]">XP · Avenue · Nubank · BTG · Binance · Itaú</p>
+              </div>
+            </div>
+            <i data-lucide="chevron-down" class="w-4 h-4 text-[#55556a] transition-transform group-open:rotate-180"></i>
+          </summary>
+        </details>
+
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<!-- ─── FAB ─────────────────────────────────────────────────── -->
+<div class="fixed bottom-6 right-6 z-40 flex flex-col gap-3 items-end">
+  <div class="hidden sm:flex flex-col gap-2 mb-1">
+    <button class="card-clickable card flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[#8888aa] hover:text-white"><i data-lucide="plus-circle" class="w-3.5 h-3.5"></i> Novo aporte</button>
+    <button class="card-clickable card flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[#8888aa] hover:text-white"><i data-lucide="link-2" class="w-3.5 h-3.5"></i> Conectar corretora</button>
+    <button class="card-clickable card flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[#8888aa] hover:text-white"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Sincronizar</button>
+  </div>
+  <button class="fab w-14 h-14 rounded-2xl flex items-center justify-center font-bold">
+    <i data-lucide="plus" class="w-6 h-6"></i>
+  </button>
+</div>
+
+<script>
+  lucide.createIcons();
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('is-visible'); io.unobserve(e.target); } });
+  }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+</script>
+
+</body>
+</html>

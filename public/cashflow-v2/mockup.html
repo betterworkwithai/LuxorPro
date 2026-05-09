@@ -1,0 +1,837 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Luxor — Receitas e Despesas V2 Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+  :root {
+    --bg-canvas: #0a0a0f;
+    --bg-card: #0f1018;
+    --bg-card-emph: #131426;
+    --bg-card-hover: #161729;
+    --border-card: #1e1e30;
+    --border-soft: #14152c;
+    --text-primary: #e8e8f0;
+    --text-secondary: #8888aa;
+    --text-muted: #55556a;
+    --success: #00ff88;
+    --danger: #ff4466;
+    --info: #00d4ff;
+    --warning: #f59e0b;
+    --primary: #ff7a00;
+  }
+  html, body {
+    background: var(--bg-canvas);
+    color: var(--text-primary);
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+  .caption {
+    font-size: 11px; line-height: 16px; font-weight: 600;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 16px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.5), 0 0 0 1px rgba(0,212,255,.04);
+    transition: all 240ms cubic-bezier(.22,.61,.36,1);
+  }
+  .card-emph {
+    background: var(--bg-card-emph);
+    border: 1px solid var(--border-card);
+    border-radius: 20px;
+    box-shadow: 0 4px 24px rgba(11,20,38,.6), 0 0 0 1px rgba(0,255,136,.08);
+  }
+  .card-clickable:hover {
+    background: var(--bg-card-hover);
+    border-color: rgba(0,212,255,.3);
+    transform: translateY(-1px);
+  }
+  .alert-chip {
+    border-radius: 12px; padding: 10px 14px;
+    display: flex; align-items: center; gap: 10px;
+    transition: all 180ms ease-out; cursor: pointer;
+  }
+  .alert-chip:hover { transform: translateX(2px); }
+  .fab {
+    background: var(--primary); color: #0a0a0f;
+    box-shadow: 0 8px 32px rgba(255,122,0,.4), 0 0 0 1px rgba(255,255,255,.1) inset;
+    transition: all 240ms cubic-bezier(.22,.61,.36,1);
+  }
+  .fab:hover { transform: translateY(-2px) scale(1.04); box-shadow: 0 12px 40px rgba(255,122,0,.55), 0 0 0 1px rgba(255,255,255,.15) inset; }
+  .pill {
+    font-size: 11px; padding: 4px 9px; border-radius: 9999px;
+    font-weight: 600; display: inline-flex; align-items: center; gap: 4px;
+  }
+  .period-tab {
+    padding: 4px 10px; border-radius: 8px;
+    font-size: 12px; font-weight: 600; color: var(--text-secondary);
+    transition: all 180ms ease-out; cursor: pointer;
+  }
+  .period-tab.active {
+    background: rgba(0,212,255,.1); color: var(--info);
+    border: 1px solid rgba(0,212,255,.2);
+  }
+  .period-tab:not(.active):hover { color: var(--text-primary); }
+  .reveal { opacity: 0; transform: translateY(8px); transition: all 320ms cubic-bezier(.22,.61,.36,1); }
+  .reveal.is-visible { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } }
+  .dot-grid {
+    background-image: radial-gradient(circle at 1px 1px, rgba(0,255,136,.06) 1px, transparent 0);
+    background-size: 22px 22px;
+  }
+  .sidebar-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 9px 12px; border-radius: 10px;
+    color: var(--text-secondary);
+    font-size: 13px; font-weight: 500;
+    transition: all 180ms ease-out; cursor: pointer;
+  }
+  .sidebar-item:hover { background: var(--bg-card); color: var(--text-primary); }
+  .sidebar-item.active {
+    background: rgba(255,122,0,.1); color: var(--primary);
+    border: 1px solid rgba(255,122,0,.2);
+  }
+  .row-hover { transition: background 180ms ease-out; }
+  .row-hover:hover { background: var(--bg-card-hover); }
+  /* Cat bar */
+  .cat-bar { transition: width 320ms cubic-bezier(.22,.61,.36,1); }
+</style>
+</head>
+<body>
+
+<div class="flex min-h-screen">
+
+  <!-- SIDEBAR -->
+  <aside class="hidden lg:flex flex-col w-56 flex-shrink-0 border-r border-[#1e1e30] bg-[#0a0a0f] py-5 px-3">
+    <div class="flex items-center gap-2.5 px-2 pb-5 mb-3 border-b border-[#1e1e30]">
+      <img src="/logo.png" alt="Luxor.Pro" class="w-9 h-9 rounded-xl object-contain" />
+      <span class="text-base font-bold tracking-tight">Luxor<span class="text-slate-500">.</span><span style="color:#ff7a00">Pro</span></span>
+    </div>
+    <nav class="flex-1 space-y-1">
+      <a class="sidebar-item"><i data-lucide="layout-dashboard" class="w-4 h-4"></i> Painel Consolidado</a>
+      <a class="sidebar-item active"><i data-lucide="arrow-left-right" class="w-4 h-4"></i> Receitas e Despesas</a>
+      <a class="sidebar-item"><i data-lucide="trending-up" class="w-4 h-4"></i> Investimentos</a>
+      <a class="sidebar-item"><i data-lucide="target" class="w-4 h-4"></i> Minhas Metas</a>
+      <a class="sidebar-item"><i data-lucide="file-search" class="w-4 h-4"></i> IA de Documentos</a>
+      <a class="sidebar-item"><i data-lucide="link-2" class="w-4 h-4"></i> Open Finance</a>
+      <a class="sidebar-item"><i data-lucide="calculator" class="w-4 h-4"></i> Ferramentas</a>
+    </nav>
+    <div class="mt-4 pt-4 border-t border-[#1e1e30]">
+      <a class="sidebar-item"><i data-lucide="settings" class="w-4 h-4"></i> Configurações</a>
+      <div class="flex items-center gap-2 px-3 py-2 mt-2 rounded-lg bg-[#0f1018] border border-[#1e1e30]">
+        <span class="w-6 h-6 rounded-full flex items-center justify-center" style="background:rgba(255,122,0,.15);color:#ff7a00"><i data-lucide="user" class="w-3 h-3"></i></span>
+        <span class="text-[11px] text-[#8888aa] truncate font-mono">gabriel@luxor</span>
+      </div>
+    </div>
+  </aside>
+
+  <main class="flex-1 min-w-0">
+
+    <!-- ─── PAGE HEADER ─────────────────────────────────────────── -->
+    <header class="sticky top-0 z-30 px-6 py-4 border-b border-[#1e1e30] bg-[#0a0a0f]/95 backdrop-blur-xl">
+      <div class="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <h1 class="text-base sm:text-lg font-bold tracking-tight">Receitas e Despesas</h1>
+          <p class="text-xs text-[#55556a] mt-0.5">Maio 2026 · 14 dias para fechar o mês</p>
+        </div>
+        <div class="flex items-center gap-3 flex-wrap">
+          <div class="flex items-center gap-1 p-1 rounded-xl bg-[#0f1018] border border-[#1e1e30]">
+            <button class="p-1 rounded-lg hover:bg-[#161729] text-[#8888aa]"><i data-lucide="chevron-left" class="w-3.5 h-3.5"></i></button>
+            <span class="period-tab active px-3">Mai 2026</span>
+            <button class="p-1 rounded-lg hover:bg-[#161729] text-[#8888aa]"><i data-lucide="chevron-right" class="w-3.5 h-3.5"></i></button>
+          </div>
+          <div class="flex items-center gap-1 p-1 rounded-xl bg-[#0f1018] border border-[#1e1e30]">
+            <span class="period-tab active">Mensal</span>
+            <span class="period-tab">YTD</span>
+            <span class="period-tab">Anual</span>
+          </div>
+          <button class="px-3 py-2 rounded-xl text-xs font-semibold border border-[#1e1e30] bg-[#0f1018] text-[#8888aa] hover:text-white hover:border-[#00d4ff]/30 transition-colors flex items-center gap-1.5">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            Exportar
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <div class="p-6 space-y-6 max-w-[1400px] mx-auto">
+
+      <!-- ─── HERO — SALDO DO MÊS ─────────────────────────────────── -->
+      <section class="card-emph dot-grid p-6 sm:p-8 reveal">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div class="flex-1 min-w-0">
+            <p class="caption">Saldo do mês · Maio</p>
+            <div class="flex items-baseline gap-3 mt-1.5 flex-wrap">
+              <span class="num text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight" style="color:#00ff88">+R$ 8.412</span>
+              <span class="pill" style="background:rgba(0,255,136,.12);color:#00ff88;border:1px solid rgba(0,255,136,.25)">
+                <i data-lucide="arrow-up-right" class="w-3 h-3"></i>
+                +R$ 1.282 vs abril
+              </span>
+            </div>
+            <div class="mt-4 flex items-center gap-3 text-xs text-[#8888aa] flex-wrap">
+              <span class="flex items-center gap-1.5"><i data-lucide="trending-up" class="w-3.5 h-3.5" style="color:#00d4ff"></i> Projeção fim de mês: <span class="num text-white font-semibold">+R$ 7.890</span></span>
+              <span class="text-[#2a2a3e]">·</span>
+              <span class="flex items-center gap-1.5"><i data-lucide="piggy-bank" class="w-3.5 h-3.5" style="color:#ff7a00"></i> Taxa de poupança: <span class="num text-white font-semibold">28%</span></span>
+              <span class="text-[#2a2a3e]">·</span>
+              <span class="flex items-center gap-1.5"><i data-lucide="receipt" class="w-3.5 h-3.5"></i> 87 lançamentos</span>
+            </div>
+          </div>
+
+          <!-- Daily flow sparkline -->
+          <div class="lg:w-72 lg:flex-shrink-0">
+            <p class="caption mb-2">Fluxo diário · maio</p>
+            <svg viewBox="0 0 280 80" class="w-full h-20" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="flow-grad" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stop-color="#00ff88" stop-opacity="0.30"/>
+                  <stop offset="100%" stop-color="#00ff88" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+              <!-- zero line -->
+              <line x1="0" y1="50" x2="280" y2="50" stroke="#1e1e30" stroke-width="1" stroke-dasharray="2 4"/>
+              <!-- daily bars (positive=green, negative=red) — 30 days -->
+              <g>
+                <!-- Zigzag pattern symbolizing real life -->
+                <rect x="2"   y="42" width="6" height="8"  fill="#00ff88" opacity=".7"/>
+                <rect x="11"  y="50" width="6" height="6"  fill="#ff4466" opacity=".6"/>
+                <rect x="20"  y="44" width="6" height="6"  fill="#00ff88" opacity=".7"/>
+                <rect x="29"  y="32" width="6" height="18" fill="#00ff88"/>
+                <rect x="38"  y="50" width="6" height="9"  fill="#ff4466" opacity=".6"/>
+                <rect x="47"  y="50" width="6" height="4"  fill="#ff4466" opacity=".6"/>
+                <rect x="56"  y="40" width="6" height="10" fill="#00ff88" opacity=".7"/>
+                <rect x="65"  y="50" width="6" height="12" fill="#ff4466" opacity=".7"/>
+                <rect x="74"  y="46" width="6" height="4"  fill="#00ff88" opacity=".6"/>
+                <rect x="83"  y="50" width="6" height="8"  fill="#ff4466" opacity=".6"/>
+                <rect x="92"  y="22" width="6" height="28" fill="#00ff88"/>
+                <rect x="101" y="50" width="6" height="6"  fill="#ff4466" opacity=".6"/>
+                <rect x="110" y="38" width="6" height="12" fill="#00ff88" opacity=".7"/>
+                <rect x="119" y="50" width="6" height="14" fill="#ff4466" opacity=".7"/>
+                <rect x="128" y="44" width="6" height="6"  fill="#00ff88" opacity=".7"/>
+                <rect x="137" y="50" width="6" height="5"  fill="#ff4466" opacity=".6"/>
+                <rect x="146" y="36" width="6" height="14" fill="#00ff88" opacity=".7"/>
+                <rect x="155" y="50" width="6" height="9"  fill="#ff4466" opacity=".6"/>
+                <rect x="164" y="50" width="6" height="6"  fill="#ff4466" opacity=".6"/>
+                <rect x="173" y="42" width="6" height="8"  fill="#00ff88" opacity=".7"/>
+                <rect x="182" y="28" width="6" height="22" fill="#00ff88"/>
+                <rect x="191" y="50" width="6" height="11" fill="#ff4466" opacity=".7"/>
+                <rect x="200" y="46" width="6" height="4"  fill="#00ff88" opacity=".6"/>
+                <rect x="209" y="50" width="6" height="7"  fill="#ff4466" opacity=".6"/>
+                <rect x="218" y="40" width="6" height="10" fill="#00ff88" opacity=".7"/>
+                <rect x="227" y="50" width="6" height="6"  fill="#ff4466" opacity=".6"/>
+                <rect x="236" y="34" width="6" height="16" fill="#00ff88" opacity=".8"/>
+                <rect x="245" y="50" width="6" height="8"  fill="#ff4466" opacity=".6"/>
+                <rect x="254" y="44" width="6" height="6"  fill="#00ff88" opacity=".7"/>
+                <rect x="263" y="50" width="6" height="5"  fill="#ff4466" opacity=".5"/>
+              </g>
+            </svg>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── ATTENTION STRIP ─────────────────────────────────────── -->
+      <section class="space-y-2.5 reveal">
+        <p class="caption">Vale sua atenção esta semana</p>
+        <div class="grid md:grid-cols-3 gap-2.5">
+          <div class="alert-chip card" style="border-color:rgba(255,68,102,.25); background:rgba(255,68,102,.04)">
+            <span class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style="background:rgba(255,68,102,.12);color:#ff4466"><i data-lucide="calendar-clock" class="w-4 h-4"></i></span>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-semibold truncate">3 contas vencem em 5 dias</p>
+              <p class="text-[11px] text-[#8888aa] truncate">Total R$ 7.124 · cartões + condomínio</p>
+            </div>
+            <i data-lucide="arrow-right" class="w-4 h-4 text-[#55556a] flex-shrink-0"></i>
+          </div>
+          <div class="alert-chip card" style="border-color:rgba(245,158,11,.25); background:rgba(245,158,11,.04)">
+            <span class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style="background:rgba(245,158,11,.12);color:#f59e0b"><i data-lucide="trending-up" class="w-4 h-4"></i></span>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-semibold truncate">Alimentação 32% acima da média</p>
+              <p class="text-[11px] text-[#8888aa] truncate">R$ 3.420 · alta de R$ 820 vs últimos 3 meses</p>
+            </div>
+            <i data-lucide="arrow-right" class="w-4 h-4 text-[#55556a] flex-shrink-0"></i>
+          </div>
+          <div class="alert-chip card" style="border-color:rgba(0,212,255,.25); background:rgba(0,212,255,.04)">
+            <span class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style="background:rgba(0,212,255,.12);color:#00d4ff"><i data-lucide="copy" class="w-4 h-4"></i></span>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-semibold truncate">2 grupos de duplicatas</p>
+              <p class="text-[11px] text-[#8888aa] truncate">Mesma data + descrição + valor — revisar?</p>
+            </div>
+            <i data-lucide="arrow-right" class="w-4 h-4 text-[#55556a] flex-shrink-0"></i>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── KPI STRIP ─────────────────────────────────────────── -->
+      <section class="grid grid-cols-2 lg:grid-cols-4 gap-3 reveal">
+        <div class="card p-4">
+          <div class="flex items-center justify-between">
+            <p class="caption">Receitas (mês)</p>
+            <span class="pill" style="background:rgba(0,255,136,.1);color:#00ff88"><i data-lucide="arrow-up" class="w-3 h-3"></i> +6%</span>
+          </div>
+          <p class="num text-2xl lg:text-[28px] font-bold tracking-tight mt-2" style="color:#00ff88">+R$ 28.450</p>
+          <p class="text-[11px] text-[#55556a] mt-1">vs R$ 26.840 em abril</p>
+        </div>
+        <div class="card p-4">
+          <div class="flex items-center justify-between">
+            <p class="caption">Despesas (mês)</p>
+            <span class="pill" style="background:rgba(255,68,102,.1);color:#ff4466"><i data-lucide="arrow-up" class="w-3 h-3"></i> +2%</span>
+          </div>
+          <p class="num text-2xl lg:text-[28px] font-bold tracking-tight mt-2" style="color:#ff4466">−R$ 20.038</p>
+          <p class="text-[11px] text-[#55556a] mt-1">vs R$ 19.710 em abril</p>
+        </div>
+        <div class="card p-4">
+          <div class="flex items-center justify-between">
+            <p class="caption">Aportes (mês)</p>
+            <span class="pill" style="background:rgba(0,212,255,.1);color:#00d4ff"><i data-lucide="arrow-up" class="w-3 h-3"></i> +12%</span>
+          </div>
+          <p class="num text-2xl lg:text-[28px] font-bold tracking-tight mt-2" style="color:#00d4ff">R$ 6.500</p>
+          <p class="text-[11px] text-[#55556a] mt-1">52% da meta de R$ 12.500</p>
+        </div>
+        <div class="card p-4">
+          <div class="flex items-center justify-between">
+            <p class="caption">Taxa de poupança</p>
+            <span class="pill" style="background:rgba(245,158,11,.1);color:#f59e0b"><i data-lucide="minus" class="w-3 h-3"></i> -3pp</span>
+          </div>
+          <p class="num text-2xl lg:text-[28px] font-bold tracking-tight mt-2">28%</p>
+          <p class="text-[11px] text-[#55556a] mt-1">meta: 35%</p>
+        </div>
+      </section>
+
+      <!-- ─── BENTO GRID ───────────────────────────────────────── -->
+      <section class="grid grid-cols-1 lg:grid-cols-3 gap-4 reveal">
+
+        <!-- RECEITAS VS DESPESAS — large -->
+        <div class="lg:col-span-2 card card-clickable p-5">
+          <div class="flex items-center justify-between mb-1">
+            <div>
+              <p class="caption">Receitas vs Despesas</p>
+              <p class="text-sm text-[#8888aa] mt-0.5">Mai 2026 · por semana</p>
+            </div>
+            <div class="flex items-center gap-3 text-xs">
+              <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm" style="background:#00ff88"></span><span class="text-[#8888aa]">Receitas</span></span>
+              <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm" style="background:#ff4466"></span><span class="text-[#8888aa]">Despesas</span></span>
+              <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm" style="background:#8888aa"></span><span class="text-[#8888aa]">Net</span></span>
+            </div>
+          </div>
+
+          <svg viewBox="0 0 600 240" class="w-full h-60 mt-3" preserveAspectRatio="none">
+            <!-- gridlines -->
+            <line x1="0" y1="40"  x2="600" y2="40"  stroke="#1e1e30" stroke-width="1"/>
+            <line x1="0" y1="80"  x2="600" y2="80"  stroke="#1e1e30" stroke-width="1"/>
+            <line x1="0" y1="120" x2="600" y2="120" stroke="#1e1e30" stroke-width="2"/>
+            <line x1="0" y1="160" x2="600" y2="160" stroke="#1e1e30" stroke-width="1"/>
+            <line x1="0" y1="200" x2="600" y2="200" stroke="#1e1e30" stroke-width="1"/>
+            <!-- y axis labels -->
+            <text x="0" y="44"  fill="#55556a" font-size="10" font-family="Inter">+R$10k</text>
+            <text x="0" y="84"  fill="#55556a" font-size="10" font-family="Inter">+R$5k</text>
+            <text x="0" y="124" fill="#55556a" font-size="10" font-family="Inter">0</text>
+            <text x="0" y="164" fill="#55556a" font-size="10" font-family="Inter">-R$5k</text>
+            <text x="0" y="204" fill="#55556a" font-size="10" font-family="Inter">-R$10k</text>
+
+            <!-- 4 weeks groups, each with 3 bars (income above, expense below, net signed) -->
+            <!-- WEEK 1 (centered around x=130) -->
+            <g>
+              <rect x="100" y="62"  width="22" height="58" fill="#00ff88" rx="3"/>          <!-- income +7.2k -->
+              <rect x="125" y="120" width="22" height="42" fill="#ff4466" rx="3"/>           <!-- expense -5.2k -->
+              <rect x="150" y="104" width="22" height="16" fill="#8888aa" rx="3"/>           <!-- net +2.0k -->
+              <text x="135" y="226" text-anchor="middle" fill="#55556a" font-size="11" font-family="Inter">Sem 1</text>
+            </g>
+            <!-- WEEK 2 -->
+            <g>
+              <rect x="240" y="50"  width="22" height="70" fill="#00ff88" rx="3"/>           <!-- income +8.7k -->
+              <rect x="265" y="120" width="22" height="36" fill="#ff4466" rx="3"/>           <!-- expense -4.5k -->
+              <rect x="290" y="86"  width="22" height="34" fill="#8888aa" rx="3"/>           <!-- net +4.2k -->
+              <text x="275" y="226" text-anchor="middle" fill="#55556a" font-size="11" font-family="Inter">Sem 2</text>
+            </g>
+            <!-- WEEK 3 -->
+            <g>
+              <rect x="380" y="74"  width="22" height="46" fill="#00ff88" rx="3"/>           <!-- income +5.7k -->
+              <rect x="405" y="120" width="22" height="56" fill="#ff4466" rx="3"/>           <!-- expense -7.0k -->
+              <rect x="430" y="120" width="22" height="10" fill="#8888aa" rx="3" opacity="0.85"/> <!-- net -1.3k -->
+              <text x="415" y="226" text-anchor="middle" fill="#55556a" font-size="11" font-family="Inter">Sem 3</text>
+            </g>
+            <!-- WEEK 4 (current — partial) -->
+            <g>
+              <rect x="520" y="92"  width="22" height="28" fill="#00ff88" rx="3" opacity="0.7"/>  <!-- income +3.5k -->
+              <rect x="545" y="120" width="22" height="22" fill="#ff4466" rx="3" opacity="0.7"/>  <!-- expense -2.7k -->
+              <rect x="570" y="114" width="22" height="6"  fill="#8888aa" rx="3" opacity="0.7"/>  <!-- net +0.8k -->
+              <text x="555" y="226" text-anchor="middle" fill="#55556a" font-size="11" font-family="Inter">Sem 4 · em curso</text>
+            </g>
+          </svg>
+
+          <div class="mt-2 grid grid-cols-3 gap-3 pt-3 border-t border-[#1e1e30]">
+            <div>
+              <p class="caption">Receitas total</p>
+              <p class="num text-base font-bold mt-0.5" style="color:#00ff88">+R$ 28.450</p>
+            </div>
+            <div>
+              <p class="caption">Despesas total</p>
+              <p class="num text-base font-bold mt-0.5" style="color:#ff4466">−R$ 20.038</p>
+            </div>
+            <div>
+              <p class="caption">Saldo líquido</p>
+              <p class="num text-base font-bold mt-0.5">+R$ 8.412</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- TOP CATEGORIAS — bar chart (replacing pie) -->
+        <div class="card card-clickable p-5">
+          <div class="flex items-center justify-between mb-1">
+            <div>
+              <p class="caption">Top categorias · despesas</p>
+              <p class="text-sm text-[#8888aa] mt-0.5">5 maiores · R$ 20.038 total</p>
+            </div>
+          </div>
+          <div class="mt-4 space-y-3">
+            <!-- Cat 1 -->
+            <div>
+              <div class="flex items-center justify-between text-xs mb-1.5">
+                <span class="flex items-center gap-2"><span class="text-base">🏠</span><span class="font-medium">Moradia</span></span>
+                <span class="num font-semibold">R$ 6.200 <span class="text-[10px] text-[#55556a] font-normal">· 31%</span></span>
+              </div>
+              <div class="w-full h-2 rounded-full bg-[#1e1e30] overflow-hidden">
+                <div class="cat-bar h-full rounded-full" style="width:100%;background:#3b82f6"></div>
+              </div>
+            </div>
+            <!-- Cat 2 -->
+            <div>
+              <div class="flex items-center justify-between text-xs mb-1.5">
+                <span class="flex items-center gap-2"><span class="text-base">🍔</span><span class="font-medium">Alimentação</span></span>
+                <span class="num font-semibold" style="color:#f59e0b">R$ 3.420 <span class="text-[10px] text-[#55556a] font-normal">· 17%</span></span>
+              </div>
+              <div class="w-full h-2 rounded-full bg-[#1e1e30] overflow-hidden">
+                <div class="cat-bar h-full rounded-full" style="width:55%;background:#f59e0b"></div>
+              </div>
+            </div>
+            <!-- Cat 3 -->
+            <div>
+              <div class="flex items-center justify-between text-xs mb-1.5">
+                <span class="flex items-center gap-2"><span class="text-base">🚗</span><span class="font-medium">Transporte</span></span>
+                <span class="num font-semibold">R$ 2.140 <span class="text-[10px] text-[#55556a] font-normal">· 11%</span></span>
+              </div>
+              <div class="w-full h-2 rounded-full bg-[#1e1e30] overflow-hidden">
+                <div class="cat-bar h-full rounded-full" style="width:34%;background:#8b5cf6"></div>
+              </div>
+            </div>
+            <!-- Cat 4 -->
+            <div>
+              <div class="flex items-center justify-between text-xs mb-1.5">
+                <span class="flex items-center gap-2"><span class="text-base">🏥</span><span class="font-medium">Saúde</span></span>
+                <span class="num font-semibold">R$ 1.580 <span class="text-[10px] text-[#55556a] font-normal">· 8%</span></span>
+              </div>
+              <div class="w-full h-2 rounded-full bg-[#1e1e30] overflow-hidden">
+                <div class="cat-bar h-full rounded-full" style="width:25%;background:#ec4899"></div>
+              </div>
+            </div>
+            <!-- Cat 5 -->
+            <div>
+              <div class="flex items-center justify-between text-xs mb-1.5">
+                <span class="flex items-center gap-2"><span class="text-base">📺</span><span class="font-medium">Streaming</span></span>
+                <span class="num font-semibold">R$ 320 <span class="text-[10px] text-[#55556a] font-normal">· 2%</span></span>
+              </div>
+              <div class="w-full h-2 rounded-full bg-[#1e1e30] overflow-hidden">
+                <div class="cat-bar h-full rounded-full" style="width:5%;background:#ff4466"></div>
+              </div>
+            </div>
+            <!-- Other -->
+            <div class="pt-2 mt-2 border-t border-[#1e1e30]">
+              <div class="flex items-center justify-between text-xs">
+                <span class="text-[#8888aa]">Outras categorias</span>
+                <span class="num text-[#8888aa]">R$ 6.378 · 31%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- APORTES VS RESGATES — small bento -->
+        <div class="card card-clickable p-5">
+          <div class="flex items-center justify-between mb-1">
+            <div>
+              <p class="caption">Aportes vs Resgates</p>
+              <p class="text-sm text-[#8888aa] mt-0.5">Mai 2026</p>
+            </div>
+          </div>
+          <svg viewBox="0 0 280 130" class="w-full mt-3" preserveAspectRatio="none">
+            <line x1="0" y1="65" x2="280" y2="65" stroke="#1e1e30" stroke-width="1.5"/>
+            <!-- 4 weeks: aporte above, resgate below, net gray small -->
+            <g>
+              <rect x="20"  y="35"  width="14" height="30" fill="#00d4ff" rx="2"/>
+              <rect x="36"  y="65"  width="14" height="0"  fill="#ff7a00" rx="2"/>
+              <rect x="52"  y="35"  width="14" height="30" fill="#8888aa" rx="2"/>
+              <text x="40" y="125" text-anchor="middle" fill="#55556a" font-size="9" font-family="Inter">Sem 1</text>
+            </g>
+            <g>
+              <rect x="92"  y="20"  width="14" height="45" fill="#00d4ff" rx="2"/>
+              <rect x="108" y="65"  width="14" height="14" fill="#ff7a00" rx="2"/>
+              <rect x="124" y="34"  width="14" height="31" fill="#8888aa" rx="2"/>
+              <text x="112" y="125" text-anchor="middle" fill="#55556a" font-size="9" font-family="Inter">Sem 2</text>
+            </g>
+            <g>
+              <rect x="164" y="50"  width="14" height="15" fill="#00d4ff" rx="2"/>
+              <rect x="180" y="65"  width="14" height="0"  fill="#ff7a00" rx="2"/>
+              <rect x="196" y="50"  width="14" height="15" fill="#8888aa" rx="2"/>
+              <text x="184" y="125" text-anchor="middle" fill="#55556a" font-size="9" font-family="Inter">Sem 3</text>
+            </g>
+            <g>
+              <rect x="236" y="40"  width="14" height="25" fill="#00d4ff" rx="2" opacity="0.7"/>
+              <rect x="252" y="65"  width="14" height="0"  fill="#ff7a00" rx="2"/>
+              <rect x="268" y="40"  width="14" height="25" fill="#8888aa" rx="2" opacity="0.7"/>
+              <text x="256" y="125" text-anchor="middle" fill="#55556a" font-size="9" font-family="Inter">Sem 4</text>
+            </g>
+          </svg>
+          <div class="mt-3 pt-3 border-t border-[#1e1e30] flex items-center justify-around text-xs">
+            <div class="flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-sm" style="background:#00d4ff"></span>
+              <span class="text-[#8888aa]">Aportes</span>
+              <span class="num font-semibold" style="color:#00d4ff">R$ 6.500</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-sm" style="background:#ff7a00"></span>
+              <span class="text-[#8888aa]">Resgates</span>
+              <span class="num font-semibold" style="color:#ff7a00">R$ 1.400</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- DAILY BURN / RUNWAY — small bento -->
+        <div class="card card-clickable p-5">
+          <p class="caption">Ritmo do mês</p>
+          <p class="text-sm text-[#8888aa] mt-0.5">No passo atual…</p>
+
+          <div class="mt-5">
+            <div class="flex items-baseline gap-2">
+              <span class="num text-3xl font-bold" style="color:#ff4466">R$ 1.193</span>
+              <span class="text-xs text-[#8888aa]">/dia em despesas</span>
+            </div>
+            <div class="mt-3 flex items-baseline gap-2">
+              <span class="num text-3xl font-bold" style="color:#00ff88">R$ 1.692</span>
+              <span class="text-xs text-[#8888aa]">/dia em receitas</span>
+            </div>
+            <div class="mt-4 pt-4 border-t border-[#1e1e30]">
+              <p class="caption">Burn do dia até agora</p>
+              <p class="num text-base font-semibold mt-1" style="color:#ff4466">−R$ 287 <span class="text-xs text-[#8888aa] font-normal">de R$ 1.193 estimado</span></p>
+              <div class="w-full h-1.5 rounded-full bg-[#1e1e30] overflow-hidden mt-2">
+                <div class="cat-bar h-full rounded-full" style="width:24%;background:#ff4466"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TOP MOVERS — large -->
+        <div class="lg:col-span-2 card card-clickable p-5">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <p class="caption">Top movers · maio</p>
+              <p class="text-sm text-[#8888aa] mt-0.5">As maiores entradas e saídas do mês</p>
+            </div>
+            <button class="text-[11px] text-[#00d4ff] font-semibold hover:underline">Ver todos →</button>
+          </div>
+          <div class="grid sm:grid-cols-2 gap-x-6">
+            <div>
+              <p class="caption mb-2" style="color:#00ff88">Maiores entradas</p>
+              <div class="space-y-1">
+                <div class="row-hover flex items-center gap-3 px-2 py-2 rounded-lg cursor-pointer">
+                  <span class="text-xs text-[#55556a] w-4 num">1</span>
+                  <span class="flex-1 min-w-0">
+                    <span class="text-sm font-semibold block truncate">Salário · Empresa X</span>
+                    <span class="text-[11px] text-[#55556a]">08/05 · Itaú</span>
+                  </span>
+                  <span class="num text-sm font-bold whitespace-nowrap" style="color:#00ff88">+R$ 18.500</span>
+                </div>
+                <div class="row-hover flex items-center gap-3 px-2 py-2 rounded-lg cursor-pointer">
+                  <span class="text-xs text-[#55556a] w-4 num">2</span>
+                  <span class="flex-1 min-w-0">
+                    <span class="text-sm font-semibold block truncate">Pró-labore · Consultoria</span>
+                    <span class="text-[11px] text-[#55556a]">15/05 · Nubank</span>
+                  </span>
+                  <span class="num text-sm font-bold whitespace-nowrap" style="color:#00ff88">+R$ 6.200</span>
+                </div>
+                <div class="row-hover flex items-center gap-3 px-2 py-2 rounded-lg cursor-pointer">
+                  <span class="text-xs text-[#55556a] w-4 num">3</span>
+                  <span class="flex-1 min-w-0">
+                    <span class="text-sm font-semibold block truncate">Dividendos ITUB4</span>
+                    <span class="text-[11px] text-[#55556a]">07/05 · XP</span>
+                  </span>
+                  <span class="num text-sm font-bold whitespace-nowrap" style="color:#00ff88">+R$ 312</span>
+                </div>
+              </div>
+            </div>
+            <div class="mt-5 sm:mt-0">
+              <p class="caption mb-2" style="color:#ff4466">Maiores saídas</p>
+              <div class="space-y-1">
+                <div class="row-hover flex items-center gap-3 px-2 py-2 rounded-lg cursor-pointer">
+                  <span class="text-xs text-[#55556a] w-4 num">1</span>
+                  <span class="flex-1 min-w-0">
+                    <span class="text-sm font-semibold block truncate">Aluguel · Apto Centro</span>
+                    <span class="text-[11px] text-[#55556a]">05/05 · Itaú</span>
+                  </span>
+                  <span class="num text-sm font-bold whitespace-nowrap" style="color:#ff4466">−R$ 4.800</span>
+                </div>
+                <div class="row-hover flex items-center gap-3 px-2 py-2 rounded-lg cursor-pointer">
+                  <span class="text-xs text-[#55556a] w-4 num">2</span>
+                  <span class="flex-1 min-w-0">
+                    <span class="text-sm font-semibold block truncate">Cartão Itaú · Fatura</span>
+                    <span class="text-[11px] text-[#55556a]">10/05 · Itaú</span>
+                  </span>
+                  <span class="num text-sm font-bold whitespace-nowrap" style="color:#ff4466">−R$ 4.823</span>
+                </div>
+                <div class="row-hover flex items-center gap-3 px-2 py-2 rounded-lg cursor-pointer">
+                  <span class="text-xs text-[#55556a] w-4 num">3</span>
+                  <span class="flex-1 min-w-0">
+                    <span class="text-sm font-semibold block truncate">IPTU · 1ª parcela</span>
+                    <span class="text-[11px] text-[#55556a]">02/05 · Bradesco</span>
+                  </span>
+                  <span class="num text-sm font-bold whitespace-nowrap" style="color:#ff4466">−R$ 1.840</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- COMING UP — small bento -->
+        <div class="card card-clickable p-5">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="caption">Próximos 7 dias</p>
+              <p class="text-sm text-[#8888aa] mt-0.5">5 lançamentos previstos</p>
+            </div>
+          </div>
+          <div class="mt-4 space-y-2 text-xs">
+            <div class="flex items-center gap-3">
+              <span class="w-9 text-center text-[10px] text-[#55556a] font-mono leading-tight">
+                <span class="block text-[#e8e8f0] font-bold text-sm">12</span>mai
+              </span>
+              <span class="flex-1 min-w-0">
+                <span class="font-medium block truncate">Cartão Itaú</span>
+                <span class="text-[10px] text-[#55556a]">Recorrente · Cartão</span>
+              </span>
+              <span class="num font-semibold" style="color:#ff4466">−R$ 4.823</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="w-9 text-center text-[10px] text-[#55556a] font-mono leading-tight">
+                <span class="block text-[#e8e8f0] font-bold text-sm">14</span>mai
+              </span>
+              <span class="flex-1 min-w-0">
+                <span class="font-medium block truncate">Condomínio</span>
+                <span class="text-[10px] text-[#55556a]">Recorrente · Boleto</span>
+              </span>
+              <span class="num font-semibold" style="color:#ff4466">−R$ 1.420</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="w-9 text-center text-[10px] text-[#55556a] font-mono leading-tight">
+                <span class="block text-[#e8e8f0] font-bold text-sm">14</span>mai
+              </span>
+              <span class="flex-1 min-w-0">
+                <span class="font-medium block truncate">Plano de Saúde</span>
+                <span class="text-[10px] text-[#55556a]">Recorrente · Débito</span>
+              </span>
+              <span class="num font-semibold" style="color:#ff4466">−R$ 880</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="w-9 text-center text-[10px] text-[#55556a] font-mono leading-tight">
+                <span class="block text-[#e8e8f0] font-bold text-sm">16</span>mai
+              </span>
+              <span class="flex-1 min-w-0">
+                <span class="font-medium block truncate">Aporte XP · ETF</span>
+                <span class="text-[10px] text-[#55556a]">Programado</span>
+              </span>
+              <span class="num font-semibold" style="color:#00d4ff">−R$ 2.000</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="w-9 text-center text-[10px] text-[#55556a] font-mono leading-tight">
+                <span class="block text-[#e8e8f0] font-bold text-sm">18</span>mai
+              </span>
+              <span class="flex-1 min-w-0">
+                <span class="font-medium block truncate">Spotify</span>
+                <span class="text-[10px] text-[#55556a]">Recorrente · Cartão</span>
+              </span>
+              <span class="num font-semibold" style="color:#ff4466">−R$ 22</span>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ─── COLLAPSIBLE BELOW-FOLD ───────────────────────────── -->
+      <section class="space-y-2.5 reveal">
+
+        <!-- Lançamentos completos (open by default since this is the cashflow page) -->
+        <details class="card group" open>
+          <summary class="cursor-pointer list-none flex items-center justify-between p-5 hover:bg-[#161729] transition-colors rounded-2xl">
+            <div class="flex items-center gap-3">
+              <span class="w-9 h-9 rounded-xl flex items-center justify-center" style="background:rgba(0,212,255,.1);color:#00d4ff"><i data-lucide="list" class="w-4 h-4"></i></span>
+              <div>
+                <p class="text-sm font-semibold">Todos os lançamentos · Mai 2026</p>
+                <p class="text-xs text-[#55556a]">87 transações · use os filtros para refinar</p>
+              </div>
+            </div>
+            <span class="flex items-center gap-3">
+              <span class="caption num">87 itens</span>
+              <i data-lucide="chevron-down" class="w-4 h-4 text-[#55556a] transition-transform group-open:rotate-180"></i>
+            </span>
+          </summary>
+          <div class="px-5 pb-5">
+            <!-- Filter bar -->
+            <div class="flex items-center gap-2 mb-3 flex-wrap">
+              <div class="flex-1 min-w-[200px] relative">
+                <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#55556a]"></i>
+                <input type="text" placeholder="Buscar descrição, categoria…" class="w-full pl-9 pr-3 py-2 text-xs rounded-lg bg-[#0a0a0f] border border-[#1e1e30] text-[#e8e8f0] placeholder:text-[#55556a] focus:outline-none focus:border-[#00d4ff]/40"/>
+              </div>
+              <button class="px-3 py-2 rounded-lg text-xs font-medium border border-[#1e1e30] bg-[#0a0a0f] text-[#8888aa] hover:text-white hover:border-[#1e1e30] flex items-center gap-1.5"><i data-lucide="filter" class="w-3 h-3"></i> Tipo</button>
+              <button class="px-3 py-2 rounded-lg text-xs font-medium border border-[#1e1e30] bg-[#0a0a0f] text-[#8888aa] hover:text-white flex items-center gap-1.5"><i data-lucide="tag" class="w-3 h-3"></i> Categoria</button>
+              <button class="px-3 py-2 rounded-lg text-xs font-medium border border-[#1e1e30] bg-[#0a0a0f] text-[#8888aa] hover:text-white flex items-center gap-1.5"><i data-lucide="building-2" class="w-3 h-3"></i> Conta</button>
+            </div>
+            <!-- Table -->
+            <div class="overflow-hidden rounded-xl border border-[#1e1e30] divide-y divide-[#1e1e30]">
+              <div class="grid grid-cols-[80px_1fr_140px_120px_24px] items-center px-3 py-2 text-[10px] uppercase tracking-wider text-[#55556a]">
+                <span>Data</span>
+                <span>Descrição</span>
+                <span>Categoria</span>
+                <span class="text-right">Valor</span>
+                <span></span>
+              </div>
+              <div class="grid grid-cols-[80px_1fr_140px_120px_24px] items-center px-3 py-2.5 text-xs row-hover">
+                <span class="num text-[#8888aa]">12/05</span>
+                <span class="font-medium truncate">Mercado · Carrefour</span>
+                <span class="text-[#8888aa]">🍔 Alimentação</span>
+                <span class="num font-semibold text-right" style="color:#ff4466">−R$ 487</span>
+                <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-[#55556a]"></i>
+              </div>
+              <div class="grid grid-cols-[80px_1fr_140px_120px_24px] items-center px-3 py-2.5 text-xs row-hover">
+                <span class="num text-[#8888aa]">12/05</span>
+                <span class="font-medium truncate">Posto Shell</span>
+                <span class="text-[#8888aa]">🚗 Transporte</span>
+                <span class="num font-semibold text-right" style="color:#ff4466">−R$ 240</span>
+                <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-[#55556a]"></i>
+              </div>
+              <div class="grid grid-cols-[80px_1fr_140px_120px_24px] items-center px-3 py-2.5 text-xs row-hover">
+                <span class="num text-[#8888aa]">11/05</span>
+                <span class="font-medium truncate">Restaurante Centro</span>
+                <span class="text-[#8888aa]">🍔 Alimentação</span>
+                <span class="num font-semibold text-right" style="color:#ff4466">−R$ 184</span>
+                <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-[#55556a]"></i>
+              </div>
+              <div class="grid grid-cols-[80px_1fr_140px_120px_24px] items-center px-3 py-2.5 text-xs row-hover" style="background:rgba(0,212,255,.04)">
+                <span class="num text-[#8888aa]">10/05</span>
+                <span class="font-medium truncate flex items-center gap-2">Aporte XP · IBOV ETF <span class="text-[10px] px-1.5 py-0.5 rounded bg-[#00d4ff]/10 text-[#00d4ff] border border-[#00d4ff]/20 font-mono">📈 IBOV11</span></span>
+                <span class="text-[#8888aa]">📊 Investimento</span>
+                <span class="num font-semibold text-right">R$ 4.500</span>
+                <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-[#55556a]"></i>
+              </div>
+              <div class="grid grid-cols-[80px_1fr_140px_120px_24px] items-center px-3 py-2.5 text-xs row-hover">
+                <span class="num text-[#8888aa]">09/05</span>
+                <span class="font-medium truncate">Uber · Ida ao trabalho</span>
+                <span class="text-[#8888aa]">🚗 Transporte</span>
+                <span class="num font-semibold text-right" style="color:#ff4466">−R$ 38</span>
+                <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-[#55556a]"></i>
+              </div>
+              <div class="grid grid-cols-[80px_1fr_140px_120px_24px] items-center px-3 py-2.5 text-xs row-hover">
+                <span class="num text-[#8888aa]">08/05</span>
+                <span class="font-medium truncate">Salário · Empresa X</span>
+                <span class="text-[#8888aa]">💼 Salário</span>
+                <span class="num font-semibold text-right" style="color:#00ff88">+R$ 18.500</span>
+                <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-[#55556a]"></i>
+              </div>
+              <div class="grid grid-cols-[80px_1fr_140px_120px_24px] items-center px-3 py-2.5 text-xs row-hover">
+                <span class="num text-[#8888aa]">07/05</span>
+                <span class="font-medium truncate flex items-center gap-2">Dividendos ITUB4 <span class="text-[10px] px-1.5 py-0.5 rounded bg-[#00d4ff]/10 text-[#00d4ff] border border-[#00d4ff]/20 font-mono">📈 ITUB4</span></span>
+                <span class="text-[#8888aa]">📈 Dividendos</span>
+                <span class="num font-semibold text-right" style="color:#00ff88">+R$ 312</span>
+                <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-[#55556a]"></i>
+              </div>
+              <div class="grid grid-cols-[80px_1fr_140px_120px_24px] items-center px-3 py-2.5 text-xs row-hover">
+                <span class="num text-[#8888aa]">05/05</span>
+                <span class="font-medium truncate">Aluguel · Apto Centro</span>
+                <span class="text-[#8888aa]">🏠 Moradia</span>
+                <span class="num font-semibold text-right" style="color:#ff4466">−R$ 4.800</span>
+                <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-[#55556a]"></i>
+              </div>
+              <div class="grid grid-cols-[80px_1fr_140px_120px_24px] items-center px-3 py-2.5 text-xs row-hover">
+                <span class="num text-[#8888aa]">02/05</span>
+                <span class="font-medium truncate">IPTU · 1ª parcela</span>
+                <span class="text-[#8888aa]">🧾 Impostos</span>
+                <span class="num font-semibold text-right" style="color:#ff4466">−R$ 1.840</span>
+                <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-[#55556a]"></i>
+              </div>
+              <div class="px-3 py-3 text-center">
+                <button class="text-[11px] text-[#8888aa] hover:text-white">Mostrar mais 78 lançamentos</button>
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <details class="card group">
+          <summary class="cursor-pointer list-none flex items-center justify-between p-5 hover:bg-[#161729] transition-colors rounded-2xl">
+            <div class="flex items-center gap-3">
+              <span class="w-9 h-9 rounded-xl flex items-center justify-center" style="background:rgba(255,122,0,.1);color:#ff7a00"><i data-lucide="repeat" class="w-4 h-4"></i></span>
+              <div>
+                <p class="text-sm font-semibold">Recorrências · 12 ativas</p>
+                <p class="text-xs text-[#55556a]">+R$ 18.500/mês receitas · −R$ 9.823/mês despesas</p>
+              </div>
+            </div>
+            <i data-lucide="chevron-down" class="w-4 h-4 text-[#55556a] transition-transform group-open:rotate-180"></i>
+          </summary>
+        </details>
+
+        <details class="card group">
+          <summary class="cursor-pointer list-none flex items-center justify-between p-5 hover:bg-[#161729] transition-colors rounded-2xl">
+            <div class="flex items-center gap-3">
+              <span class="w-9 h-9 rounded-xl flex items-center justify-center" style="background:rgba(245,158,11,.1);color:#f59e0b"><i data-lucide="copy" class="w-4 h-4"></i></span>
+              <div>
+                <p class="text-sm font-semibold">Duplicatas detectadas · 2 grupos</p>
+                <p class="text-xs text-[#55556a]">Mesma data + descrição + valor — possível duplicação</p>
+              </div>
+            </div>
+            <i data-lucide="chevron-down" class="w-4 h-4 text-[#55556a] transition-transform group-open:rotate-180"></i>
+          </summary>
+        </details>
+
+        <details class="card group">
+          <summary class="cursor-pointer list-none flex items-center justify-between p-5 hover:bg-[#161729] transition-colors rounded-2xl">
+            <div class="flex items-center gap-3">
+              <span class="w-9 h-9 rounded-xl flex items-center justify-center" style="background:rgba(139,92,246,.1);color:#8b5cf6"><i data-lucide="credit-card" class="w-4 h-4"></i></span>
+              <div>
+                <p class="text-sm font-semibold">Por método de pagamento</p>
+                <p class="text-xs text-[#55556a]">Cartão · PIX · Boleto · Débito automático</p>
+              </div>
+            </div>
+            <i data-lucide="chevron-down" class="w-4 h-4 text-[#55556a] transition-transform group-open:rotate-180"></i>
+          </summary>
+        </details>
+
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<!-- ─── FAB ─────────────────────────────────────────────────── -->
+<div class="fixed bottom-6 right-6 z-40 flex flex-col gap-3 items-end">
+  <div class="hidden sm:flex flex-col gap-2 mb-1">
+    <button class="card-clickable card flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[#8888aa] hover:text-white"><i data-lucide="upload" class="w-3.5 h-3.5"></i> Importar CSV</button>
+    <button class="card-clickable card flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[#8888aa] hover:text-white"><i data-lucide="copy" class="w-3.5 h-3.5"></i> Buscar duplicatas</button>
+    <button class="card-clickable card flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[#8888aa] hover:text-white"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Sincronizar</button>
+  </div>
+  <button class="fab w-14 h-14 rounded-2xl flex items-center justify-center font-bold">
+    <i data-lucide="plus" class="w-6 h-6"></i>
+  </button>
+</div>
+
+<script>
+  lucide.createIcons();
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('is-visible'); io.unobserve(e.target); } });
+  }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+</script>
+
+</body>
+</html>

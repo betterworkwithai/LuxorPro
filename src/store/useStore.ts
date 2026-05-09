@@ -18,6 +18,10 @@ import {
   tombstoneIfPluggy, extractPluggyTxId, extractPluggyInvId,
 } from '../lib/pluggyTombstones'
 import { needsNormalization, normalizeAssetClass } from '../lib/normalizeAssetClass'
+import {
+  generateDemoTransactions, generateDemoInvestments,
+  isDemoTransaction, isDemoInvestment,
+} from '../lib/demoData'
 
 /**
  * Resolve the user's display name from (in order):
@@ -131,6 +135,11 @@ interface AppState {
 
   // custom payment methods
   saveCustomPaymentMethod: (method: string) => Promise<void>
+
+  // demo data toggle
+  isDemoActive: () => boolean
+  enableDemoMode: () => Promise<void>
+  disableDemoMode: () => Promise<void>
 
   // nuclear option
   clearAllData: () => Promise<void>
@@ -498,6 +507,47 @@ export const useStore = create<AppState>((set, get) => ({
     }
     await db.transactions.upsert(updated)
     set(s => ({ transactions: s.transactions.map(x => x.id === id ? updated : x) }))
+  },
+
+  // ── Demo mode ──────────────────────────────
+  // Demo data is detected purely by the `demo_` ID prefix. No flag in
+  // settings — that way it's impossible to get into a desynced state
+  // (flag-on but data-cleared, or vice versa).
+  isDemoActive: () => {
+    const { transactions, investments } = get()
+    return transactions.some(isDemoTransaction) || investments.some(isDemoInvestment)
+  },
+  enableDemoMode: async () => {
+    const now = new Date()
+    const txs = generateDemoTransactions(now)
+    const invs = generateDemoInvestments(now)
+    // Persist to cloud DB (or local fallback)
+    await Promise.all([
+      ...txs.map(t => db.transactions.upsert(t)),
+      ...invs.map(i => db.investments.upsert(i)),
+    ])
+    // Merge with current state — never overwrite real data.
+    set(s => ({
+      transactions:  [...txs.filter(t => !s.transactions.some(x => x.id === t.id)), ...s.transactions],
+      investments:   [...invs.filter(i => !s.investments.some(x => x.id === i.id)), ...s.investments],
+    }))
+    try {
+      const { track } = await import('../lib/analytics')
+      track('first_transaction_added' as any, { source: 'demo_seed' })
+    } catch { /* analytics best-effort */ }
+  },
+  disableDemoMode: async () => {
+    const { transactions, investments } = get()
+    const demoTxIds  = transactions.filter(isDemoTransaction).map(t => t.id)
+    const demoInvIds = investments.filter(isDemoInvestment).map(i => i.id)
+    await Promise.all([
+      ...demoTxIds.map(id => db.transactions.delete(id)),
+      ...demoInvIds.map(id => db.investments.delete(id)),
+    ])
+    set(s => ({
+      transactions: s.transactions.filter(t => !isDemoTransaction(t)),
+      investments:  s.investments.filter(i => !isDemoInvestment(i)),
+    }))
   },
 
   // ── Clear all data ─────────────────────────

@@ -13,6 +13,10 @@ import { OnboardingModal } from "./components/ui/OnboardingModal";
 import Dashboard from "./pages/Dashboard";
 import Cashflow from "./pages/Cashflow";
 import Wealth from "./pages/Wealth";
+import DashboardV2 from "./pages/DashboardV2";
+import CashflowV2 from "./pages/CashflowV2";
+import WealthV2 from "./pages/WealthV2";
+import { V2ErrorBoundary } from "./components/v2/V2ErrorBoundary";
 import Goals from "./pages/Goals";
 import DocumentAI from "./pages/DocumentAI";
 import Connections from "./pages/Connections";
@@ -33,16 +37,21 @@ function AppRoutes({ userEmail }: { userEmail?: string }) {
   return (
     <PageLayout>
       <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/cashflow" element={<Cashflow />} />
-        <Route path="/wealth" element={<Wealth />} />
+        {/* V2 — new default surfaces (real data, redesigned UI) */}
+        <Route path="/" element={<V2ErrorBoundary pageName="Painel"><DashboardV2 /></V2ErrorBoundary>} />
+        <Route path="/cashflow" element={<V2ErrorBoundary pageName="Receitas e Despesas"><CashflowV2 /></V2ErrorBoundary>} />
+        <Route path="/wealth" element={<V2ErrorBoundary pageName="Investimentos"><WealthV2 /></V2ErrorBoundary>} />
+        {/* Legacy fallbacks — kept for users who need the old views */}
+        <Route path="/legacy" element={<Dashboard />} />
+        <Route path="/legacy/cashflow" element={<Cashflow />} />
+        <Route path="/legacy/wealth" element={<Wealth />} />
         <Route path="/goals" element={<Goals />} />
         <Route path="/documents" element={<DocumentAI />} />
         <Route path="/connections" element={<Connections />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/tools" element={<FinancialTools />} />
         {isAdmin(userEmail) && <Route path="/admin" element={<Admin />} />}
-        <Route path="*" element={<Dashboard />} />
+        <Route path="*" element={<DashboardV2 />} />
       </Routes>
       <OnboardingModal />
     </PageLayout>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Save, Database, AlertTriangle, Trash2, Plus, Tag, X, Download, Upload, KeyRound, Mail, CreditCard, ExternalLink, Loader2, Crown, CalendarX, RefreshCw, Heart, Pencil } from 'lucide-react'
+import { Save, Database, AlertTriangle, Trash2, Plus, Tag, X, Download, Upload, KeyRound, Mail, CreditCard, ExternalLink, Loader2, Crown, CalendarX, RefreshCw, Heart, Pencil, FlaskConical, Sparkles, CheckCircle2 } from 'lucide-react'
 import { SharingSettings } from '../components/settings/SharingSettings'
 import { createPortalSession, cancelSubscription } from '../lib/stripe'
 import { useSubscription } from '../hooks/useSubscription'
@@ -89,6 +89,7 @@ export default function Settings() {
     settings, saveSettings, transactions, investments, attachments,
     clearAllData, addCustomCategory, deleteCustomCategory,
     exportData, importData, subscriptions,
+    isDemoActive, enableDemoMode, disableDemoMode,
   } = useStore()
   const allCategories    = useAllCategories()
   const customCategories = settings.customCategories ?? []
@@ -97,8 +98,24 @@ export default function Settings() {
   const [saved,          setSaved]          = useState(false)
   const [showClearModal, setShowClearModal] = useState(false)
   const [showNewCat,     setShowNewCat]     = useState(false)
-  const [activeTab,      setActiveTab]      = useState<string>('perfil')
+  const [activeTab,      setActiveTab]      = useState<string>(() => {
+    // Allow deep-link to a specific tab via URL hash (e.g. /app/settings#investidor)
+    const validTabs = ['perfil','assinatura','seguranca','investidor','moeda','compartilhamento','instituicoes','categorias','backup','demo','conta','sugerir','suporte','apagar']
+    const hash = (typeof window !== 'undefined' ? window.location.hash.replace('#','') : '') || ''
+    return validTabs.includes(hash) ? hash : 'perfil'
+  })
   const [user,           setUser]           = useState<{ email: string | null } | null>(null)
+
+  // Keep activeTab in sync with hash changes (back/forward navigation)
+  useEffect(() => {
+    const onHash = () => {
+      const validTabs = ['perfil','assinatura','seguranca','investidor','moeda','compartilhamento','instituicoes','categorias','backup','demo','conta','sugerir','suporte','apagar']
+      const hash = window.location.hash.replace('#','') || ''
+      if (validTabs.includes(hash)) setActiveTab(hash)
+    }
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [])
 
   useEffect(() => {
     let mounted = true
@@ -964,6 +981,17 @@ export default function Settings() {
         </section>
         )}
 
+        {/* ── Modo Demo (synthetic data toggle) ── */}
+        {activeTab === 'demo' && (
+        <DemoSection
+          isActive={isDemoActive()}
+          onEnable={async () => { await enableDemoMode() }}
+          onDisable={async () => { await disableDemoMode() }}
+          demoTxCount={transactions.filter(t => t.id.startsWith('demo_')).length}
+          demoInvCount={investments.filter(i => i.id.startsWith('demo_')).length}
+        />
+        )}
+
         {/* ── Conta (email/senha) — só com Supabase ── */}
         {activeTab === 'conta' && (
         <section id="conta" aria-labelledby="conta-heading">
@@ -1214,5 +1242,127 @@ export default function Settings() {
         </ModalFooter>
       </Modal>
     </div>
+  )
+}
+
+// ─── Modo Demo section ────────────────────────────
+function DemoSection({
+  isActive, onEnable, onDisable, demoTxCount, demoInvCount,
+}: {
+  isActive: boolean
+  onEnable: () => Promise<void>
+  onDisable: () => Promise<void>
+  demoTxCount: number
+  demoInvCount: number
+}) {
+  const [loading, setLoading] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+
+  const handleEnable = async () => {
+    setLoading(true)
+    try { await onEnable() } finally { setLoading(false) }
+  }
+  const handleDisable = async () => {
+    setLoading(true)
+    try { await onDisable(); setConfirmDelete(false) } finally { setLoading(false) }
+  }
+
+  return (
+    <section id="demo" aria-labelledby="demo-heading">
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <FlaskConical className="w-4 h-4 text-[#ff7a00]" />
+            <CardTitle>Modo Demo</CardTitle>
+            {isActive && (
+              <span className="ml-auto text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full"
+                style={{ background: 'rgba(0,255,136,.12)', color: '#00ff88', border: '1px solid rgba(0,255,136,.25)' }}>
+                Ativo
+              </span>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div>
+            <p className="text-sm text-[#e8e8f0] leading-relaxed">
+              Popule o Luxor Pro com <span className="font-semibold text-white">6 meses de transações sintéticas e 12 investimentos diversificados</span> pra explorar todas as funcionalidades antes de cadastrar seus dados reais.
+            </p>
+            <p className="text-xs text-[#8888aa] mt-2 leading-relaxed">
+              Os dados de demo são criados com IDs prefixados <span className="font-mono text-[#ff7a00]">demo_</span> e podem ser apagados em um clique sem afetar nada que você cadastrou.
+              Convivem em paralelo com seus dados reais — você pode ligar/desligar a qualquer momento.
+            </p>
+          </div>
+
+          {/* What's in the seed */}
+          <div className="rounded-xl border border-[#1e1e2e] bg-[#0a0a0f] p-4 space-y-3">
+            <p className="text-[11px] uppercase tracking-wider font-semibold text-[#55556a]">O que vem na semente</p>
+            <ul className="space-y-2 text-xs text-[#8888aa]">
+              <li className="flex items-start gap-2">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#00ff88] flex-shrink-0 mt-0.5" />
+                <span><span className="text-white font-medium">~120 transações</span> nos últimos 6 meses (salário, aluguel, mercado, restaurantes, Uber, streaming, plano de saúde, aporte mensal)</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#00ff88] flex-shrink-0 mt-0.5" />
+                <span><span className="text-white font-medium">12 investimentos</span> diversificados: Ações BR (PETR4, ITUB4, VALE3, BBDC4, BOVA11), FIIs (HGLG11, XPLG11), Renda Fixa (CDB, LCI, Tesouro IPCA), e offshore (VOO + Bitcoin)</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#00ff88] flex-shrink-0 mt-0.5" />
+                <span>Tributação, liquidez, risco e instituição preenchidos — todos os donuts e quebras na aba Investimentos ganham vida</span>
+              </li>
+            </ul>
+          </div>
+
+          {/* Action */}
+          {!isActive ? (
+            <button
+              onClick={handleEnable}
+              disabled={loading}
+              className="btn-primary w-full sm:w-auto flex items-center justify-center gap-2"
+            >
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              {loading ? 'Carregando…' : 'Ativar Modo Demo'}
+            </button>
+          ) : (
+            <div className="space-y-3">
+              <div className="text-xs text-[#8888aa] flex items-center gap-3">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full" style={{ background: '#00ff88' }} />
+                  <span className="v2-num font-semibold text-white">{demoTxCount}</span> transações demo
+                </span>
+                <span className="text-[#2a2a3e]">·</span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full" style={{ background: '#00d4ff' }} />
+                  <span className="v2-num font-semibold text-white">{demoInvCount}</span> investimentos demo
+                </span>
+              </div>
+              {!confirmDelete ? (
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  className="btn-danger w-full sm:w-auto flex items-center justify-center gap-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Remover dados demo
+                </button>
+              ) : (
+                <div className="rounded-xl border border-[#ff4466]/30 bg-[#ff4466]/5 p-3">
+                  <p className="text-xs text-[#ff4466] font-medium mb-2">
+                    Confirma remover os {demoTxCount + demoInvCount} registros demo? Os seus dados reais permanecem intactos.
+                  </p>
+                  <div className="flex gap-2">
+                    <button onClick={handleDisable} disabled={loading} className="btn-danger flex items-center gap-1.5 text-xs">
+                      {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                      Sim, remover
+                    </button>
+                    <button onClick={() => setConfirmDelete(false)} disabled={loading} className="btn-ghost text-xs">
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </section>
   )
 }

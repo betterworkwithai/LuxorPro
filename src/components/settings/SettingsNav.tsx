@@ -2,7 +2,7 @@ import React from 'react'
 import { clsx } from 'clsx'
 import {
   User, CreditCard, ShieldCheck, BarChart2, Wallet, Target, Heart,
-  Building2, Tag, Database, Download, KeyRound, Sparkles, LifeBuoy, AlertTriangle,
+  Building2, Tag, Database, Download, KeyRound, Sparkles, LifeBuoy, AlertTriangle, FlaskConical,
 } from 'lucide-react'
 
 export interface SettingsNavItem {
@@ -23,6 +23,7 @@ export const SETTINGS_NAV_ITEMS: SettingsNavItem[] = [
   { id: 'instituicoes',    label: 'Instituições',           icon: Building2 },
   { id: 'categorias',      label: 'Categorias',             icon: Tag },
   { id: 'backup',          label: 'Backup',                 icon: Download },
+  { id: 'demo',            label: 'Modo Demo',              icon: FlaskConical },
   { id: 'conta',           label: 'Conta',                  icon: KeyRound },
   { id: 'sugerir',         label: 'Sugerir Função',         icon: Sparkles },
   { id: 'suporte',         label: 'Suporte',                icon: LifeBuoy },
