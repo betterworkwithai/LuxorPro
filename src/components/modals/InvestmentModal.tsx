@@ -47,9 +47,13 @@ const PRODUCT_TYPES: { value: ProductType; label: string; emoji: string; desc: s
   { value: 'coe',    label: 'COE',     emoji: '🔧', desc: 'Certificado de Operações Estruturadas' },
 ]
 
-const TITULO_TYPES = ['CDB', 'LCI', 'LCA', 'LIG', 'CRI', 'CRA', 'Debênture', 'LF', 'CDCA', 'CPR', 'Soberano', 'Outro']
+const TITULO_TYPES = ['CDB', 'CDCA', 'CPR', 'CRA', 'CRI', 'Debênture', 'LCA', 'LCI', 'LF', 'LIG', 'Outro', 'Soberano'].sort((a, b) => a.localeCompare(b, 'pt-BR'))
 
-const FUNDO_TYPES = ['FI', 'FIA', 'FIM', 'FII', 'FIP', 'FIDC', 'FIAGRO', 'FUNDO-IMOB', 'Offshore Fund', 'Outro']
+const FUNDO_TYPES = [
+  'FI', 'FIA', 'FIAGRO', 'FIDC', 'FII', 'FIM', 'FIP',
+  'FUNDO-IMOB', 'Offshore Fund', 'Outro',
+  'Previdência PGBL', 'Previdência VGBL',
+].sort((a, b) => a.localeCompare(b, 'pt-BR'))
 
 const PAYMENT_FREQ_TITULO_COE = ['Mensal', 'Trimestral', 'Semestral', 'Anual', 'Vencimento']
 const PAYMENT_FREQ_FUNDO = ['Mensal', 'Distribuição de Capital - Alternativos', 'Vencimento', 'Não distribui juros']
