@@ -254,15 +254,30 @@ export default function DashboardV2() {
         title="Painel Consolidado"
         subtitle={`${monthName(todayMonth)} ${todayYear} · ${investments.length} ativos · ${transactions.length} transações`}
         right={
-          <PeriodTabs
-            value={periodMode}
-            onChange={setPeriodMode}
-            options={[
-              { value: 'monthly', label: 'Mensal' },
-              { value: 'ytd', label: 'YTD' },
-              { value: 'yearly', label: 'Anual' },
-            ]}
-          />
+          <>
+            <PeriodTabs
+              value={periodMode}
+              onChange={setPeriodMode}
+              options={[
+                { value: 'monthly', label: 'Mensal' },
+                { value: 'ytd', label: 'YTD' },
+                { value: 'yearly', label: 'Anual' },
+              ]}
+            />
+            <button
+              onClick={() => setShowAddTx(true)}
+              className="px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5"
+              style={{ background: '#ff7a00', color: '#0a0a0f' }}
+            >
+              <Plus className="w-3.5 h-3.5" /> Lançamento
+            </button>
+            <button
+              onClick={() => setShowAddInv(true)}
+              className="px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 border border-[#1e1e30] bg-[#0f1018] text-[#e8e8f0] hover:border-[#00d4ff]/30"
+            >
+              <TrendingUp className="w-3.5 h-3.5" /> Investimento
+            </button>
+          </>
         }
       />
 
@@ -837,7 +852,6 @@ export default function DashboardV2() {
 
       </div>
 
-      <FabMenu onPrimary={() => setShowAddTx(true)} />
 
       <AddTransactionModal open={showAddTx} onClose={() => setShowAddTx(false)} />
       <InvestmentModal    open={showAddInv} onClose={() => setShowAddInv(false)} />

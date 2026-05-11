@@ -302,6 +302,13 @@ export default function CashflowV2() {
                 { value: 'yearly', label: 'Anual' },
               ]}
             />
+            <button
+              onClick={() => setShowAddTx(true)}
+              className="px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
+              style={{ background: '#ff7a00', color: '#0a0a0f' }}
+            >
+              <Plus className="w-3.5 h-3.5" /> Adicionar lançamento
+            </button>
           </>
         }
       />
@@ -978,7 +985,6 @@ export default function CashflowV2() {
 
       </div>
 
-      <FabMenu onPrimary={() => setShowAddTx(true)} />
 
       <AddTransactionModal open={showAddTx} onClose={() => setShowAddTx(false)} />
       <DeduplicateModal    open={showDedup} onClose={() => setShowDedup(false)} />

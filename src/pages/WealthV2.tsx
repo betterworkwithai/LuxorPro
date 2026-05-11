@@ -665,6 +665,13 @@ export default function WealthV2() {
                 { value: 'EUR', label: 'EUR' },
               ]}
             />
+            <button
+              onClick={() => setShowAddInv(true)}
+              className="px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
+              style={{ background: '#ff7a00', color: '#0a0a0f' }}
+            >
+              <PlusCircle className="w-3.5 h-3.5" /> Adicionar investimento
+            </button>
           </>
         }
       />
@@ -1674,7 +1681,6 @@ export default function WealthV2() {
 
       </div>
 
-      <FabMenu onPrimary={() => setShowAddInv(true)} />
 
       <InvestmentModal open={showAddInv} onClose={() => setShowAddInv(false)} />
       <InvestmentModal open={!!editing} onClose={() => setEditing(null)} initial={editing ?? undefined} />
