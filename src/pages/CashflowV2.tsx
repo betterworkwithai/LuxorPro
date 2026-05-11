@@ -978,14 +978,7 @@ export default function CashflowV2() {
 
       </div>
 
-      <FabMenu
-        onPrimary={() => setShowAddTx(true)}
-        secondaries={[
-          { icon: Upload,    label: 'Importar documento', onClick: () => navigate(pfPath('/documents')) },
-          { icon: Copy,      label: 'Buscar duplicatas',  onClick: () => setShowDedup(true) },
-          { icon: RefreshCw, label: 'Sincronizar',         onClick: () => navigate(pfPath('/connections')) },
-        ]}
-      />
+      <FabMenu onPrimary={() => setShowAddTx(true)} />
 
       <AddTransactionModal open={showAddTx} onClose={() => setShowAddTx(false)} />
       <DeduplicateModal    open={showDedup} onClose={() => setShowDedup(false)} />

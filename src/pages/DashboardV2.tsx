@@ -835,52 +835,9 @@ export default function DashboardV2() {
 
         </section>
 
-        {/* BELOW-FOLD COLLAPSIBLES — quick navigation */}
-        <section className="space-y-2.5 v2-reveal">
-          <CollapsibleNav
-            icon={Layers}
-            iconBg="rgba(0,212,255,.1)"
-            iconFg="#00d4ff"
-            title="Investimentos"
-            subtitle={`${investments.length} ativos · ${formatBRL(netWorthBRL, true)} totais`}
-            onClick={() => navigate(pfPath('/wealth'))}
-          />
-          <CollapsibleNav
-            icon={Repeat}
-            iconBg="rgba(255,122,0,.1)"
-            iconFg="#ff7a00"
-            title="Receitas e Despesas"
-            subtitle={`Saldo do mês ${netFlow >= 0 ? '+' : ''}${formatBRL(netFlow, true)} · ${periodTx.length} transações`}
-            onClick={() => navigate(pfPath('/cashflow'))}
-          />
-          <CollapsibleNav
-            icon={FileSearch}
-            iconBg="rgba(139,92,246,.1)"
-            iconFg="#8b5cf6"
-            title="IA de Documentos"
-            subtitle="Importe extratos PDF/CSV/Excel e categorize com IA"
-            onClick={() => navigate(pfPath('/documents'))}
-          />
-          <CollapsibleNav
-            icon={Link2}
-            iconBg="rgba(0,255,136,.1)"
-            iconFg="#00ff88"
-            title="Open Finance"
-            subtitle="Conecte suas contas via Pluggy para sincronizar tudo"
-            onClick={() => navigate(pfPath('/connections'))}
-          />
-        </section>
-
       </div>
 
-      <FabMenu
-        onPrimary={() => setShowAddTx(true)}
-        secondaries={[
-          { icon: TrendingUp, label: 'Novo investimento', onClick: () => setShowAddInv(true) },
-          { icon: ScanLine,    label: 'Importar documento', onClick: () => navigate(pfPath('/documents')) },
-          { icon: RefreshCw,   label: 'Sincronizar',         onClick: () => navigate(pfPath('/connections')) },
-        ]}
-      />
+      <FabMenu onPrimary={() => setShowAddTx(true)} />
 
       <AddTransactionModal open={showAddTx} onClose={() => setShowAddTx(false)} />
       <InvestmentModal    open={showAddInv} onClose={() => setShowAddInv(false)} />
@@ -888,33 +845,3 @@ export default function DashboardV2() {
   )
 }
 
-// ── Below-fold collapsible nav row ───────────────
-function CollapsibleNav({
-  icon: Icon, iconBg, iconFg, title, subtitle, onClick,
-}: {
-  icon: React.ComponentType<{ className?: string }>
-  iconBg: string
-  iconFg: string
-  title: string
-  subtitle: string
-  onClick: () => void
-}) {
-  return (
-    <button
-      onClick={onClick}
-      type="button"
-      className="v2-card w-full text-left flex items-center justify-between p-5 hover:bg-[#161729] transition-colors"
-    >
-      <div className="flex items-center gap-3">
-        <span className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: iconBg, color: iconFg }}>
-          <Icon className="w-4 h-4" />
-        </span>
-        <div>
-          <p className="text-sm font-semibold">{title}</p>
-          <p className="text-xs text-[#55556a]">{subtitle}</p>
-        </div>
-      </div>
-      <ArrowRight className="w-4 h-4 text-[#55556a]" />
-    </button>
-  )
-}

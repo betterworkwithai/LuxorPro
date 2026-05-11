@@ -1674,14 +1674,7 @@ export default function WealthV2() {
 
       </div>
 
-      <FabMenu
-        onPrimary={() => setShowAddInv(true)}
-        secondaries={[
-          { icon: PlusCircle, label: 'Novo aporte',        onClick: () => setShowAddInv(true) },
-          { icon: Link2,      label: 'Conectar corretora', onClick: () => navigate(pfPath('/connections')) },
-          { icon: RefreshCw,  label: 'Sincronizar',         onClick: () => navigate(pfPath('/connections')) },
-        ]}
-      />
+      <FabMenu onPrimary={() => setShowAddInv(true)} />
 
       <InvestmentModal open={showAddInv} onClose={() => setShowAddInv(false)} />
       <InvestmentModal open={!!editing} onClose={() => setEditing(null)} initial={editing ?? undefined} />
