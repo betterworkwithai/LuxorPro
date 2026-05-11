@@ -126,6 +126,11 @@ export type FunnelEvent =
   | 'trial_to_paid'
   | 'pyramid_calculator_submitted'   // for the future calculator route
   | 'pyramid_email_captured'
+  // ── Onboarding funnel (4-step modal after signup) ──
+  | 'onboarding_started'
+  | 'onboarding_step_completed'      // emit with { step: 1..4, name: 'goal' | 'suitability' | 'data_source' | 'first_tx' }
+  | 'onboarding_skipped'
+  | 'onboarding_completed'
 
 export function track(event: FunnelEvent | string, props: Record<string, unknown> = {}): void {
   if (!posthogReady) {

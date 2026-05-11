@@ -168,6 +168,8 @@ export interface AppSettings {
   defaultInstitutionBRL: string
   defaultInstitutionUSD: string
   defaultInstitutionEUR: string
+  /** User's primary financial goal captured during onboarding. Optional. */
+  primaryGoal?: 'reserva' | 'dividas' | 'independencia' | 'imovel' | 'aposentadoria' | 'outro'
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
