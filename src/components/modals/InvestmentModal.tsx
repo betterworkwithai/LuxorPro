@@ -365,6 +365,9 @@ export function InvestmentModal({ open, onClose, initial, seedFromTransaction, o
       custodyFee:        f.productType === 'titulo' && f.custodyFee ? parseFloat(f.custodyFee) : undefined,
       managementFee:     f.productType === 'fundo' && f.managementFee ? parseFloat(f.managementFee) : undefined,
       performanceFee:    f.productType === 'fundo' && f.performanceFee ? parseFloat(f.performanceFee) : undefined,
+      // Stamp every manual save so Pluggy auto-sync knows to skip overwrites
+      // on broker-sourced fields (quantity/currentPrice/avgCost/etc).
+      lastUserEdit:      new Date().toISOString(),
     }
     if (initial) await updateInvestment({ ...payload, id: initial.id })
     else         await addInvestment(payload)

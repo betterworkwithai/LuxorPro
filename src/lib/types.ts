@@ -103,6 +103,13 @@ export interface Investment {
   custodyFee?: number        // taxa de custódia % a.a. (Título)
   holding?: string           // holding company
   gestora?: string           // fund manager
+  /**
+   * ISO timestamp of the last manual edit via InvestmentModal. When set,
+   * Pluggy auto-sync must not overwrite mutable broker-sourced fields
+   * (quantity, currentPrice, avgCost, capitalReturn, interestRate) — it
+   * still appends to priceHistory so charts stay current.
+   */
+  lastUserEdit?: string
 }
 
 export const LIQUIDITY_OPTIONS = ['D+0', 'D+1', 'D+2', 'D+3', 'D+5', 'D+7', 'D+10', 'D+15', 'D+30', 'D+60', 'D+90', 'D+180', 'D+360', 'Vencimento']

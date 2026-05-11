@@ -649,7 +649,7 @@ export default function Connections() {
       for (const inv of investments) {
         const existing = existingInvByPluggyId.get(inv.id)
         if (existing) {
-          // Already imported → update price + append price history point
+          // Already imported → refresh price history + market data
           const mapped       = mapInvestment(inv, pluggyItem.connector.name)
           const newHistory   = [...(existing.priceHistory ?? [])]
           // Replace today's entry if we already added one earlier the same day
@@ -657,18 +657,30 @@ export default function Connections() {
           const point   = { date: todayIso, price: mapped.currentPrice }
           if (todayIdx >= 0) newHistory[todayIdx] = point
           else newHistory.push(point)
-          await updateInvestment({
-            ...existing,
-            // Latest market data from broker
-            quantity:       mapped.quantity,
-            currentPrice:   mapped.currentPrice,
-            // Only overwrite avgCost when broker actually reports cost basis
-            avgCost:        inv.amountOriginal != null ? mapped.avgCost : existing.avgCost,
-            // Cumulative gain (when broker reports it)
-            capitalReturn:  mapped.capitalReturn ?? existing.capitalReturn,
-            interestRate:   mapped.interestRate ?? existing.interestRate,
-            priceHistory:   newHistory,
-          })
+
+          // Respect manual edits: when the user has explicitly touched this
+          // investment via InvestmentModal, never overwrite the broker-
+          // sourced numeric fields. We still append today's price to
+          // priceHistory so charts stay current.
+          if (existing.lastUserEdit) {
+            await updateInvestment({
+              ...existing,
+              priceHistory: newHistory,
+            })
+          } else {
+            await updateInvestment({
+              ...existing,
+              // Latest market data from broker
+              quantity:       mapped.quantity,
+              currentPrice:   mapped.currentPrice,
+              // Only overwrite avgCost when broker actually reports cost basis
+              avgCost:        inv.amountOriginal != null ? mapped.avgCost : existing.avgCost,
+              // Cumulative gain (when broker reports it)
+              capitalReturn:  mapped.capitalReturn ?? existing.capitalReturn,
+              interestRate:   mapped.interestRate ?? existing.interestRate,
+              priceHistory:   newHistory,
+            })
+          }
           invUpdated++
         } else if (!isAlreadyImportedTx(inv.id)) {
           // Brand-new position

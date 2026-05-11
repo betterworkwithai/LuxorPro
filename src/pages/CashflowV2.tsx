@@ -44,6 +44,14 @@ export default function CashflowV2() {
   const [showAddTx, setShowAddTx] = useState(false)
   const [showDedup, setShowDedup] = useState(false)
   const [showAllTx, setShowAllTx] = useState(false)
+  type TxSortKey = 'date' | 'description' | 'category' | 'value'
+  const [txSortKey, setTxSortKey] = useState<TxSortKey>('date')
+  const [txSortDir, setTxSortDir] = useState<'asc' | 'desc'>('desc')
+  const toggleTxSort = (k: TxSortKey) => {
+    if (txSortKey === k) setTxSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setTxSortKey(k); setTxSortDir(k === 'description' || k === 'category' ? 'asc' : 'desc') }
+  }
+  const txSortIcon = (k: TxSortKey) => txSortKey !== k ? '' : (txSortDir === 'asc' ? ' ▲' : ' ▼')
 
   const eurToBrl = settings.eurToBrl ?? 5.90
   const usdToBrl = settings.usdToBrl
@@ -250,8 +258,17 @@ export default function CashflowV2() {
       const q = search.toLowerCase()
       out = out.filter(t => t.description.toLowerCase().includes(q) || t.category.toLowerCase().includes(q))
     }
-    return [...out].sort((a, b) => b.date.localeCompare(a.date))
-  }, [periodTx, filterType, filterCat, search])
+    const dir = txSortDir === 'asc' ? 1 : -1
+    return [...out].sort((a, b) => {
+      switch (txSortKey) {
+        case 'description': return dir * a.description.localeCompare(b.description, 'pt-BR')
+        case 'category':    return dir * a.category.localeCompare(b.category, 'pt-BR')
+        case 'value':       return dir * (txBrl(a) - txBrl(b))
+        case 'date':
+        default:            return dir * a.date.localeCompare(b.date)
+      }
+    })
+  }, [periodTx, filterType, filterCat, search, txSortKey, txSortDir])
 
   const visibleRows = showAllTx ? filtered : filtered.slice(0, 10)
 
@@ -924,10 +941,10 @@ export default function CashflowV2() {
               <div className="overflow-x-auto">
                 <div className="min-w-[640px] overflow-hidden rounded-xl border border-[#1e1e30] divide-y divide-[#1e1e30]">
                   <div className="grid grid-cols-[80px_1fr_140px_120px] items-center px-3 py-2 text-[10px] uppercase tracking-wider text-[#55556a]">
-                    <span>Data</span>
-                    <span>Descrição</span>
-                    <span>Categoria</span>
-                    <span className="text-right">Valor</span>
+                    <button onClick={() => toggleTxSort('date')}        className="text-left hover:text-[#e8e8f0] uppercase tracking-wider">Data{txSortIcon('date')}</button>
+                    <button onClick={() => toggleTxSort('description')} className="text-left hover:text-[#e8e8f0] uppercase tracking-wider">Descrição{txSortIcon('description')}</button>
+                    <button onClick={() => toggleTxSort('category')}    className="text-left hover:text-[#e8e8f0] uppercase tracking-wider">Categoria{txSortIcon('category')}</button>
+                    <button onClick={() => toggleTxSort('value')}       className="text-right hover:text-[#e8e8f0] uppercase tracking-wider">Valor{txSortIcon('value')}</button>
                   </div>
                   {visibleRows.length === 0 ? (
                     <div className="px-3 py-6 text-center text-xs text-[#55556a]">Nenhuma transação encontrada.</div>
