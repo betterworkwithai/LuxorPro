@@ -24,12 +24,13 @@ import {
 } from '../components/v2/V2Primitives'
 import { AddTransactionModal } from '../components/modals/AddTransactionModal'
 import { DeduplicateModal } from '../components/modals/DeduplicateModal'
+import { RecurringModal } from '../components/modals/RecurringModal'
 import { pfPath } from '../constants'
 
 type PeriodMode = 'monthly' | 'ytd' | 'yearly'
 
 export default function CashflowV2() {
-  const { transactions, subscriptions, settings, updateTransaction, deleteTransaction } = useStore()
+  const { transactions, subscriptions, settings, updateTransaction, deleteTransaction, updateSubscription, deleteSubscription } = useStore()
   const allCategories = useAllCategories()
   const navigate = useNavigate()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -45,6 +46,8 @@ export default function CashflowV2() {
   const [editingTx, setEditingTx] = useState<import('../lib/types').Transaction | null>(null)
   const [showDedup, setShowDedup] = useState(false)
   const [showAllTx, setShowAllTx] = useState(false)
+  const [showAddRec, setShowAddRec] = useState(false)
+  const [editingRec, setEditingRec] = useState<import('../lib/types').RecurringTransaction | null>(null)
   // ── Bulk selection for the transactions table ──
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkCategory, setBulkCategory] = useState<string>('')
@@ -1109,16 +1112,93 @@ export default function CashflowV2() {
 
         {/* OTHER COLLAPSIBLES */}
         <section className="space-y-2.5 v2-reveal">
-          <button onClick={() => navigate(pfPath('/settings'))} className="v2-card w-full text-left flex items-center justify-between p-5 hover:bg-[#161729] transition-colors">
-            <div className="flex items-center gap-3">
-              <span className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(255,122,0,.1)', color: '#ff7a00' }}><Repeat className="w-4 h-4"/></span>
-              <div>
-                <p className="text-sm font-semibold">Recorrências · {subscriptions.filter(s => s.isActive).length} ativas</p>
-                <p className="text-xs text-[#55556a]">Gerenciar em Configurações</p>
+          <details className="v2-card group">
+            <summary className="cursor-pointer list-none flex items-center justify-between p-5 hover:bg-[#161729] transition-colors rounded-2xl">
+              <div className="flex items-center gap-3">
+                <span className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(255,122,0,.1)', color: '#ff7a00' }}><Repeat className="w-4 h-4"/></span>
+                <div>
+                  <p className="text-sm font-semibold">Recorrências · {subscriptions.filter(s => s.isActive).length} ativas</p>
+                  <p className="text-xs text-[#55556a]">
+                    {subscriptions.filter(s => s.isActive && s.type === 'income').reduce((a, s) => a + convert(s.amount, s.currency, 'BRL', usdToBrl, eurToBrl), 0) > 0
+                      ? `+${formatBRL(subscriptions.filter(s => s.isActive && s.type === 'income').reduce((a, s) => a + convert(s.amount, s.currency, 'BRL', usdToBrl, eurToBrl), 0), true)}/mês receitas · `
+                      : ''}
+                    −{formatBRL(subscriptions.filter(s => s.isActive && s.type === 'expense').reduce((a, s) => a + convert(s.amount, s.currency, 'BRL', usdToBrl, eurToBrl), 0), true)}/mês despesas
+                  </p>
+                </div>
               </div>
+              <span className="flex items-center gap-3">
+                <span className="v2-caption v2-num">{subscriptions.length} itens</span>
+                <ChevronDown className="w-4 h-4 text-[#55556a] transition-transform group-open:rotate-180"/>
+              </span>
+            </summary>
+            <div className="px-5 pb-5">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs text-[#8888aa]">Clique numa recorrência pra editar, no toggle para ativar/desativar, ou no X pra excluir.</p>
+                <button
+                  onClick={() => setShowAddRec(true)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5"
+                  style={{ background: '#ff7a00', color: '#0a0a0f' }}
+                >
+                  <Plus className="w-3.5 h-3.5" /> Nova recorrência
+                </button>
+              </div>
+              {subscriptions.length === 0 ? (
+                <p className="text-xs text-[#55556a] text-center py-6">Nenhuma recorrência cadastrada. Crie a primeira pra automatizar contas mensais.</p>
+              ) : (
+                <div className="overflow-hidden rounded-xl border border-[#1e1e30] divide-y divide-[#1e1e30]">
+                  {subscriptions.map(s => {
+                    const cat = allCategories.find(c => c.id === s.category)
+                    const valBrl = convert(s.amount, s.currency, 'BRL', usdToBrl, eurToBrl)
+                    return (
+                      <div
+                        key={s.id}
+                        className="grid grid-cols-[40px_1fr_140px_120px_60px_30px] items-center gap-2 px-3 py-2.5 text-xs v2-row-hover"
+                        style={{ opacity: s.isActive ? 1 : 0.45 }}
+                      >
+                        <button
+                          onClick={(e) => { e.stopPropagation(); updateSubscription({ ...s, isActive: !s.isActive }) }}
+                          title={s.isActive ? 'Desativar' : 'Ativar'}
+                          className="flex items-center justify-center"
+                        >
+                          <span className={`inline-block w-7 h-3.5 rounded-full relative transition-colors ${s.isActive ? 'bg-[#ff7a00]' : 'bg-[#2a2a3e]'}`}>
+                            <span className={`absolute top-0.5 w-2.5 h-2.5 rounded-full bg-white transition-all ${s.isActive ? 'left-3.5' : 'left-0.5'}`}/>
+                          </span>
+                        </button>
+                        <button onClick={() => setEditingRec(s)} className="text-left min-w-0">
+                          <span className="block font-medium truncate">{s.name}</span>
+                          <span className="block text-[10px] text-[#55556a]">
+                            {s.frequency === 'weekly'
+                              ? `Toda ${s.weeklyInterval && s.weeklyInterval > 1 ? `${s.weeklyInterval}ª ` : ''}semana`
+                              : `Dia ${s.billingDay}`}
+                            {' · '}{s.account || '—'}
+                          </span>
+                        </button>
+                        <button onClick={() => setEditingRec(s)} className="text-left text-[#8888aa] truncate">{cat?.icon ?? '📦'} {cat?.name ?? s.category}</button>
+                        <button onClick={() => setEditingRec(s)} className="v2-num text-right font-semibold" style={{ color: s.type === 'expense' ? '#ff4466' : '#00ff88' }}>
+                          {s.type === 'expense' ? '−' : '+'}{formatBRL(valBrl, true)}
+                        </button>
+                        <button onClick={() => setEditingRec(s)} className="text-[10px] text-[#55556a] uppercase tracking-wider text-right">
+                          {s.frequency === 'weekly' ? 'sem' : 'mês'}
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            if (confirm(`Excluir recorrência "${s.name}"?\nLançamentos já gerados no fluxo não serão removidos.`)) {
+                              deleteSubscription(s.id)
+                            }
+                          }}
+                          className="w-6 h-6 rounded-md flex items-center justify-center text-[#55556a] hover:text-[#ff4466] hover:bg-[#ff4466]/10"
+                          title="Excluir recorrência"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
-            <ArrowRight className="w-4 h-4 text-[#55556a]"/>
-          </button>
+          </details>
 
           <button onClick={() => setShowDedup(true)} className="v2-card w-full text-left flex items-center justify-between p-5 hover:bg-[#161729] transition-colors">
             <div className="flex items-center gap-3">
@@ -1137,6 +1217,8 @@ export default function CashflowV2() {
 
       <AddTransactionModal open={showAddTx} onClose={() => setShowAddTx(false)} />
       <AddTransactionModal open={!!editingTx} onClose={() => setEditingTx(null)} initial={editingTx ?? undefined} />
+      <RecurringModal open={showAddRec} onClose={() => setShowAddRec(false)} />
+      <RecurringModal open={!!editingRec} onClose={() => setEditingRec(null)} initial={editingRec ?? undefined} />
       <DeduplicateModal    open={showDedup} onClose={() => setShowDedup(false)} />
     </div>
   )
