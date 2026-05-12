@@ -6,6 +6,7 @@ import { todayISO, formatDate } from '../../lib/formatters'
 import type { Investment, AssetLocation, TaxTreatment, PricePoint } from '../../lib/types'
 import { LIQUIDITY_OPTIONS, BENCHMARK_OPTIONS, RISK_LABELS } from '../../lib/types'
 import { LOCAL_CLASSES, INTL_CLASSES } from '../../lib/suitability'
+import { markInvestmentEdited } from '../../lib/userEditedInvestments'
 import { clsx } from 'clsx'
 
 // ─── Asset classes by location ────────────────
@@ -254,6 +255,7 @@ export function InvestmentModal({ open, onClose, initial, seedFromTransaction, o
   const [step, setStep]       = useState(0)
   const [saving, setSaving]   = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [saveSuccess, setSaveSuccess] = useState(false)
   const [history, setHistory] = useState<PricePoint[]>(initial?.priceHistory ?? [])
   const [hpDate, setHpDate]   = useState('')
   const [hpPrice, setHpPrice] = useState('')
@@ -263,6 +265,8 @@ export function InvestmentModal({ open, onClose, initial, seedFromTransaction, o
     setF(buildInitial())
     setHistory(initial?.priceHistory ?? [])
     setStep(0)
+    setSaveError(null)
+    setSaveSuccess(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initial?.id, seedFromTransaction?.description, seedFromTransaction?.amount, seedFromTransaction?.date])
 
@@ -372,14 +376,25 @@ export function InvestmentModal({ open, onClose, initial, seedFromTransaction, o
       lastUserEdit:      new Date().toISOString(),
     }
     try {
-      if (initial) await updateInvestment({ ...payload, id: initial.id })
-      else         await addInvestment(payload)
+      if (initial) {
+        await updateInvestment({ ...payload, id: initial.id })
+        // Belt-and-suspenders: mark this investment ID in localStorage too,
+        // so Pluggy sync can skip overwrite even if `lastUserEdit` somehow
+        // fails to round-trip through Supabase JSONB.
+        markInvestmentEdited(initial.id)
+        console.info('[InvestmentModal] saved edit for', initial.id, 'with lastUserEdit', payload.lastUserEdit)
+      } else {
+        await addInvestment(payload)
+        console.info('[InvestmentModal] added new investment with lastUserEdit', payload.lastUserEdit)
+      }
       // If this was a transaction conversion, let the caller delete the source tx.
       if (seedFromTransaction && onSeedSaved) {
         try { await onSeedSaved() } catch (e) { console.error('[InvestmentModal] onSeedSaved failed:', e) }
       }
+      setSaveSuccess(true)
       setSaving(false)
-      onClose()
+      // brief success state so the user sees confirmation before the modal closes
+      setTimeout(() => { onClose() }, 600)
     } catch (e) {
       // Surface the error to the user instead of silently failing.
       console.error('[InvestmentModal] save failed:', e)
@@ -798,6 +813,14 @@ export function InvestmentModal({ open, onClose, initial, seedFromTransaction, o
         <div className="px-6 py-3 border-t border-[#1e1e2e] bg-[#ff4466]/10">
           <p className="text-xs font-semibold text-[#ff4466]">Erro ao salvar</p>
           <p className="text-[11px] text-[#ff8898] mt-0.5">{saveError}</p>
+        </div>
+      )}
+      {saveSuccess && !saveError && (
+        <div className="px-6 py-3 border-t border-[#1e1e2e] bg-[#00ff88]/10 flex items-center gap-2">
+          <span className="w-5 h-5 rounded-full flex items-center justify-center" style={{ background: 'rgba(0,255,136,.2)' }}>
+            <span className="text-[#00ff88] text-xs">✓</span>
+          </span>
+          <p className="text-xs font-semibold text-[#00ff88]">{initial ? 'Alterações salvas!' : 'Investimento adicionado!'}</p>
         </div>
       )}
       <ModalFooter>

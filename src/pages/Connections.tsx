@@ -8,6 +8,7 @@ import {
 import { clsx } from 'clsx'
 import { nanoid } from 'nanoid'
 import { useStore } from '../store/useStore'
+import { isInvestmentUserEdited } from '../lib/userEditedInvestments'
 import { supabase } from '../lib/supabase'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Card, CardHeader, CardTitle } from '../components/ui/Card'
@@ -667,11 +668,14 @@ export default function Connections() {
           if (todayIdx >= 0) newHistory[todayIdx] = point
           else newHistory.push(point)
 
-          // Respect manual edits: when the user has explicitly touched this
-          // investment via InvestmentModal, never overwrite the broker-
-          // sourced numeric fields. We still append today's price to
-          // priceHistory so charts stay current.
-          if (existing.lastUserEdit) {
+          // Respect manual edits: TWO independent signals so we never
+          // clobber user-managed data:
+          //   1. `lastUserEdit` field on the Investment (cloud-synced)
+          //   2. localStorage marker (local-first, survives even if the
+          //      cloud field fails to round-trip through Supabase JSONB)
+          const isUserManaged = !!existing.lastUserEdit || isInvestmentUserEdited(existing.id)
+          if (isUserManaged) {
+            console.info('[pluggy-sync] preserving user-edited investment', existing.id, existing.name)
             await updateInvestment({
               ...existing,
               priceHistory: newHistory,

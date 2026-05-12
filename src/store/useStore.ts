@@ -22,6 +22,9 @@ import {
   generateDemoTransactions, generateDemoInvestments,
   isDemoTransaction, isDemoInvestment,
 } from '../lib/demoData'
+import {
+  unmarkInvestmentEdited, clearAllUserEditedMarkers,
+} from '../lib/userEditedInvestments'
 
 /**
  * Resolve the user's display name from (in order):
@@ -292,6 +295,8 @@ export const useStore = create<AppState>((set, get) => ({
     const inv = get().investments.find(x => x.id === id)
     if (inv) await tombstoneIfPluggy('investment', extractPluggyInvId(inv))
     await db.investments.delete(id)
+    // Drop the user-edited marker too — investment no longer exists
+    unmarkInvestmentEdited(id)
     set(s => ({ investments: s.investments.filter(x => x.id !== id) }))
   },
 
@@ -544,6 +549,9 @@ export const useStore = create<AppState>((set, get) => ({
       ...demoTxIds.map(id => db.transactions.delete(id)),
       ...demoInvIds.map(id => db.investments.delete(id)),
     ])
+    // Drop user-edited markers for demo investments that may have been
+    // edited while demo mode was active.
+    demoInvIds.forEach(unmarkInvestmentEdited)
     set(s => ({
       transactions: s.transactions.filter(t => !isDemoTransaction(t)),
       investments:  s.investments.filter(i => !isDemoInvestment(i)),
@@ -559,6 +567,8 @@ export const useStore = create<AppState>((set, get) => ({
     // db.clearAll wipes every store and re-sets the seed flag so
     // demo data does not re-appear on the next page refresh.
     await db.clearAll(freshSettings)
+    // Drop ALL user-edited markers — investments no longer exist
+    clearAllUserEditedMarkers()
 
     set({
       transactions:  [],
