@@ -29,7 +29,7 @@ import { pfPath } from '../constants'
 type PeriodMode = 'monthly' | 'ytd' | 'yearly'
 
 export default function CashflowV2() {
-  const { transactions, subscriptions, settings } = useStore()
+  const { transactions, subscriptions, settings, updateTransaction, deleteTransaction } = useStore()
   const allCategories = useAllCategories()
   const navigate = useNavigate()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -42,8 +42,21 @@ export default function CashflowV2() {
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all')
   const [filterCat, setFilterCat] = useState<string>('all')
   const [showAddTx, setShowAddTx] = useState(false)
+  const [editingTx, setEditingTx] = useState<import('../lib/types').Transaction | null>(null)
   const [showDedup, setShowDedup] = useState(false)
   const [showAllTx, setShowAllTx] = useState(false)
+  // ── Bulk selection for the transactions table ──
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkCategory, setBulkCategory] = useState<string>('')
+  const [bulkRename, setBulkRename] = useState<string>('')
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const [bulkConfirmDelete, setBulkConfirmDelete] = useState(false)
+  const toggleSelect = (id: string) => setSelectedIds(prev => {
+    const next = new Set(prev)
+    if (next.has(id)) next.delete(id); else next.add(id)
+    return next
+  })
+  const clearSelection = () => setSelectedIds(new Set())
   type TxSortKey = 'date' | 'description' | 'category' | 'value'
   const [txSortKey, setTxSortKey] = useState<TxSortKey>('date')
   const [txSortDir, setTxSortDir] = useState<'asc' | 'desc'>('desc')
@@ -937,10 +950,110 @@ export default function CashflowV2() {
                   ))}
                 </select>
               </div>
+              {/* Bulk action toolbar — appears when any row is selected */}
+              {selectedIds.size > 0 && (
+                <div className="mb-3 flex items-center gap-2 flex-wrap px-3 py-2.5 rounded-xl border border-[#00d4ff]/30 bg-[#00d4ff]/5">
+                  <span className="text-xs font-semibold" style={{ color: '#00d4ff' }}>
+                    {selectedIds.size} selecionada{selectedIds.size !== 1 ? 's' : ''}
+                  </span>
+                  <span className="text-[#2a2a3e]">·</span>
+                  {/* Renomear em massa */}
+                  <input
+                    type="text"
+                    value={bulkRename}
+                    onChange={e => setBulkRename(e.target.value)}
+                    placeholder="Renomear todas para…"
+                    className="flex-1 min-w-[160px] px-3 py-1.5 text-xs rounded-lg bg-[#0a0a0f] border border-[#1e1e30] text-[#e8e8f0] placeholder:text-[#55556a] focus:outline-none focus:border-[#00d4ff]/40"
+                  />
+                  <button
+                    onClick={async () => {
+                      if (!bulkRename.trim()) return
+                      setBulkBusy(true)
+                      try {
+                        for (const id of selectedIds) {
+                          const t = transactions.find(x => x.id === id)
+                          if (t) await updateTransaction({ ...t, description: bulkRename.trim() })
+                        }
+                        setBulkRename('')
+                        clearSelection()
+                      } finally { setBulkBusy(false) }
+                    }}
+                    disabled={!bulkRename.trim() || bulkBusy}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#00d4ff]/10 text-[#00d4ff] hover:bg-[#00d4ff]/20 disabled:opacity-40"
+                  >Aplicar</button>
+                  {/* Mudar categoria em massa */}
+                  <select
+                    value={bulkCategory}
+                    onChange={async (e) => {
+                      const newCat = e.target.value
+                      if (!newCat) { setBulkCategory(''); return }
+                      setBulkCategory(newCat); setBulkBusy(true)
+                      try {
+                        for (const id of selectedIds) {
+                          const t = transactions.find(x => x.id === id)
+                          if (t) await updateTransaction({ ...t, category: newCat })
+                        }
+                        setBulkCategory(''); clearSelection()
+                      } finally { setBulkBusy(false) }
+                    }}
+                    disabled={bulkBusy}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium border border-[#1e1e30] bg-[#0a0a0f] text-[#8888aa]"
+                  >
+                    <option value="">Mudar categoria…</option>
+                    {allCategories.map(c => (
+                      <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+                    ))}
+                  </select>
+                  {/* Delete em massa */}
+                  {!bulkConfirmDelete ? (
+                    <button
+                      onClick={() => setBulkConfirmDelete(true)}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#ff4466]/10 text-[#ff4466] hover:bg-[#ff4466]/20"
+                    >Excluir</button>
+                  ) : (
+                    <>
+                      <button
+                        onClick={async () => {
+                          setBulkBusy(true)
+                          try {
+                            for (const id of selectedIds) await deleteTransaction(id)
+                            clearSelection(); setBulkConfirmDelete(false)
+                          } finally { setBulkBusy(false) }
+                        }}
+                        disabled={bulkBusy}
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#ff4466] text-[#0a0a0f] hover:opacity-90"
+                      >Confirmar exclusão</button>
+                      <button
+                        onClick={() => setBulkConfirmDelete(false)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium text-[#8888aa] hover:text-white"
+                      >Cancelar</button>
+                    </>
+                  )}
+                  <button
+                    onClick={clearSelection}
+                    className="ml-auto px-3 py-1.5 rounded-lg text-xs font-medium text-[#55556a] hover:text-white"
+                  >Limpar seleção</button>
+                </div>
+              )}
               {/* Table */}
               <div className="overflow-x-auto">
-                <div className="min-w-[640px] overflow-hidden rounded-xl border border-[#1e1e30] divide-y divide-[#1e1e30]">
-                  <div className="grid grid-cols-[80px_1fr_140px_120px] items-center px-3 py-2 text-[10px] uppercase tracking-wider text-[#55556a]">
+                <div className="min-w-[700px] overflow-hidden rounded-xl border border-[#1e1e30] divide-y divide-[#1e1e30]">
+                  <div className="grid grid-cols-[34px_80px_1fr_140px_120px] items-center px-3 py-2 text-[10px] uppercase tracking-wider text-[#55556a] gap-1">
+                    <input
+                      type="checkbox"
+                      checked={visibleRows.length > 0 && visibleRows.every(r => selectedIds.has(r.id))}
+                      ref={(el) => { if (el) el.indeterminate = visibleRows.some(r => selectedIds.has(r.id)) && !visibleRows.every(r => selectedIds.has(r.id)) }}
+                      onChange={(e) => {
+                        setSelectedIds(prev => {
+                          const next = new Set(prev)
+                          if (e.target.checked) visibleRows.forEach(r => next.add(r.id))
+                          else visibleRows.forEach(r => next.delete(r.id))
+                          return next
+                        })
+                      }}
+                      className="accent-[#00d4ff] w-3.5 h-3.5 cursor-pointer"
+                      title="Selecionar todos visíveis"
+                    />
                     <button onClick={() => toggleTxSort('date')}        className="text-left hover:text-[#e8e8f0] uppercase tracking-wider">Data{txSortIcon('date')}</button>
                     <button onClick={() => toggleTxSort('description')} className="text-left hover:text-[#e8e8f0] uppercase tracking-wider">Descrição{txSortIcon('description')}</button>
                     <button onClick={() => toggleTxSort('category')}    className="text-left hover:text-[#e8e8f0] uppercase tracking-wider">Categoria{txSortIcon('category')}</button>
@@ -951,14 +1064,33 @@ export default function CashflowV2() {
                   ) : visibleRows.map(t => {
                     const cat = allCategories.find(c => c.id === t.category)
                     const v = txBrl(t)
+                    const isSelected = selectedIds.has(t.id)
                     return (
-                      <div key={t.id} className="grid grid-cols-[80px_1fr_140px_120px] items-center px-3 py-2.5 text-xs v2-row-hover">
-                        <span className="v2-num text-[#8888aa]">{formatDate(t.date).slice(0, 5)}</span>
-                        <span className="font-medium truncate">{t.description}</span>
-                        <span className="text-[#8888aa] truncate">{cat?.icon ?? '📦'} {cat?.name ?? t.category}</span>
-                        <span className="v2-num font-semibold text-right" style={{ color: t.type === 'expense' ? '#ff4466' : '#00ff88' }}>
-                          {t.type === 'expense' ? '−' : '+'}{formatBRL(v, true)}
-                        </span>
+                      <div
+                        key={t.id}
+                        className="grid grid-cols-[34px_80px_1fr_140px_120px] items-center px-3 py-2.5 text-xs v2-row-hover gap-1"
+                        style={{ background: isSelected ? 'rgba(0,212,255,.05)' : undefined }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelect(t.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="accent-[#00d4ff] w-3.5 h-3.5 cursor-pointer"
+                          title="Selecionar"
+                        />
+                        <button
+                          onClick={() => setEditingTx(t)}
+                          className="contents text-left cursor-pointer"
+                          title="Clique para editar"
+                        >
+                          <span className="v2-num text-[#8888aa]">{formatDate(t.date).slice(0, 5)}</span>
+                          <span className="font-medium truncate">{t.description}</span>
+                          <span className="text-[#8888aa] truncate">{cat?.icon ?? '📦'} {cat?.name ?? t.category}</span>
+                          <span className="v2-num font-semibold text-right" style={{ color: t.type === 'expense' ? '#ff4466' : '#00ff88' }}>
+                            {t.type === 'expense' ? '−' : '+'}{formatBRL(v, true)}
+                          </span>
+                        </button>
                       </div>
                     )
                   })}
@@ -1004,6 +1136,7 @@ export default function CashflowV2() {
 
 
       <AddTransactionModal open={showAddTx} onClose={() => setShowAddTx(false)} />
+      <AddTransactionModal open={!!editingTx} onClose={() => setEditingTx(null)} initial={editingTx ?? undefined} />
       <DeduplicateModal    open={showDedup} onClose={() => setShowDedup(false)} />
     </div>
   )

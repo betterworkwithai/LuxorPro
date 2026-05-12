@@ -253,6 +253,7 @@ export function InvestmentModal({ open, onClose, initial, seedFromTransaction, o
   const [f, setF]             = useState(buildInitial)
   const [step, setStep]       = useState(0)
   const [saving, setSaving]   = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [history, setHistory] = useState<PricePoint[]>(initial?.priceHistory ?? [])
   const [hpDate, setHpDate]   = useState('')
   const [hpPrice, setHpPrice] = useState('')
@@ -333,6 +334,7 @@ export function InvestmentModal({ open, onClose, initial, seedFromTransaction, o
     }
 
     setSaving(true)
+    setSaveError(null)
     const payload: Omit<Investment, 'id'> = {
       name:              f.name,
       ticker:            f.ticker || undefined,
@@ -369,14 +371,21 @@ export function InvestmentModal({ open, onClose, initial, seedFromTransaction, o
       // on broker-sourced fields (quantity/currentPrice/avgCost/etc).
       lastUserEdit:      new Date().toISOString(),
     }
-    if (initial) await updateInvestment({ ...payload, id: initial.id })
-    else         await addInvestment(payload)
-    // If this was a transaction conversion, let the caller delete the source tx.
-    if (seedFromTransaction && onSeedSaved) {
-      try { await onSeedSaved() } catch (e) { console.error('[InvestmentModal] onSeedSaved failed:', e) }
+    try {
+      if (initial) await updateInvestment({ ...payload, id: initial.id })
+      else         await addInvestment(payload)
+      // If this was a transaction conversion, let the caller delete the source tx.
+      if (seedFromTransaction && onSeedSaved) {
+        try { await onSeedSaved() } catch (e) { console.error('[InvestmentModal] onSeedSaved failed:', e) }
+      }
+      setSaving(false)
+      onClose()
+    } catch (e) {
+      // Surface the error to the user instead of silently failing.
+      console.error('[InvestmentModal] save failed:', e)
+      setSaving(false)
+      setSaveError(e instanceof Error ? e.message : 'Falha ao salvar. Verifique sua conexão.')
     }
-    setSaving(false)
-    onClose()
   }
 
   const stepDot = (idx: number) => (
@@ -785,6 +794,12 @@ export function InvestmentModal({ open, onClose, initial, seedFromTransaction, o
         )}
       </div>
 
+      {saveError && (
+        <div className="px-6 py-3 border-t border-[#1e1e2e] bg-[#ff4466]/10">
+          <p className="text-xs font-semibold text-[#ff4466]">Erro ao salvar</p>
+          <p className="text-[11px] text-[#ff8898] mt-0.5">{saveError}</p>
+        </div>
+      )}
       <ModalFooter>
         <button className="btn-ghost" onClick={onClose}>Cancelar</button>
         {step > 0 && (

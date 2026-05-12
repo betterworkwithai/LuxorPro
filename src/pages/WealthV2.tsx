@@ -175,12 +175,16 @@ export default function WealthV2() {
   // ── Allocation by canonical class (all + summary) ──
   const allAllocation = useMemo(() => {
     const m = new Map<string, number>()
+    const byClass = new Map<string, { inv: Investment; valueBRL: number }[]>()
     investments.forEach(i => {
       if (i.location === 'physical-re') return
       const v = convert(i.quantity * i.currentPrice, i.currency, 'BRL', usdToBrl, eurToBrl)
       if (v <= 0) return
       const canon = i.location === 'offshore' ? canonicalIntlClass(i.assetClass) : canonicalLocalClass(i.assetClass)
       m.set(canon, (m.get(canon) ?? 0) + v)
+      const arr = byClass.get(canon) ?? []
+      arr.push({ inv: i, valueBRL: v })
+      byClass.set(canon, arr)
     })
     const total = Array.from(m.values()).reduce((a, b) => a + b, 0)
     const palette = ['#00d4ff', '#00ff88', '#8b5cf6', '#ec4899', '#f59e0b', '#3b82f6', '#ff7a00', '#14b8a6']
@@ -190,17 +194,25 @@ export default function WealthV2() {
         name, value,
         pct: total > 0 ? (value / total) * 100 : 0,
         color: palette[i % palette.length],
+        items: (byClass.get(name) ?? []).sort((a, b) => b.valueBRL - a.valueBRL),
       }))
   }, [investments, usdToBrl, eurToBrl])
   const allocation = useMemo(() => allAllocation.slice(0, 8), [allAllocation])
 
   // ── Generic breakdown helper: aggregates BRL value by some key ──
+  // Returns rows with `items` — the list of investments in each bucket —
+  // so the breakdown modals can expand a category to show the underlying
+  // positions.
   function breakdownBy<K extends string>(
     keyFn: (i: Investment) => K,
     palette: string[],
     keyOrder?: K[],
-  ): { slices: DonutSlice[]; total: number; rows: { key: K; value: number; pct: number; color: string }[] } {
+  ): {
+    slices: DonutSlice[]; total: number;
+    rows: { key: K; value: number; pct: number; color: string; items: { inv: Investment; valueBRL: number }[] }[]
+  } {
     const m = new Map<K, number>()
+    const byKey = new Map<K, { inv: Investment; valueBRL: number }[]>()
     let total = 0
     investments.forEach(i => {
       if (i.location === 'physical-re') return
@@ -208,6 +220,9 @@ export default function WealthV2() {
       if (v <= 0) return
       const k = keyFn(i)
       m.set(k, (m.get(k) ?? 0) + v)
+      const arr = byKey.get(k) ?? []
+      arr.push({ inv: i, valueBRL: v })
+      byKey.set(k, arr)
       total += v
     })
     const entries = keyOrder
@@ -217,6 +232,7 @@ export default function WealthV2() {
       key, value,
       pct: total > 0 ? (value / total) * 100 : 0,
       color: palette[i % palette.length],
+      items: (byKey.get(key) ?? []).sort((a, b) => b.valueBRL - a.valueBRL),
     }))
     const slices: DonutSlice[] = rows.map(r => ({
       label: String(r.key),
@@ -248,6 +264,7 @@ export default function WealthV2() {
   const taxBreakdown = useMemo(() => {
     const palette = ['#ff4466', '#f59e0b', '#00ff88', '#55556a']
     const m = new Map<string, number>()
+    const byKey = new Map<string, { inv: Investment; valueBRL: number }[]>()
     let total = 0
     investments.forEach(i => {
       if (i.location === 'physical-re') return
@@ -255,13 +272,17 @@ export default function WealthV2() {
       if (v <= 0) return
       const k = i.taxTreatment ?? 'unset'
       m.set(k, (m.get(k) ?? 0) + v)
+      const arr = byKey.get(k) ?? []
+      arr.push({ inv: i, valueBRL: v })
+      byKey.set(k, arr)
       total += v
     })
     const order = ['taxable', 'tax-deferred', 'tax-exempt', 'unset']
-    const rows = order.filter(k => m.has(k)).map((k, i) => ({
+    const rows = order.filter(k => m.has(k)).map(k => ({
       key: k, value: m.get(k)!,
       pct: total > 0 ? (m.get(k)! / total) * 100 : 0,
       color: palette[order.indexOf(k)],
+      items: (byKey.get(k) ?? []).sort((a, b) => b.valueBRL - a.valueBRL),
     }))
     const slices: DonutSlice[] = rows.map(r => ({ label: taxLabel[r.key] ?? r.key, value: r.value, color: r.color }))
     return { slices, total, rows }
@@ -328,6 +349,7 @@ export default function WealthV2() {
   }
   const onshoreClassBreakdown = useMemo(() => {
     const m = new Map<string, number>()
+    const byLabel = new Map<string, { inv: Investment; valueBRL: number }[]>()
     let total = 0
     let unmapped = 0
     investments.forEach(i => {
@@ -338,6 +360,9 @@ export default function WealthV2() {
       const label = mapOnshoreCanon(canon)
       if (label) {
         m.set(label, (m.get(label) ?? 0) + v)
+        const arr = byLabel.get(label) ?? []
+        arr.push({ inv: i, valueBRL: v })
+        byLabel.set(label, arr)
         total += v
       } else {
         unmapped += v
@@ -348,6 +373,7 @@ export default function WealthV2() {
       value: m.get(label) ?? 0,
       pct: total > 0 ? ((m.get(label) ?? 0) / total) * 100 : 0,
       color: ONSHORE_CLASS_PALETTE[label] ?? '#55556a',
+      items: (byLabel.get(label) ?? []).sort((a, b) => b.valueBRL - a.valueBRL),
     }))
     return { rows, total, unmapped }
   }, [investments, usdToBrl, eurToBrl])
@@ -411,6 +437,7 @@ export default function WealthV2() {
   }
   const onshoreProductBreakdown = useMemo(() => {
     const m = new Map<string, number>()
+    const byLabel = new Map<string, { inv: Investment; valueBRL: number }[]>()
     let total = 0
     investments.forEach(i => {
       if (i.location !== 'onshore') return
@@ -418,19 +445,23 @@ export default function WealthV2() {
       if (v <= 0) return
       const t = inferProductType(i)
       m.set(t, (m.get(t) ?? 0) + v)
+      const arr = byLabel.get(t) ?? []
+      arr.push({ inv: i, valueBRL: v })
+      byLabel.set(t, arr)
       total += v
     })
     // Alphabetical (pt-BR) — but use the requested canonical list as the
     // primary set; any extras go after.
     const seen = new Set<string>()
     const palette = ['#00d4ff', '#00ff88', '#8b5cf6', '#ec4899', '#f59e0b', '#3b82f6', '#ff7a00', '#14b8a6', '#a855f7', '#84cc16', '#6366f1', '#ff4466']
-    const rows: { label: string; value: number; pct: number; color: string }[] = []
+    const rows: { label: string; value: number; pct: number; color: string; items: { inv: Investment; valueBRL: number }[] }[] = []
     const sorted = [...ONSHORE_PRODUCT_TYPES].sort((a, b) => a.localeCompare(b, 'pt-BR'))
     sorted.forEach((t, i) => {
       const v = m.get(t) ?? 0
       seen.add(t)
       rows.push({
         label: t, value: v,
+        items: (byLabel.get(t) ?? []).sort((a, b) => b.valueBRL - a.valueBRL),
         pct: total > 0 ? (v / total) * 100 : 0,
         color: palette[i % palette.length],
       })
@@ -450,6 +481,7 @@ export default function WealthV2() {
     // Green → yellow → red gradient
     const palette = ['#00ff88', '#84cc16', '#f59e0b', '#ff7a00', '#ff4466', '#55556a']
     const m = new Map<string, number>()
+    const byKey = new Map<string, { inv: Investment; valueBRL: number }[]>()
     let total = 0
     investments.forEach(i => {
       if (i.location === 'physical-re') return
@@ -457,6 +489,9 @@ export default function WealthV2() {
       if (v <= 0) return
       const k = i.riskLevel ? String(i.riskLevel) : 'unset'
       m.set(k, (m.get(k) ?? 0) + v)
+      const arr = byKey.get(k) ?? []
+      arr.push({ inv: i, valueBRL: v })
+      byKey.set(k, arr)
       total += v
     })
     const order = ['1', '2', '3', '4', '5', 'unset']
@@ -464,6 +499,7 @@ export default function WealthV2() {
       key: k, value: m.get(k)!,
       pct: total > 0 ? (m.get(k)! / total) * 100 : 0,
       color: palette[order.indexOf(k)],
+      items: (byKey.get(k) ?? []).sort((a, b) => b.valueBRL - a.valueBRL),
     }))
     const slices: DonutSlice[] = rows.map(r => ({ label: riskLabel[r.key] ?? r.key, value: r.value, color: r.color }))
     return { slices, total, rows }
@@ -945,21 +981,18 @@ export default function WealthV2() {
               allAllocation.length === 0 ? (
                 <p className="text-xs text-[#55556a] text-center py-8">Adicione investimentos para ver a alocação.</p>
               ) : (
-                <div className="overflow-hidden rounded-xl border border-[#1e1e30] divide-y divide-[#1e1e30]">
-                  <div className="grid grid-cols-[1fr_140px_80px] items-center px-3 py-2 text-[10px] uppercase tracking-wider text-[#55556a]">
-                    <span>Classe canônica</span>
-                    <span className="text-right">Posição</span>
-                    <span className="text-right">% carteira</span>
-                  </div>
+                <div className="space-y-2">
                   {allAllocation.map(a => (
-                    <div key={a.name} className="grid grid-cols-[1fr_140px_80px] items-center px-3 py-3 text-xs v2-row-hover">
-                      <span className="flex items-center gap-2 min-w-0">
-                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: a.color }}/>
-                        <span className="font-medium truncate">{a.name}</span>
-                      </span>
-                      <span className="v2-num text-right font-semibold">{fmt(toBase(a.value), true)}</span>
-                      <span className="v2-num text-right" style={{ color: a.color }}>{a.pct.toFixed(1)}%</span>
-                    </div>
+                    <CategoryRow
+                      key={a.name}
+                      label={a.name}
+                      color={a.color}
+                      value={a.value}
+                      pct={a.pct}
+                      items={a.items}
+                      fmt={(v) => fmt(toBase(v), true)}
+                      setEditing={setEditing}
+                    />
                   ))}
                 </div>
               )
@@ -1239,21 +1272,18 @@ export default function WealthV2() {
               onshoreClassBreakdown.total <= 0 ? (
                 <p className="text-xs text-[#55556a] text-center py-8">Sem ativos onshore para classificar.</p>
               ) : (
-                <div className="overflow-hidden rounded-xl border border-[#1e1e30] divide-y divide-[#1e1e30]">
-                  <div className="grid grid-cols-[1fr_140px_80px] items-center px-3 py-2 text-[10px] uppercase tracking-wider text-[#55556a]">
-                    <span>Classe</span>
-                    <span className="text-right">Posição</span>
-                    <span className="text-right">%</span>
-                  </div>
+                <div className="space-y-2">
                   {onshoreClassBreakdown.rows.map(r => (
-                    <div key={r.label} className="grid grid-cols-[1fr_140px_80px] items-center px-3 py-3 text-xs v2-row-hover">
-                      <span className="flex items-center gap-2 min-w-0">
-                        <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: r.color }}/>
-                        <span className="font-medium truncate">{r.label}</span>
-                      </span>
-                      <span className="v2-num text-right font-semibold">{r.value > 0 ? fmt(toBase(r.value), true) : '—'}</span>
-                      <span className="v2-num text-right" style={{ color: r.value > 0 ? r.color : '#55556a' }}>{r.pct.toFixed(1)}%</span>
-                    </div>
+                    <CategoryRow
+                      key={r.label}
+                      label={r.label}
+                      color={r.color}
+                      value={r.value}
+                      pct={r.pct}
+                      items={r.items}
+                      fmt={(v) => fmt(toBase(v), true)}
+                      setEditing={setEditing}
+                    />
                   ))}
                 </div>
               )
@@ -1292,19 +1322,18 @@ export default function WealthV2() {
               onshoreProductBreakdown.total <= 0 ? (
                 <p className="text-xs text-[#55556a] text-center py-8">Sem ativos onshore para classificar.</p>
               ) : (
-                <div className="grid sm:grid-cols-2 gap-2">
-                  {onshoreProductBreakdown.rows.map(r => (
-                    <div
+                <div className="space-y-2">
+                  {onshoreProductBreakdown.rows.filter(r => r.value > 0).map(r => (
+                    <CategoryRow
                       key={r.label}
-                      className={`v2-card p-3 ${r.value <= 0 ? 'opacity-50' : ''}`}
-                    >
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: r.color }}/>
-                        <span className="text-xs font-semibold flex-1 min-w-0 truncate">{r.label}</span>
-                        <span className="v2-num text-[10px] flex-shrink-0" style={{ color: r.value > 0 ? r.color : '#55556a' }}>{r.pct.toFixed(1)}%</span>
-                      </div>
-                      <p className="v2-num text-xs text-[#8888aa]">{r.value > 0 ? fmt(toBase(r.value), true) : '—'}</p>
-                    </div>
+                      label={r.label}
+                      color={r.color}
+                      value={r.value}
+                      pct={r.pct}
+                      items={r.items}
+                      fmt={(v) => fmt(toBase(v), true)}
+                      setEditing={setEditing}
+                    />
                   ))}
                 </div>
               )
@@ -1350,21 +1379,18 @@ export default function WealthV2() {
               ) : (
                 <div className="grid sm:grid-cols-[200px_1fr] gap-6 items-start">
                   <div className="flex justify-center"><Donut data={liquidityBreakdown.slices} size={200} centerLabel="Liquidez"/></div>
-                  <div className="overflow-hidden rounded-xl border border-[#1e1e30] divide-y divide-[#1e1e30]">
-                    <div className="grid grid-cols-[1fr_140px_70px] items-center px-3 py-2 text-[10px] uppercase tracking-wider text-[#55556a]">
-                      <span>Prazo</span>
-                      <span className="text-right">Posição</span>
-                      <span className="text-right">%</span>
-                    </div>
+                  <div className="space-y-2">
                     {liquidityBreakdown.rows.map(r => (
-                      <div key={r.key} className="grid grid-cols-[1fr_140px_70px] items-center px-3 py-2.5 text-xs v2-row-hover">
-                        <span className="flex items-center gap-2 min-w-0">
-                          <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: r.color }}/>
-                          <span className="font-medium truncate">{r.key}</span>
-                        </span>
-                        <span className="v2-num text-right font-semibold">{fmt(toBase(r.value), true)}</span>
-                        <span className="v2-num text-right" style={{ color: r.color }}>{r.pct.toFixed(0)}%</span>
-                      </div>
+                      <CategoryRow
+                        key={r.key}
+                        label={r.key}
+                        color={r.color}
+                        value={r.value}
+                        pct={r.pct}
+                        items={r.items}
+                        fmt={(v) => fmt(toBase(v), true)}
+                        setEditing={setEditing}
+                      />
                     ))}
                   </div>
                 </div>
@@ -1393,22 +1419,25 @@ export default function WealthV2() {
               ) : (
                 <div className="grid sm:grid-cols-[200px_1fr] gap-6 items-start">
                   <div className="flex justify-center"><Donut data={taxBreakdown.slices} size={200} centerLabel="Tributação"/></div>
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     {taxBreakdown.rows.map(r => (
-                      <div key={r.key} className="v2-card p-3">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: r.color }}/>
-                          <span className="text-sm font-semibold">{taxLabel[r.key] ?? r.key}</span>
-                          <span className="ml-auto v2-num text-xs font-bold" style={{ color: r.color }}>{r.pct.toFixed(1)}%</span>
-                        </div>
-                        <p className="v2-num text-base font-bold">{fmt(toBase(r.value), true)}</p>
-                        <p className="text-[10px] text-[#55556a] mt-1">
-                          {r.key === 'taxable' && 'CDB, LF, COE, ações — tributação na fonte ou come-cotas'}
-                          {r.key === 'tax-deferred' && 'PGBL, VGBL — tributação só no resgate'}
-                          {r.key === 'tax-exempt' && 'LCI, LCA, CRI, CRA, debêntures incentivadas — isento de IR'}
-                          {r.key === 'unset' && 'Cadastre o regime no formulário do investimento'}
-                        </p>
-                      </div>
+                      <CategoryRow
+                        key={r.key}
+                        label={taxLabel[r.key] ?? r.key}
+                        color={r.color}
+                        value={r.value}
+                        pct={r.pct}
+                        items={r.items}
+                        fmt={(v) => fmt(toBase(v), true)}
+                        setEditing={setEditing}
+                        footnote={
+                          r.key === 'taxable'      ? 'CDB, LF, COE, ações — tributação na fonte ou come-cotas' :
+                          r.key === 'tax-deferred' ? 'PGBL, VGBL — tributação só no resgate' :
+                          r.key === 'tax-exempt'   ? 'LCI, LCA, CRI, CRA, debêntures incentivadas — isento de IR' :
+                          r.key === 'unset'        ? 'Cadastre o regime no formulário do investimento' :
+                                                     undefined
+                        }
+                      />
                     ))}
                   </div>
                 </div>
@@ -1434,21 +1463,18 @@ export default function WealthV2() {
               ) : (
                 <div className="grid sm:grid-cols-[200px_1fr] gap-6 items-start">
                   <div className="flex justify-center"><Donut data={institutionBreakdown.slices} size={200} centerLabel="Instituições"/></div>
-                  <div className="overflow-hidden rounded-xl border border-[#1e1e30] divide-y divide-[#1e1e30]">
-                    <div className="grid grid-cols-[1fr_140px_70px] items-center px-3 py-2 text-[10px] uppercase tracking-wider text-[#55556a]">
-                      <span>Instituição</span>
-                      <span className="text-right">Posição</span>
-                      <span className="text-right">%</span>
-                    </div>
+                  <div className="space-y-2">
                     {institutionBreakdown.rows.map(r => (
-                      <div key={r.key} className="grid grid-cols-[1fr_140px_70px] items-center px-3 py-2.5 text-xs v2-row-hover">
-                        <span className="flex items-center gap-2 min-w-0">
-                          <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: r.color }}/>
-                          <span className="font-medium truncate">{r.key}</span>
-                        </span>
-                        <span className="v2-num text-right font-semibold">{fmt(toBase(r.value), true)}</span>
-                        <span className="v2-num text-right" style={{ color: r.color }}>{r.pct.toFixed(0)}%</span>
-                      </div>
+                      <CategoryRow
+                        key={r.key}
+                        label={r.key}
+                        color={r.color}
+                        value={r.value}
+                        pct={r.pct}
+                        items={r.items}
+                        fmt={(v) => fmt(toBase(v), true)}
+                        setEditing={setEditing}
+                      />
                     ))}
                   </div>
                 </div>
@@ -1479,15 +1505,16 @@ export default function WealthV2() {
                   <div className="flex justify-center"><Donut data={riskBreakdown.slices} size={200} centerLabel="Risco"/></div>
                   <div className="space-y-2">
                     {riskBreakdown.rows.map(r => (
-                      <div key={r.key} className="v2-card p-3 flex items-center gap-3">
-                        <span className="w-9 h-9 rounded-lg flex items-center justify-center font-bold v2-num" style={{ background: `${r.color}1f`, color: r.color }}>
-                          {r.key === 'unset' ? '—' : r.key}
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold truncate">{riskLabel[r.key] ?? r.key}</p>
-                          <p className="v2-num text-xs text-[#8888aa]">{fmt(toBase(r.value), true)} · {r.pct.toFixed(1)}%</p>
-                        </div>
-                      </div>
+                      <CategoryRow
+                        key={r.key}
+                        label={`${r.key === 'unset' ? '—' : r.key} · ${riskLabel[r.key] ?? r.key}`}
+                        color={r.color}
+                        value={r.value}
+                        pct={r.pct}
+                        items={r.items}
+                        fmt={(v) => fmt(toBase(v), true)}
+                        setEditing={setEditing}
+                      />
                     ))}
                   </div>
                 </div>
@@ -1685,5 +1712,61 @@ export default function WealthV2() {
       <InvestmentModal open={showAddInv} onClose={() => setShowAddInv(false)} />
       <InvestmentModal open={!!editing} onClose={() => setEditing(null)} initial={editing ?? undefined} />
     </div>
+  )
+}
+
+// ── Expandable category row used in every breakdown modal ───────────
+// Renders a summary line (color · label · value · %), and when expanded
+// shows the individual investments composing that bucket. Each child
+// investment is itself clickable — opens the edit modal via setEditing.
+function CategoryRow({
+  label, color, value, pct, items, fmt, setEditing, footnote,
+}: {
+  label: string
+  color: string
+  value: number
+  pct: number
+  items: { inv: Investment; valueBRL: number }[]
+  fmt: (vBRL: number) => string
+  setEditing: (i: Investment) => void
+  footnote?: string
+}) {
+  const hasItems = items.length > 0
+  return (
+    <details className="v2-card group">
+      <summary
+        className={`list-none flex items-center gap-3 px-3 py-2.5 ${hasItems ? 'cursor-pointer hover:bg-[#161729]' : 'cursor-default'} rounded-xl transition-colors`}
+      >
+        <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: color }}/>
+        <span className="flex-1 min-w-0 truncate text-sm font-medium">{label}</span>
+        <span className="v2-num text-xs font-semibold whitespace-nowrap">{value > 0 ? fmt(value) : '—'}</span>
+        <span className="v2-num text-xs font-bold w-14 text-right" style={{ color: value > 0 ? color : '#55556a' }}>{pct.toFixed(1)}%</span>
+        {hasItems && (
+          <span className="text-[10px] text-[#55556a] w-10 text-right group-open:rotate-90 transition-transform">▶ {items.length}</span>
+        )}
+      </summary>
+      {hasItems && (
+        <div className="border-t border-[#1e1e30] divide-y divide-[#1e1e30] bg-[#0a0a0f]">
+          {items.map(({ inv, valueBRL }) => (
+            <button
+              key={inv.id}
+              onClick={(e) => { e.preventDefault(); setEditing(inv); }}
+              className="w-full text-left grid grid-cols-[100px_1fr_120px] items-center gap-2 px-3 py-2 text-xs hover:bg-[#161729] transition-colors"
+              title="Clique para editar"
+            >
+              <span className="font-mono font-semibold truncate" style={{ color: '#00d4ff' }}>{inv.ticker || inv.name.slice(0, 12)}</span>
+              <span className="min-w-0">
+                <span className="block truncate font-medium">{inv.name}</span>
+                <span className="block text-[10px] text-[#55556a] truncate">{inv.assetClass} · {inv.institution}</span>
+              </span>
+              <span className="v2-num text-right font-semibold">{fmt(valueBRL)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {footnote && (
+        <p className="px-3 py-2 text-[10px] text-[#55556a] border-t border-[#1e1e30] bg-[#0a0a0f]">{footnote}</p>
+      )}
+    </details>
   )
 }

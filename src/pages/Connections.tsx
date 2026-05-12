@@ -647,7 +647,16 @@ export default function Connections() {
 
       const todayIso = new Date().toISOString().slice(0, 10)
       for (const inv of investments) {
-        const existing = existingInvByPluggyId.get(inv.id)
+        // CRITICAL: re-read the latest state INSIDE the loop, not just the
+        // snapshot we took before the sync started. If the user saved an
+        // edit while the sync was already in flight, our outer snapshot
+        // would have a stale `existing` without their lastUserEdit. Reading
+        // fresh here closes that race window.
+        const latestInv = useStore.getState().investments.find(x => {
+          const m = x.notes?.match(/pluggy:([^\s]+)/)
+          return m?.[1] === inv.id
+        })
+        const existing = latestInv ?? existingInvByPluggyId.get(inv.id)
         if (existing) {
           // Already imported → refresh price history + market data
           const mapped       = mapInvestment(inv, pluggyItem.connector.name)
