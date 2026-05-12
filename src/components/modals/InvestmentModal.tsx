@@ -50,8 +50,8 @@ const PRODUCT_TYPES: { value: ProductType; label: string; emoji: string; desc: s
 const TITULO_TYPES = ['CDB', 'CDCA', 'CPR', 'CRA', 'CRI', 'Debênture', 'LCA', 'LCI', 'LF', 'LIG', 'Outro', 'Soberano'].sort((a, b) => a.localeCompare(b, 'pt-BR'))
 
 const FUNDO_TYPES = [
-  'FI', 'FIA', 'FIAGRO', 'FIDC', 'FII', 'FIM', 'FIP',
-  'FUNDO-IMOB', 'Offshore Fund', 'Outro',
+  'FI', 'FIA', 'FIAGRO', 'FIDC', 'FII', 'FI-Infra', 'FIM', 'FIP',
+  'Outro',
   'Previdência PGBL', 'Previdência VGBL',
 ].sort((a, b) => a.localeCompare(b, 'pt-BR'))
 
