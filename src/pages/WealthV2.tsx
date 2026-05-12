@@ -8,7 +8,7 @@
 import React, { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  AlertTriangle, ArrowDownUp, ArrowRight, ArrowUpRight, Building2,
+  AlertTriangle, ArrowDownRight, ArrowDownUp, ArrowRight, ArrowUpRight, Building2,
   ChevronDown, Download, Filter, Gift, Layers, Link2, PlusCircle, RefreshCw,
   Scale, Search, TrendingUp, Wallet, Zap,
 } from 'lucide-react'
@@ -30,7 +30,7 @@ const SUITABILITY_SCORE: Record<string, number> = {
 }
 
 export default function WealthV2() {
-  const { investments, transactions, settings } = useStore()
+  const { investments, transactions, settings, deleteInvestment } = useStore()
   const navigate = useNavigate()
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -117,28 +117,44 @@ export default function WealthV2() {
   }
 
   // ── Period-aware totals ───────────────────────
+  // Also tracks `historyCoverage` — the fraction of total portfolio value
+  // (BRL) backed by a real priceHistory point on/before the period cutoff.
+  // Below ~50% we know the "period gain" math (which extrapolates from
+  // avgCost when history is missing) is unreliable, so the UI falls back
+  // to showing lifetime gain instead of a fabricated period number.
   const totals = useMemo(() => {
     const liquidInv = investments.filter(i => i.location !== 'physical-re')
     const all = investments
     let totalValueBRL = 0, totalCostBRL = 0, startValueBRL = 0
     let dividendsBRL = 0, interestBRL = 0
+    let valueWithHistoryBRL = 0
     liquidInv.forEach(i => {
-      totalValueBRL += convert(i.quantity * i.currentPrice, i.currency, 'BRL', usdToBrl, eurToBrl)
-      totalCostBRL  += convert(i.quantity * i.avgCost,      i.currency, 'BRL', usdToBrl, eurToBrl)
+      const cur  = convert(i.quantity * i.currentPrice, i.currency, 'BRL', usdToBrl, eurToBrl)
+      const cost = convert(i.quantity * i.avgCost,      i.currency, 'BRL', usdToBrl, eurToBrl)
+      totalValueBRL += cur
+      totalCostBRL  += cost
       const sp = startPriceFor(i, periodCutoff)
       startValueBRL += convert(i.quantity * sp, i.currency, 'BRL', usdToBrl, eurToBrl)
-      dividendsBRL  += convert(i.dividendsReceived ?? 0,    i.currency, 'BRL', usdToBrl, eurToBrl)
-      interestBRL   += convert(i.interestReceived ?? 0,     i.currency, 'BRL', usdToBrl, eurToBrl)
+      dividendsBRL  += convert(i.dividendsReceived ?? 0, i.currency, 'BRL', usdToBrl, eurToBrl)
+      interestBRL   += convert(i.interestReceived ?? 0,  i.currency, 'BRL', usdToBrl, eurToBrl)
+      // Does this asset have a priceHistory point at or before the cutoff?
+      // For ALL period everything counts as "with history" (we use cost basis).
+      const hasReliableStart =
+        period === 'ALL'
+        || (Array.isArray(i.priceHistory) && i.priceHistory.some(p => p?.date && p.date <= periodCutoff))
+      if (hasReliableStart) valueWithHistoryBRL += cur
     })
     const physicalBRL = all.filter(i => i.location === 'physical-re').reduce((s, i) =>
       s + convert(i.quantity * i.currentPrice, i.currency, 'BRL', usdToBrl, eurToBrl), 0)
-    // Lifetime gain (vs avg cost) — kept for ALL view
+    // Lifetime gain (vs avg cost) — always available, used as fallback
     const lifetimeGainBRL = totalValueBRL - totalCostBRL
     const lifetimeGainPct = totalCostBRL > 0 ? (lifetimeGainBRL / totalCostBRL) * 100 : 0
+    const historyCoverage = totalValueBRL > 0 ? valueWithHistoryBRL / totalValueBRL : 1
     return {
       totalValueBRL, totalCostBRL, startValueBRL,
       lifetimeGainBRL, lifetimeGainPct,
       dividendsBRL, interestBRL, physicalBRL,
+      historyCoverage,
       totalNetWorthBRL: totalValueBRL + physicalBRL,
     }
   }, [investments, usdToBrl, eurToBrl, periodCutoff, period])
@@ -158,14 +174,28 @@ export default function WealthV2() {
 
   // ── Period gain (capital + cash flow) ─────────
   // periodGain = end - start - (aportes − resgates)
-  // For ALL, use lifetime gain vs cost (more accurate when start prices unknown).
-  const periodGainBRL = period === 'ALL'
-    ? totals.lifetimeGainBRL
-    : totals.totalValueBRL - totals.startValueBRL - (periodAportes - periodResgates)
-  const periodGainBase = period === 'ALL'
-    ? totals.totalCostBRL
-    : Math.max(totals.startValueBRL + (periodAportes - periodResgates) / 2, 1)
+  // When priceHistory coverage is too sparse to trust (<50% of portfolio
+  // value), the math degenerates because `startValue` collapses to cost
+  // basis. We auto-fall back to lifetime gain (current − cost) and flag
+  // the metric as "vs custo" instead of "no período" so users aren't shown
+  // fabricated numbers.
+  const HISTORY_COVERAGE_THRESHOLD = 0.5
+  const useLifetimeFallback = period !== 'ALL' && totals.historyCoverage < HISTORY_COVERAGE_THRESHOLD
+  const periodGainBRL =
+    period === 'ALL' || useLifetimeFallback
+      ? totals.lifetimeGainBRL
+      : totals.totalValueBRL - totals.startValueBRL - (periodAportes - periodResgates)
+  const periodGainBase =
+    period === 'ALL' || useLifetimeFallback
+      ? totals.totalCostBRL
+      : Math.max(totals.startValueBRL + (periodAportes - periodResgates) / 2, 1)
   const periodGainPct = periodGainBase > 0 ? (periodGainBRL / periodGainBase) * 100 : 0
+  // Label nuances: when falling back, tell the user what they're seeing
+  const gainSuffix = period === 'ALL'
+    ? 'vs custo médio'
+    : useLifetimeFallback
+      ? 'vs custo (histórico de preços insuficiente)'
+      : 'no período'
 
   const monthsElapsed = useMemo(() => {
     const ms = Date.now() - new Date(periodCutoff + 'T00:00:00').getTime()
@@ -727,9 +757,13 @@ export default function WealthV2() {
                   background: periodGainBRL >= 0 ? 'rgba(0,255,136,.12)' : 'rgba(255,68,102,.12)',
                   color: periodGainBRL >= 0 ? '#00ff88' : '#ff4466',
                   border: `1px solid ${periodGainBRL >= 0 ? 'rgba(0,255,136,.25)' : 'rgba(255,68,102,.25)'}`,
-                }}>
-                  <ArrowUpRight className="w-3 h-3"/>
-                  {periodGainBRL >= 0 ? '+' : ''}{fmt(toBase(Math.abs(periodGainBRL)), true)} · {periodGainPct >= 0 ? '+' : ''}{periodGainPct.toFixed(1)}% no período
+                }}
+                title={useLifetimeFallback ? 'Mostrando ganho vs custo médio porque seu histórico de preços ainda não cobre o início do período. Para retorno do período exato, cadastre o preço do ativo na data de início ou conecte uma corretora que reporte histórico de preço.' : undefined}
+                >
+                  {periodGainBRL >= 0
+                    ? <ArrowUpRight   className="w-3 h-3"/>
+                    : <ArrowDownRight className="w-3 h-3"/>}
+                  {periodGainBRL >= 0 ? '+' : '−'}{fmt(toBase(Math.abs(periodGainBRL)), true)} · {periodGainPct >= 0 ? '+' : '−'}{Math.abs(periodGainPct).toFixed(1)}% {gainSuffix}
                 </span>
               </div>
               <div className="mt-4 flex items-center gap-3 text-xs text-[#8888aa] flex-wrap">
@@ -823,15 +857,15 @@ export default function WealthV2() {
               <AttentionChip
                 icon={TrendingUp}
                 tone="red"
-                title={`Carteira em ${periodGainPct.toFixed(1)}% no período`}
-                subtitle={`Perda de ${fmt(toBase(Math.abs(periodGainBRL)), true)} ${period === 'ALL' ? 'vs custo médio' : `desde início ${periodLabel}`}`}
+                title={`Carteira em −${Math.abs(periodGainPct).toFixed(1)}% ${gainSuffix}`}
+                subtitle={`Perda de ${fmt(toBase(Math.abs(periodGainBRL)), true)} ${useLifetimeFallback ? '· histórico de preços insuficiente' : ''}`}
               />
             ) : (
               <AttentionChip
                 icon={TrendingUp}
                 tone="green"
-                title={`Rentabilidade ${periodGainPct >= 0 ? '+' : ''}${periodGainPct.toFixed(1)}% no período`}
-                subtitle={`Ganho de ${fmt(toBase(periodGainBRL), true)} ${period === 'ALL' ? 'vs custo médio' : `desde início ${periodLabel}`}`}
+                title={`Rentabilidade +${periodGainPct.toFixed(1)}% ${gainSuffix}`}
+                subtitle={`Ganho de ${fmt(toBase(periodGainBRL), true)} ${useLifetimeFallback ? '· histórico de preços insuficiente' : ''}`}
               />
             )}
           </div>
@@ -840,12 +874,12 @@ export default function WealthV2() {
         {/* KPIs */}
         <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 v2-reveal">
           <KpiCard
-            caption={`Rentabilidade ${periodLabel}`}
-            value={`${periodGainPct >= 0 ? '+' : ''}${periodGainPct.toFixed(1)}%`}
+            caption={useLifetimeFallback ? 'Ganho vs custo médio' : `Rentabilidade ${periodLabel}`}
+            value={`${periodGainPct >= 0 ? '+' : '−'}${Math.abs(periodGainPct).toFixed(1)}%`}
             valueColor={periodGainPct >= 0 ? '#00ff88' : '#ff4466'}
-            secondary={`${periodGainBRL >= 0 ? '+' : ''}${fmt(toBase(periodGainBRL), true)} nominal`}
-            pillText={periodGainPct >= 0 ? 'positiva' : 'negativa'}
-            pillColor={periodGainPct >= 0 ? 'green' : 'red'}
+            secondary={`${periodGainBRL >= 0 ? '+' : '−'}${fmt(toBase(Math.abs(periodGainBRL)), true)} ${useLifetimeFallback ? '· histórico insuficiente' : 'nominal'}`}
+            pillText={useLifetimeFallback ? 'aprox.' : periodGainPct >= 0 ? 'positiva' : 'negativa'}
+            pillColor={useLifetimeFallback ? 'amber' : periodGainPct >= 0 ? 'green' : 'red'}
           />
           <KpiCard
             caption={`Aportes ${periodLabel}`}
@@ -1669,32 +1703,54 @@ export default function WealthV2() {
                 )}
               </div>
               <div className="overflow-x-auto">
-                <div className="min-w-[820px] overflow-hidden rounded-xl border border-[#1e1e30] divide-y divide-[#1e1e30]">
-                  <div className="grid grid-cols-[100px_1fr_100px_140px_120px_110px] items-center px-3 py-2 text-[10px] uppercase tracking-wider text-[#55556a]">
-                    <button onClick={() => toggleSort('name')} className="text-left hover:text-[#e8e8f0]">Ticker{sortIcon('name')}</button>
-                    <button onClick={() => toggleSort('class')} className="text-left hover:text-[#e8e8f0]">Ativo · classe{sortIcon('class')}</button>
-                    <button onClick={() => toggleSort('qty')} className="text-right hover:text-[#e8e8f0]">Qtd{sortIcon('qty')}</button>
-                    <button onClick={() => toggleSort('avgCost')} className="text-right hover:text-[#e8e8f0]">PM / Atual{sortIcon('avgCost')}</button>
+                <div className="min-w-[860px] overflow-hidden rounded-xl border border-[#1e1e30] divide-y divide-[#1e1e30]">
+                  <div className="grid grid-cols-[100px_1fr_100px_140px_120px_110px_36px] items-center gap-1 px-3 py-2 text-[10px] uppercase tracking-wider text-[#55556a]">
+                    <button onClick={() => toggleSort('name')}     className="text-left hover:text-[#e8e8f0]">Ticker{sortIcon('name')}</button>
+                    <button onClick={() => toggleSort('class')}    className="text-left hover:text-[#e8e8f0]">Ativo · classe{sortIcon('class')}</button>
+                    <button onClick={() => toggleSort('qty')}      className="text-right hover:text-[#e8e8f0]">Qtd{sortIcon('qty')}</button>
+                    <button onClick={() => toggleSort('avgCost')}  className="text-right hover:text-[#e8e8f0]">PM / Atual{sortIcon('avgCost')}</button>
                     <button onClick={() => toggleSort('position')} className="text-right hover:text-[#e8e8f0]">Posição{sortIcon('position')}</button>
-                    <button onClick={() => toggleSort('period')} className="text-right hover:text-[#e8e8f0]">Retorno {periodLabel}{sortIcon('period')}</button>
+                    <button onClick={() => toggleSort('period')}   className="text-right hover:text-[#e8e8f0]">Retorno {periodLabel}{sortIcon('period')}</button>
+                    <span></span>
                   </div>
                   {visiblePos.length === 0 ? (
                     <div className="px-3 py-6 text-center text-xs text-[#55556a]">Nenhum ativo encontrado.</div>
-                  ) : visiblePos.map(p => (
-                    <button
-                      key={p.id}
-                      onClick={() => setEditing(p as Investment)}
-                      className="grid grid-cols-[100px_1fr_100px_140px_120px_110px] items-center px-3 py-2.5 text-xs v2-row-hover w-full text-left cursor-pointer"
-                      title="Clique para editar"
-                    >
-                      <span className="font-mono font-semibold truncate" style={{ color: '#00d4ff' }}>{p.ticker || p.name.slice(0, 8)}</span>
-                      <span className="font-medium truncate">{p.name}<span className="text-[#55556a]"> · {p.assetClass}</span></span>
-                      <span className="v2-num text-right text-[#8888aa]">{p.quantity.toLocaleString('pt-BR', { maximumFractionDigits: 4 })}</span>
-                      <span className="v2-num text-right text-[#8888aa]">{p.avgCost.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} / {p.currentPrice.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}</span>
-                      <span className="v2-num text-right font-semibold">{fmt(toBase(p.currentBRL), true)}</span>
-                      <span className="v2-num text-right font-semibold" style={{ color: p.pct >= 0 ? '#00ff88' : '#ff4466' }}>{p.pct >= 0 ? '+' : ''}{p.pct.toFixed(1)}%</span>
-                    </button>
-                  ))}
+                  ) : visiblePos.map(p => {
+                    const isPluggy = !!p.notes?.match(/pluggy:[^\s]+/)
+                    return (
+                      <div
+                        key={p.id}
+                        onClick={() => setEditing(p as Investment)}
+                        className="grid grid-cols-[100px_1fr_100px_140px_120px_110px_36px] items-center gap-1 px-3 py-2.5 text-xs v2-row-hover cursor-pointer"
+                        title="Clique para editar"
+                      >
+                        <span className="font-mono font-semibold truncate" style={{ color: '#00d4ff' }}>{p.ticker || p.name.slice(0, 8)}</span>
+                        <span className="font-medium truncate">{p.name}<span className="text-[#55556a]"> · {p.assetClass}</span></span>
+                        <span className="v2-num text-right text-[#8888aa]">{p.quantity.toLocaleString('pt-BR', { maximumFractionDigits: 4 })}</span>
+                        <span className="v2-num text-right text-[#8888aa]">{p.avgCost.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} / {p.currentPrice.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}</span>
+                        <span className="v2-num text-right font-semibold">{fmt(toBase(p.currentBRL), true)}</span>
+                        <span className="v2-num text-right font-semibold" style={{ color: p.pct >= 0 ? '#00ff88' : '#ff4466' }}>{p.pct >= 0 ? '+' : ''}{p.pct.toFixed(1)}%</span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            const msg = isPluggy
+                              ? `Excluir "${p.name}"?\n\nEste ativo foi importado do Open Finance. A exclusão é permanente: ele NÃO volta automaticamente em syncs futuros, mesmo que ainda apareça na sua corretora.`
+                              : `Excluir "${p.name}"?`
+                            if (confirm(msg)) {
+                              deleteInvestment(p.id).catch(err => {
+                                console.error('[WealthV2] delete failed', err)
+                                alert('Falha ao excluir. Tente novamente.')
+                              })
+                            }
+                          }}
+                          className="w-6 h-6 rounded-md flex items-center justify-center text-[#55556a] hover:text-[#ff4466] hover:bg-[#ff4466]/10 mx-auto"
+                          title={isPluggy ? 'Excluir (permanente — não retorna em sync)' : 'Excluir'}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    )
+                  })}
                   {positions.length > 8 && !showAllPos && (
                     <div className="px-3 py-3 text-center">
                       <button onClick={() => setShowAllPos(true)} className="text-[11px] text-[#8888aa] hover:text-white">Mostrar mais {positions.length - 8} ativos</button>

@@ -7,6 +7,7 @@ import type { Investment, AssetLocation, TaxTreatment, PricePoint } from '../../
 import { LIQUIDITY_OPTIONS, BENCHMARK_OPTIONS, RISK_LABELS } from '../../lib/types'
 import { LOCAL_CLASSES, INTL_CLASSES } from '../../lib/suitability'
 import { markInvestmentEdited } from '../../lib/userEditedInvestments'
+import { supabase } from '../../lib/supabase'
 import { clsx } from 'clsx'
 
 // ─── Asset classes by location ────────────────
@@ -224,7 +225,7 @@ function InstitutionField({ sel, custom, allInstitutions, onSel, onCustom }: {
 }
 
 export function InvestmentModal({ open, onClose, initial, seedFromTransaction, onSeedSaved }: Props) {
-  const { addInvestment, updateInvestment, investments, settings, saveCustomInstitution } = useStore()
+  const { addInvestment, updateInvestment, deleteInvestment, investments, settings, saveCustomInstitution } = useStore()
 
   // Only show institutions already in use + any the user has manually saved
   const allInstitutions = Array.from(new Set([
@@ -383,6 +384,36 @@ export function InvestmentModal({ open, onClose, initial, seedFromTransaction, o
         // fails to round-trip through Supabase JSONB.
         markInvestmentEdited(initial.id)
         console.info('[InvestmentModal] saved edit for', initial.id, 'with lastUserEdit', payload.lastUserEdit)
+        // Verify the Supabase round-trip: read the row back and check whether
+        // `lastUserEdit` actually came back from the JSONB. If it didn't,
+        // we know the cloud-side persistence is broken and only the
+        // localStorage marker is keeping the edit protected.
+        try {
+          const { data: { user } } = await supabase.auth.getUser()
+          if (user) {
+            const { data: row, error: verErr } = await supabase
+              .from('luxor_investments')
+              .select('data')
+              .eq('user_id', user.id)
+              .eq('client_id', initial.id)
+              .maybeSingle()
+            if (verErr) {
+              console.warn('[InvestmentModal] verify roundtrip — fetch failed:', verErr.message)
+            } else {
+              const persisted = (row?.data as { lastUserEdit?: string } | undefined)?.lastUserEdit
+              if (persisted) {
+                console.info('[InvestmentModal] ✓ lastUserEdit roundtrip OK — Supabase returned:', persisted)
+              } else {
+                console.warn(
+                  '[InvestmentModal] ✗ lastUserEdit DROPPED by Supabase — sent', payload.lastUserEdit,
+                  'got back nothing. localStorage marker is the only thing protecting this edit from Pluggy resync.',
+                )
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('[InvestmentModal] verify roundtrip — unexpected error:', e)
+        }
       } else {
         await addInvestment(payload)
         console.info('[InvestmentModal] added new investment with lastUserEdit', payload.lastUserEdit)
@@ -824,6 +855,29 @@ export function InvestmentModal({ open, onClose, initial, seedFromTransaction, o
         </div>
       )}
       <ModalFooter>
+        {initial && (
+          <button
+            className="btn-danger mr-auto"
+            disabled={saving}
+            onClick={async () => {
+              const isPluggy = !!initial.notes?.match(/pluggy:[^\s]+/)
+              const msg = isPluggy
+                ? `Excluir "${initial.name}"?\n\nEste ativo veio do Open Finance. A exclusão é permanente: ele NÃO retorna em syncs futuros, mesmo que ainda apareça na corretora.`
+                : `Excluir "${initial.name}"?`
+              if (!confirm(msg)) return
+              try {
+                await deleteInvestment(initial.id)
+                onClose()
+              } catch (e) {
+                console.error('[InvestmentModal] delete failed', e)
+                setSaveError(e instanceof Error ? e.message : 'Falha ao excluir.')
+              }
+            }}
+            title="Excluir investimento (permanente, com tombstone vs Pluggy)"
+          >
+            <X className="w-4 h-4" /> Excluir
+          </button>
+        )}
         <button className="btn-ghost" onClick={onClose}>Cancelar</button>
         {step > 0 && (
           <button className="btn-secondary" onClick={() => setStep(s => Math.max(0, s - 1))}>
