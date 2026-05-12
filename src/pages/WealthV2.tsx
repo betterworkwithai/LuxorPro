@@ -1724,8 +1724,21 @@ export default function WealthV2() {
                         className="grid grid-cols-[100px_1fr_100px_140px_120px_110px_36px] items-center gap-1 px-3 py-2.5 text-xs v2-row-hover cursor-pointer"
                         title="Clique para editar"
                       >
-                        <span className="font-mono font-semibold truncate" style={{ color: '#00d4ff' }}>{p.ticker || p.name.slice(0, 8)}</span>
-                        <span className="font-medium truncate">{p.name}<span className="text-[#55556a]"> · {p.assetClass}</span></span>
+                        <span className="font-mono font-semibold truncate flex items-center gap-1.5" style={{ color: '#00d4ff' }}>
+                          {p.ticker || p.name.slice(0, 8)}
+                        </span>
+                        <span className="font-medium truncate flex items-center gap-2">
+                          <span className="truncate">{p.name}<span className="text-[#55556a]"> · {p.assetClass}</span></span>
+                          {isPluggy && (
+                            <span
+                              className="text-[9px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-md flex-shrink-0"
+                              style={{ background: 'rgba(236,72,153,.15)', color: '#ec4899', border: '1px solid rgba(236,72,153,.3)' }}
+                              title="Importado via Open Finance (Pluggy)"
+                            >
+                              Open Finance
+                            </span>
+                          )}
+                        </span>
                         <span className="v2-num text-right text-[#8888aa]">{p.quantity.toLocaleString('pt-BR', { maximumFractionDigits: 4 })}</span>
                         <span className="v2-num text-right text-[#8888aa]">{p.avgCost.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} / {p.currentPrice.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}</span>
                         <span className="v2-num text-right font-semibold">{fmt(toBase(p.currentBRL), true)}</span>

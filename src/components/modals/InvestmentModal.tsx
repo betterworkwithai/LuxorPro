@@ -378,16 +378,22 @@ export function InvestmentModal({ open, onClose, initial, seedFromTransaction, o
     }
     try {
       if (initial) {
-        await updateInvestment({ ...payload, id: initial.id })
+        // CRITICAL: spread `...initial` FIRST so the upsert preserves any
+        // fields that aren't represented in the modal form (e.g.
+        // dividendsReceived, interestReceived, capitalReturn, incomeReturn,
+        // grossUpRate). Without this, every save silently wipes those
+        // fields back to undefined.
+        const merged: Investment = { ...initial, ...payload, id: initial.id }
+        await updateInvestment(merged)
         // Belt-and-suspenders: mark this investment ID in localStorage too,
         // so Pluggy sync can skip overwrite even if `lastUserEdit` somehow
         // fails to round-trip through Supabase JSONB.
         markInvestmentEdited(initial.id)
         console.info('[InvestmentModal] saved edit for', initial.id, 'with lastUserEdit', payload.lastUserEdit)
-        // Verify the Supabase round-trip: read the row back and check whether
-        // `lastUserEdit` actually came back from the JSONB. If it didn't,
-        // we know the cloud-side persistence is broken and only the
-        // localStorage marker is keeping the edit protected.
+        // Verify the Supabase round-trip: read the row back and compare
+        // every important field between what we sent and what came back.
+        // This pinpoints exactly which field (if any) is being silently
+        // dropped or transformed by Supabase / JSONB / RLS.
         try {
           const { data: { user } } = await supabase.auth.getUser()
           if (user) {
@@ -400,14 +406,34 @@ export function InvestmentModal({ open, onClose, initial, seedFromTransaction, o
             if (verErr) {
               console.warn('[InvestmentModal] verify roundtrip — fetch failed:', verErr.message)
             } else {
-              const persisted = (row?.data as { lastUserEdit?: string } | undefined)?.lastUserEdit
-              if (persisted) {
-                console.info('[InvestmentModal] ✓ lastUserEdit roundtrip OK — Supabase returned:', persisted)
+              const persisted = row?.data as Record<string, unknown> | undefined
+              if (!persisted) {
+                console.warn('[InvestmentModal] ✗ row missing on Supabase! User edit did not persist.')
               } else {
-                console.warn(
-                  '[InvestmentModal] ✗ lastUserEdit DROPPED by Supabase — sent', payload.lastUserEdit,
-                  'got back nothing. localStorage marker is the only thing protecting this edit from Pluggy resync.',
-                )
+                const cmp = (k: string) => {
+                  const sent = (merged as Record<string, unknown>)[k]
+                  const got  = persisted[k]
+                  const same = JSON.stringify(sent) === JSON.stringify(got)
+                  return same ? '✓' : `✗ sent=${JSON.stringify(sent)} got=${JSON.stringify(got)}`
+                }
+                console.info('[InvestmentModal] field roundtrip:', {
+                  name:         cmp('name'),
+                  ticker:       cmp('ticker'),
+                  quantity:     cmp('quantity'),
+                  avgCost:      cmp('avgCost'),
+                  currentPrice: cmp('currentPrice'),
+                  assetClass:   cmp('assetClass'),
+                  institution:  cmp('institution'),
+                  taxTreatment: cmp('taxTreatment'),
+                  riskLevel:    cmp('riskLevel'),
+                  liquidity:    cmp('liquidity'),
+                  notes:        cmp('notes'),
+                  lastUserEdit: cmp('lastUserEdit'),
+                })
+                // eslint-disable-next-line no-console
+                console.debug('[InvestmentModal] full persisted row.data:', persisted)
+                // eslint-disable-next-line no-console
+                console.debug('[InvestmentModal] full sent merged:', merged)
               }
             }
           }
