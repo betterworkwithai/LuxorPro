@@ -17,7 +17,6 @@ import {
 import {
   tombstoneIfPluggy, extractPluggyTxId, extractPluggyInvId,
 } from '../lib/pluggyTombstones'
-import { needsNormalization, normalizeAssetClass } from '../lib/normalizeAssetClass'
 import {
   generateDemoTransactions, generateDemoInvestments,
   isDemoTransaction, isDemoInvestment,
@@ -205,36 +204,19 @@ export const useStore = create<AppState>((set, get) => ({
         if (settings !== loadedSettings) await db.settings.save(settings)
       }
 
-      // ── One-time asset-class normalization ─────────────────────────────
-      // Any investment carrying a non-canonical class (legacy custom strings
-      // like "Pós-Fixado", "RV Ibovespa", "Multimercados", "US Treasury",
-      // "Alt. PE/VC/Real Assets", etc.) gets snapped to one of the 13
-      // canonical classes used by allocation, suitability, and Pluggy
-      // import. We use the original string + name + ticker + location as
-      // signals; everything that can't be classified falls into 'Other'.
-      // The migration writes the normalized class back to Supabase so
-      // future sessions don't re-do the work.
-      const normalizedInvestments = investments.map(inv => {
-        if (!needsNormalization(inv)) return inv
-        const newClass = normalizeAssetClass(inv)
-        return { ...inv, assetClass: newClass }
-      })
-      const changed = normalizedInvestments.filter(
-        (inv, i) => inv.assetClass !== investments[i].assetClass,
-      )
-      if (changed.length > 0) {
-        // Persist asynchronously — UI doesn't need to wait for the writes.
-        for (const inv of changed) {
-          db.investments.upsert(inv).catch(err =>
-            console.warn('[init] normalize asset class persist failed for', inv.id, err),
-          )
-        }
-        console.log(`[init] Normalized ${changed.length} investment asset class(es)`)
-      }
-
+      // NOTE: We used to run a "one-time" assetClass migration here that
+      // mapped any non-canonical string into 13 legacy buckets (CDB/LCI/
+      // LCA/ETF/FII/etc.) and PERSISTED the rewrite back to Supabase. But
+      // the V2 modal now exposes a different, broader canonical set
+      // (Pós-Fixado, Prefixado, IPCA Juro Real Curto/Longo, RV Ibovespa,
+      // Alt. FII (Tijolo), etc.) that the old normalizer treats as
+      // non-canonical — so every page refresh silently overwrote the
+      // user's V2 picks. Migration removed; allocation & suitability views
+      // already handle arbitrary class strings via canonicalLocalClass /
+      // canonicalIntlClass aliases.
       set({
         transactions,
-        investments: normalizedInvestments,
+        investments,
         taxItems, attachments, subscriptions, goals, settings, isLoading: false,
       })
     } catch (err) {
