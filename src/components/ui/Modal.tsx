@@ -36,8 +36,14 @@ export function Modal({ open, onClose, title, description, children, size = 'md'
           <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e1e2e]">
             <div>
               <Dialog.Title className="text-base font-semibold text-[#e8e8f0]">{title}</Dialog.Title>
-              {description && (
+              {description ? (
                 <Dialog.Description className="text-xs text-[#55556a] mt-0.5">{description}</Dialog.Description>
+              ) : (
+                // Radix requires a Description for accessibility; render a
+                // visually-hidden one mirroring the title when no caller-
+                // provided description is available. Silences the runtime
+                // "Missing Description or aria-describedby" warning.
+                <Dialog.Description className="sr-only">{title}</Dialog.Description>
               )}
             </div>
             <button
