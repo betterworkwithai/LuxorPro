@@ -274,21 +274,21 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   // ── Investments ────────────────────────────
+  // NOTE: We deliberately do NOT run `normalizeAssetClass` on user-driven
+  // saves. That function maps any string into one of 13 legacy canonical
+  // buckets (CDB / LCI / LCA / ETF / FII / etc.) — useful for migrating
+  // imported/legacy data ONCE (init() handles that), but on a manual
+  // edit it silently overwrites the user's choice. If the user picks
+  // 'Pós-Fixado' or 'RV Ibovespa' from the V2 modal, that's what gets
+  // stored, period.
   addInvestment: async (data) => {
-    // Snap any non-canonical asset class to its best-guess canonical bucket
-    // so downstream views (Ativos Consolidados, allocation, suitability) can
-    // rely on a closed set of classes.
-    const normalizedClass = needsNormalization(data) ? normalizeAssetClass(data) : data.assetClass
-    const i: Investment = { ...data, assetClass: normalizedClass, id: nanoid() }
+    const i: Investment = { ...data, id: nanoid() }
     await db.investments.upsert(i)
     set(s => ({ investments: [i, ...s.investments] }))
   },
   updateInvestment: async (inv) => {
-    const normalized: Investment = needsNormalization(inv)
-      ? { ...inv, assetClass: normalizeAssetClass(inv) }
-      : inv
-    await db.investments.upsert(normalized)
-    set(s => ({ investments: s.investments.map(x => x.id === normalized.id ? normalized : x) }))
+    await db.investments.upsert(inv)
+    set(s => ({ investments: s.investments.map(x => x.id === inv.id ? inv : x) }))
   },
   deleteInvestment: async (id) => {
     // Same tombstone treatment for Pluggy-imported investments.
