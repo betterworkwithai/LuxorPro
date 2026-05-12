@@ -384,18 +384,38 @@ export function InvestmentModal({ open, onClose, initial, seedFromTransaction, o
         // grossUpRate). Without this, every save silently wipes those
         // fields back to undefined.
         const merged: Investment = { ...initial, ...payload, id: initial.id }
+        // ── Verbose pre-save diff so the user can SEE in console exactly
+        // which fields differ between the version they opened and the
+        // version they're about to save ─────────────────────────────────
+        const beforeKeys = new Set([...Object.keys(initial), ...Object.keys(merged)])
+        const diffs: Record<string, { from: unknown; to: unknown }> = {}
+        for (const k of beforeKeys) {
+          const a = (initial as Record<string, unknown>)[k]
+          const b = (merged   as Record<string, unknown>)[k]
+          if (JSON.stringify(a) !== JSON.stringify(b)) diffs[k] = { from: a, to: b }
+        }
+        // eslint-disable-next-line no-console
+        console.log('[InvestmentModal] 📝 diff before save:', diffs)
+        if (Object.keys(diffs).length === 0) {
+          // eslint-disable-next-line no-console
+          console.warn('[InvestmentModal] ⚠️ NO FIELDS CHANGED between initial and merged. Either the form didn\'t pick up your edits, or the values you entered match what was already there.')
+        }
         await updateInvestment(merged)
         // Belt-and-suspenders: mark this investment ID in localStorage too,
         // so Pluggy sync can skip overwrite even if `lastUserEdit` somehow
         // fails to round-trip through Supabase JSONB.
         markInvestmentEdited(initial.id)
         console.info('[InvestmentModal] saved edit for', initial.id, 'with lastUserEdit', payload.lastUserEdit)
-        // Verify the Supabase round-trip: read the row back and compare
-        // every important field between what we sent and what came back.
-        // This pinpoints exactly which field (if any) is being silently
-        // dropped or transformed by Supabase / JSONB / RLS.
+        // ── Triple-source verification: compare what we sent vs what's
+        //    in Zustand (local) vs what's in Supabase (cloud). If they
+        //    all agree, the save worked end-to-end. If they diverge, the
+        //    log pinpoints exactly which layer broke. ─────────────────
         try {
+          // 1. Zustand snapshot (synchronous, should reflect our set() above)
+          const fromStore = useStore.getState().investments.find(x => x.id === initial.id)
+          // 2. Supabase round-trip (read the row back)
           const { data: { user } } = await supabase.auth.getUser()
+          let persisted: Record<string, unknown> | undefined
           if (user) {
             const { data: row, error: verErr } = await supabase
               .from('luxor_investments')
@@ -404,41 +424,38 @@ export function InvestmentModal({ open, onClose, initial, seedFromTransaction, o
               .eq('client_id', initial.id)
               .maybeSingle()
             if (verErr) {
-              console.warn('[InvestmentModal] verify roundtrip — fetch failed:', verErr.message)
+              console.warn('[InvestmentModal] verify — Supabase fetch failed:', verErr.message)
             } else {
-              const persisted = row?.data as Record<string, unknown> | undefined
-              if (!persisted) {
-                console.warn('[InvestmentModal] ✗ row missing on Supabase! User edit did not persist.')
-              } else {
-                const cmp = (k: string) => {
-                  const sent = (merged as Record<string, unknown>)[k]
-                  const got  = persisted[k]
-                  const same = JSON.stringify(sent) === JSON.stringify(got)
-                  return same ? '✓' : `✗ sent=${JSON.stringify(sent)} got=${JSON.stringify(got)}`
-                }
-                console.info('[InvestmentModal] field roundtrip:', {
-                  name:         cmp('name'),
-                  ticker:       cmp('ticker'),
-                  quantity:     cmp('quantity'),
-                  avgCost:      cmp('avgCost'),
-                  currentPrice: cmp('currentPrice'),
-                  assetClass:   cmp('assetClass'),
-                  institution:  cmp('institution'),
-                  taxTreatment: cmp('taxTreatment'),
-                  riskLevel:    cmp('riskLevel'),
-                  liquidity:    cmp('liquidity'),
-                  notes:        cmp('notes'),
-                  lastUserEdit: cmp('lastUserEdit'),
-                })
-                // eslint-disable-next-line no-console
-                console.debug('[InvestmentModal] full persisted row.data:', persisted)
-                // eslint-disable-next-line no-console
-                console.debug('[InvestmentModal] full sent merged:', merged)
-              }
+              persisted = row?.data as Record<string, unknown> | undefined
             }
           }
+          // Per-field comparison: sent vs Zustand vs Supabase
+          const sentObj  = merged as Record<string, unknown>
+          const storeObj = (fromStore ?? {}) as Record<string, unknown>
+          const cloudObj = persisted ?? {}
+          const KEYS = ['name','ticker','quantity','avgCost','currentPrice','assetClass','institution','taxTreatment','riskLevel','liquidity','notes','priceHistory','productType','tituloType','fundType','lastUserEdit']
+          let allMatch = true
+          for (const k of KEYS) {
+            const a = JSON.stringify(sentObj[k])
+            const b = JSON.stringify(storeObj[k])
+            const c = JSON.stringify(cloudObj[k])
+            const storeOk = a === b
+            const cloudOk = a === c
+            if (!storeOk || !cloudOk) {
+              allMatch = false
+              // eslint-disable-next-line no-console
+              console.warn(`[InvestmentModal] ${k}: ${storeOk ? '✓' : '✗'} store · ${cloudOk ? '✓' : '✗'} cloud`,
+                { sent: sentObj[k], store: storeObj[k], cloud: cloudObj[k] })
+            }
+          }
+          if (allMatch) {
+            // eslint-disable-next-line no-console
+            console.log('[InvestmentModal] ✅ All ' + KEYS.length + ' fields persisted to BOTH Zustand and Supabase. Save is working — if UI still shows stale data, it\'s a render/memo issue.')
+          } else {
+            console.warn('[InvestmentModal] ⚠️ Some fields did not persist — see individual ✗ logs above for which layer dropped them.')
+          }
         } catch (e) {
-          console.warn('[InvestmentModal] verify roundtrip — unexpected error:', e)
+          console.warn('[InvestmentModal] verify — unexpected error:', e)
         }
       } else {
         await addInvestment(payload)
