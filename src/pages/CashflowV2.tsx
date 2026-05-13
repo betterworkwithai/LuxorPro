@@ -135,6 +135,61 @@ function TopCategoriesDetail({
   )
 }
 
+// ─── AccountDonut ──────────────────────────────────────────────────────────
+// Small inline SVG donut showing concentration of transaction volume by
+// account (bank). Rendered to the right of the Ritmo do mês numbers; the
+// hover-title on each slice reveals the full account name + percentage.
+interface AccountRow { name: string; full: string; amount: number; pct: number; color: string }
+function AccountDonut({ rows, total }: { rows: AccountRow[]; total: number }) {
+  if (rows.length === 0 || total <= 0) return null
+  // SVG donut with circumference = 2π·r ; use stroke-dasharray to slice.
+  const size = 84
+  const radius = 32
+  const stroke = 12
+  const cx = size / 2
+  const cy = size / 2
+  const circumference = 2 * Math.PI * radius
+
+  let accumulated = 0
+  return (
+    <div className="flex-shrink-0 flex flex-col items-center gap-2" style={{ width: 96 }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
+        <circle cx={cx} cy={cy} r={radius} fill="none" stroke="#1e1e30" strokeWidth={stroke} />
+        {rows.map((r, i) => {
+          const length = (r.pct / 100) * circumference
+          const offset = circumference - accumulated
+          accumulated += length
+          return (
+            <circle
+              key={i}
+              cx={cx} cy={cy} r={radius}
+              fill="none"
+              stroke={r.color}
+              strokeWidth={stroke}
+              strokeDasharray={`${length} ${circumference - length}`}
+              strokeDashoffset={offset}
+            >
+              <title>{r.full} · {r.pct.toFixed(1)}%</title>
+            </circle>
+          )
+        })}
+      </svg>
+      <div className="w-full space-y-1">
+        {rows.slice(0, 3).map((r, i) => (
+          <div key={i} className="flex items-center gap-1.5 text-[10px] min-w-0" title={`${r.full} · ${r.pct.toFixed(1)}%`}>
+            <span className="w-1.5 h-1.5 rounded-sm flex-shrink-0" style={{ background: r.color }} />
+            <span className="truncate text-[#8888aa]">{r.name}</span>
+            <span className="v2-num text-[#55556a] ml-auto flex-shrink-0">{r.pct.toFixed(0)}%</span>
+          </div>
+        ))}
+        {rows.length > 3 && (
+          <div className="text-[9px] text-[#55556a] text-center pt-0.5">+{rows.length - 3} mais</div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function CashflowV2() {
   const { transactions, subscriptions, settings, updateTransaction, deleteTransaction, updateSubscription, deleteSubscription } = useStore()
   const allCategories = useAllCategories()
@@ -344,6 +399,42 @@ export default function CashflowV2() {
     [periodTx])
   const topInflows = useMemo(() => allInflows.slice(0, 3), [allInflows])
   const topOutflows = useMemo(() => allOutflows.slice(0, 3), [allOutflows])
+
+  // ── Account / bank concentration (for the Ritmo do mês donut) ──
+  // Groups every transaction in the period by its `account` field, sums
+  // the BRL volume (income + expense), then ranks. The donut visualises
+  // where the user's monthly cashflow actually flows through.
+  const accountBreakdown = useMemo(() => {
+    const map = new Map<string, number>()
+    periodTx.forEach(t => {
+      const key = (t.account ?? '').trim() || 'Sem conta'
+      map.set(key, (map.get(key) ?? 0) + txBrl(t))
+    })
+    const total = Array.from(map.values()).reduce((a, b) => a + b, 0)
+    const palette = ['#00d4ff', '#ff7a00', '#8b5cf6', '#00ff88', '#ec4899', '#f59e0b']
+    const sorted = Array.from(map.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, amount], i) => ({
+        // Pluggy account names look like "Itaú — Conta corrente" — keep the
+        // institution portion before the em-dash for the donut legend.
+        name: name.split(' — ')[0] || name,
+        full: name,
+        amount,
+        pct: total > 0 ? (amount / total) * 100 : 0,
+        color: palette[i % palette.length],
+      }))
+    const top = sorted.slice(0, 5)
+    const others = sorted.slice(5).reduce((a, r) => a + r.amount, 0)
+    if (others > 0) {
+      top.push({
+        name: 'Outras', full: `${sorted.length - 5} outras contas`,
+        amount: others,
+        pct: total > 0 ? (others / total) * 100 : 0,
+        color: '#55556a',
+      })
+    }
+    return { total, rows: top, count: sorted.length }
+  }, [periodTx])
 
   // ── Coming up: full 60-day horizon for expand, 7d for summary ──
   const allComingUp = useMemo(() => {
@@ -837,25 +928,32 @@ export default function CashflowV2() {
           >
             <p className="v2-caption pr-9">Ritmo do mês</p>
             <p className="text-sm text-[#8888aa] mt-0.5">No passo atual…</p>
-            <div className="mt-5">
-              <div className="flex items-baseline gap-2">
-                <span className="v2-num text-3xl font-bold" style={{ color: '#ff4466' }}>{formatBRL(dailyExpense, true)}</span>
-                <span className="text-xs text-[#8888aa]">/dia em despesas</span>
-              </div>
-              <div className="mt-3 flex items-baseline gap-2">
-                <span className="v2-num text-3xl font-bold" style={{ color: '#00ff88' }}>{formatBRL(dailyIncome, true)}</span>
-                <span className="text-xs text-[#8888aa]">/dia em receitas</span>
-              </div>
-              {periodMode === 'monthly' && selYear === todayYear && selMonth === todayMonth && (
-                <div className="mt-4 pt-4 border-t border-[#1e1e30]">
-                  <p className="v2-caption">Burn de hoje</p>
-                  <p className="v2-num text-base font-semibold mt-1" style={{ color: '#ff4466' }}>−{formatBRL(todayBurn, true)} <span className="text-xs text-[#8888aa] font-normal">de {formatBRL(dailyExpense, true)} estimado</span></p>
-                  <div className="w-full h-1.5 rounded-full bg-[#1e1e30] overflow-hidden mt-2">
-                    <div className="v2-cat-bar h-full rounded-full" style={{ width: `${Math.min((dailyExpense > 0 ? (todayBurn / dailyExpense) * 100 : 0), 100)}%`, background: '#ff4466' }}/>
-                  </div>
+            <div className="mt-5 flex items-start gap-4">
+              {/* Left: daily burn + income numbers */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-baseline gap-2 flex-wrap">
+                  <span className="v2-num text-3xl font-bold" style={{ color: '#ff4466' }}>{formatBRL(dailyExpense, true)}</span>
+                  <span className="text-xs text-[#8888aa]">/dia despesas</span>
                 </div>
-              )}
+                <div className="mt-3 flex items-baseline gap-2 flex-wrap">
+                  <span className="v2-num text-3xl font-bold" style={{ color: '#00ff88' }}>{formatBRL(dailyIncome, true)}</span>
+                  <span className="text-xs text-[#8888aa]">/dia receitas</span>
+                </div>
+              </div>
+
+              {/* Right: bank concentration donut */}
+              <AccountDonut rows={accountBreakdown.rows} total={accountBreakdown.total} />
             </div>
+
+            {periodMode === 'monthly' && selYear === todayYear && selMonth === todayMonth && (
+              <div className="mt-4 pt-4 border-t border-[#1e1e30]">
+                <p className="v2-caption">Burn de hoje</p>
+                <p className="v2-num text-base font-semibold mt-1" style={{ color: '#ff4466' }}>−{formatBRL(todayBurn, true)} <span className="text-xs text-[#8888aa] font-normal">de {formatBRL(dailyExpense, true)} estimado</span></p>
+                <div className="w-full h-1.5 rounded-full bg-[#1e1e30] overflow-hidden mt-2">
+                  <div className="v2-cat-bar h-full rounded-full" style={{ width: `${Math.min((dailyExpense > 0 ? (todayBurn / dailyExpense) * 100 : 0), 100)}%`, background: '#ff4466' }}/>
+                </div>
+              </div>
+            )}
           </ExpandableCard>
 
           {/* Top movers (large) */}
