@@ -637,6 +637,20 @@ export default function Connections() {
         // Drop dust — sub-5-cent transactions are typically fee crumbs (IOF
         // rounding, FX-conversion remainders) that just clutter the list.
         if (Math.abs(tx.amount) < 0.05) continue
+        // Skip credit-card statement payments. They show up on the card
+        // account as "PAGAMENTO RECEBIDO" (and variants), but the matching
+        // debit already lives on the checking account — keeping both would
+        // double-count. Match conservatively: a small whitelist of well-known
+        // Brazilian-bank labels for "you paid your card bill".
+        const desc = (tx.description ?? '').toLowerCase()
+        const isCardBillPayment =
+          desc.includes('pagamento recebido') ||
+          desc.includes('pagto recebido')      ||
+          desc.includes('pagto. recebido')     ||
+          desc.includes('pagamento de fatura') ||
+          desc.includes('pagto fatura')        ||
+          desc.includes('pagamento on line') && (accountMap[tx.accountId]?.type === 'CREDIT')
+        if (isCardBillPayment) continue
         const account = accountMap[tx.accountId]
         if (!account) continue
         await addTransaction(
