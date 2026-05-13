@@ -202,7 +202,7 @@ Deno.serve(async (req) => {
 
     const { data: candidates, error: qErr } = await supabase
       .from('profiles')
-      .select('id, email, subscription_status, trial_end, trial_day5_email_sent_at')
+      .select('id, subscription_status, trial_end, trial_day5_email_sent_at')
       .eq('subscription_status', 'trialing')
       .is('trial_day5_email_sent_at', null)
       .gte('trial_end', lowerEnd)
@@ -213,14 +213,32 @@ Deno.serve(async (req) => {
       return json({ ok: true, eligible: 0, sent: 0, dryRun })
     }
 
+    // Emails live in auth.users (not profiles). Pull them via admin API
+    // and build an id→email map so each candidate can be addressed.
+    // Service role is required for this endpoint, which we already have.
+    const emailById = new Map<string, string>()
+    let page = 1
+    while (true) {
+      const { data: list, error: listErr } = await supabase.auth.admin.listUsers({ page, perPage: 200 })
+      if (listErr) return json({ error: 'failed to list auth users: ' + listErr.message }, 500)
+      for (const u of list?.users ?? []) {
+        if (u.email) emailById.set(u.id, u.email)
+      }
+      if (!list || list.users.length < 200) break
+      page++
+      if (page > 50) break // safety cap
+    }
+
     const results: Array<{ id: string; email: string; sent: boolean; reason?: string }> = []
 
     for (const p of candidates) {
+      const email = emailById.get(p.id) ?? ''
       try {
-        if (!p.email) {
-          results.push({ id: p.id, email: '<no-email>', sent: false, reason: 'no email on profile' })
+        if (!email) {
+          results.push({ id: p.id, email: '<no-email>', sent: false, reason: 'no email on auth.users' })
           continue
         }
+        const profile = { ...p, email }
 
         // ── Fetch user investments from luxor_investments JSONB ──────────────
         const { data: invRows, error: invErr } = await supabase
@@ -228,7 +246,7 @@ Deno.serve(async (req) => {
           .select('data')
           .eq('user_id', p.id)
         if (invErr) {
-          results.push({ id: p.id, email: p.email, sent: false, reason: 'invFetch: ' + invErr.message })
+          results.push({ id: p.id, email, sent: false, reason: 'invFetch: ' + invErr.message })
           continue
         }
 
@@ -266,7 +284,7 @@ Deno.serve(async (req) => {
         const subject = `Faltam ${daysLeft} dias — você está no andar ${tier.name} da pirâmide`
 
         if (dryRun) {
-          results.push({ id: p.id, email: p.email, sent: false, reason: `dryRun · patrim=${patrim} tier=${tier.name}` })
+          results.push({ id: p.id, email, sent: false, reason: `dryRun · patrim=${patrim} tier=${tier.name}` })
           continue
         }
 
@@ -276,7 +294,7 @@ Deno.serve(async (req) => {
           headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
             from: fromEmail,
-            to: [p.email],
+            to: [email],
             subject,
             html,
             tags: [{ name: 'campaign', value: 'trial_day5' }],
@@ -284,7 +302,7 @@ Deno.serve(async (req) => {
         })
         if (!resp.ok) {
           const errText = await resp.text()
-          results.push({ id: p.id, email: p.email, sent: false, reason: `resend: ${resp.status} ${errText}` })
+          results.push({ id: p.id, email, sent: false, reason: `resend: ${resp.status} ${errText}` })
           continue
         }
 
@@ -295,13 +313,13 @@ Deno.serve(async (req) => {
           .eq('id', p.id)
         if (stampErr) {
           // Email was sent but stamp failed — log so an admin can dedupe manually
-          results.push({ id: p.id, email: p.email, sent: true, reason: 'sent OK but stamp failed: ' + stampErr.message })
+          results.push({ id: p.id, email, sent: true, reason: 'sent OK but stamp failed: ' + stampErr.message })
           continue
         }
 
-        results.push({ id: p.id, email: p.email, sent: true, reason: `tier=${tier.name} patrim=${patrim}` })
+        results.push({ id: p.id, email, sent: true, reason: `tier=${tier.name} patrim=${patrim}` })
       } catch (e) {
-        results.push({ id: p.id, email: p.email ?? '<no-email>', sent: false, reason: (e as Error).message })
+        results.push({ id: p.id, email: email || '<no-email>', sent: false, reason: (e as Error).message })
       }
     }
 

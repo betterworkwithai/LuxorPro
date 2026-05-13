@@ -450,11 +450,11 @@ export default function Landing() {
             <span className="text-xl font-bold tracking-wide"><span className="text-[#e8e8f0]">Luxor</span><span className="text-[#e8e8f0]">.</span><span style={{ color: '#FF7900' }}>Pro</span></span>
           </div>
           <div className="flex items-center gap-3">
-            <a href="/app" className="text-sm text-[#8888aa] hover:text-[#e8e8f0] transition-colors">
+            <a href="/login" className="text-sm text-[#8888aa] hover:text-[#e8e8f0] transition-colors">
               Entrar
             </a>
             <a
-              href={STRIPE_ANNUAL}
+              href="/signup"
               className="px-4 py-2 rounded-xl bg-[#ff7a00] text-[#0a0a0f] text-sm font-bold hover:bg-[#e06500] transition-colors shadow-[0_0_16px_rgba(255,122,0,0.35)]"
             >
               Começar Grátis
@@ -509,7 +509,7 @@ export default function Landing() {
               <Reveal direction="up" delay={220}>
                 <div className="flex flex-col sm:flex-row gap-3 mb-6">
                   <a
-                    href={STRIPE_ANNUAL}
+                    href="/signup"
                     className="inline-flex items-center justify-center gap-2 px-7 py-4 rounded-2xl bg-[#ff7a00] text-[#0a0a0f] text-base font-bold hover:bg-[#e06500] transition-all btn-glow"
                   >
                     Começar 7 Dias Grátis
@@ -850,7 +850,7 @@ export default function Landing() {
                 ))}
               </ul>
               <a
-                href={STRIPE_MONTHLY}
+                href="/signup"
                 className="block text-center py-3 rounded-xl border border-[#2a2a3e] text-sm font-semibold text-[#8888aa] hover:border-[#ff7a00]/30 hover:text-[#e8e8f0] transition-all"
               >
                 Assinar mensalmente
@@ -890,7 +890,7 @@ export default function Landing() {
                 ))}
               </ul>
               <a
-                href={STRIPE_ANNUAL}
+                href="/signup"
                 className="block text-center py-3.5 rounded-xl bg-[#ff7a00] text-[#0a0a0f] text-sm font-bold hover:bg-[#e06500] transition-all btn-glow"
               >
                 Começar 7 dias grátis →
@@ -920,7 +920,7 @@ export default function Landing() {
                 ))}
               </ul>
               <a
-                href={STRIPE_LIFETIME}
+                href="/signup"
                 className="block text-center py-3 rounded-xl bg-[#8b5cf6]/15 border border-[#8b5cf6]/40 text-[#8b5cf6] text-sm font-bold hover:bg-[#8b5cf6]/25 transition-all"
               >
                 ⚡ Acesso vitalício
@@ -1015,7 +1015,7 @@ export default function Landing() {
           </Reveal>
           <Reveal direction="up" delay={320}>
             <a
-              href={STRIPE_ANNUAL}
+              href="/signup"
               className="inline-flex items-center gap-2.5 px-9 py-5 rounded-2xl bg-[#ff7a00] text-[#0a0a0f] text-lg font-bold hover:bg-[#e06500] transition-all btn-glow mb-6"
             >
               Quero Controle Financeiro Agora
@@ -1046,7 +1046,7 @@ export default function Landing() {
           <div className="flex flex-wrap justify-center gap-6 text-xs text-[#55556a]">
             <a href="#planos" className="hover:text-[#ff7a00] transition-colors">Planos</a>
             <a href="#planos" className="hover:text-[#ff7a00] transition-colors">FAQ</a>
-            <a href="/app" className="hover:text-[#ff7a00] transition-colors">Entrar</a>
+            <a href="/login" className="hover:text-[#ff7a00] transition-colors">Entrar</a>
             <a href={`mailto:suporte@luxorpro.com.br`} className="hover:text-[#ff7a00] transition-colors">suporte@luxorpro.com.br</a>
           </div>
           <p className="text-xs text-[#333348]">© {new Date().getFullYear()} Luxor Pro. Todos os direitos reservados.</p>

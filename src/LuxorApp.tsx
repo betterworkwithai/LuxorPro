@@ -79,6 +79,22 @@ export default function LuxorApp() {
     return () => window.removeEventListener('luxor:show-subscription', handler);
   }, []);
 
+  // Detect Stripe success redirect early — short-circuit the subscription gate
+  // before it has a chance to render <Subscription> while the webhook is still
+  // propagating. Webhook will catch up; in the meantime, the local flag is
+  // enough to land the user on the dashboard immediately after payment.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('subscription_success') === '1') {
+      const plan = params.get('plan') ?? 'unknown';
+      setStoredSubscription(plan);
+      setSubscriptionDone(true);
+      setSubVerified(true);
+      // Clean the URL so a refresh doesn't re-trigger
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
+
   useEffect(() => {
     if (!authed || !userId) { setSubVerified(null); return; }
     if (!SUPABASE_CONFIGURED) { setSubVerified(true); return; }

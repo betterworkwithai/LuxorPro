@@ -505,7 +505,17 @@ function LocalScreen() {
 
 // ─── Main Auth page ───────────────────────────
 export default function Auth() {
-  const [tab, setTab] = useState<Tab>('login')
+  // Default to the signup tab when the URL hints "/signup" or includes
+  // ?mode=signup — landing-page CTAs use this to drop the user directly
+  // on the create-account form.
+  const initialTab: Tab = (() => {
+    if (typeof window === 'undefined') return 'login'
+    const path = window.location.pathname || ''
+    const mode = new URLSearchParams(window.location.search).get('mode')
+    if (mode === 'signup' || path.includes('/signup')) return 'signup'
+    return 'login'
+  })()
+  const [tab, setTab] = useState<Tab>(initialTab)
 
   const tabs: { id: Tab; label: string }[] = [
     { id: 'login',  label: 'Entrar' },
