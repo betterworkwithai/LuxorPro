@@ -29,6 +29,112 @@ import { pfPath } from '../constants'
 
 type PeriodMode = 'monthly' | 'ytd' | 'yearly'
 
+// ─── Top Categories Detail (expandable rows) ───────────────────────────────
+// Each category row is clickable; expanding reveals the individual
+// transactions in that category sorted by amount (BRL) high → low.
+interface TopCategoryRow {
+  id: string
+  name: string
+  icon: string
+  amount: number
+  pct: number
+  color: string
+}
+interface Tx {
+  id: string
+  date: string
+  description: string
+  amount: number
+  currency?: 'BRL' | 'USD' | 'EUR'
+  category: string
+  type: 'income' | 'expense'
+}
+function TopCategoriesDetail({
+  rows, periodTx, txBrl,
+}: {
+  rows: TopCategoryRow[]
+  periodTx: Tx[]
+  txBrl: (t: Tx) => number
+}) {
+  const [expanded, setExpanded] = useState<string | null>(null)
+
+  if (rows.length === 0) {
+    return <p className="text-xs text-[#55556a] text-center py-8">Sem despesas no período.</p>
+  }
+
+  return (
+    <div className="space-y-2">
+      {rows.map(c => {
+        const isOpen = expanded === c.id
+        const items = isOpen
+          ? periodTx
+              .filter(t => t.type === 'expense' && t.category === c.id)
+              .map(t => ({ ...t, brl: txBrl(t) }))
+              .sort((a, b) => b.brl - a.brl)
+          : []
+        return (
+          <div key={c.id} className="rounded-lg border border-transparent hover:border-[#1e1e30] transition-colors">
+            <button
+              type="button"
+              onClick={() => setExpanded(isOpen ? null : c.id)}
+              className="w-full text-left p-2 rounded-lg hover:bg-[#1a1a26] transition-colors"
+              aria-expanded={isOpen}
+            >
+              <div className="flex items-center justify-between text-xs mb-1.5">
+                <span className="flex items-center gap-2 min-w-0">
+                  <ChevronDown
+                    className="w-3.5 h-3.5 flex-shrink-0 text-[#55556a] transition-transform"
+                    style={{ transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}
+                  />
+                  <span className="text-base">{c.icon}</span>
+                  <span className="font-medium truncate">{c.name}</span>
+                </span>
+                <span className="v2-num font-semibold flex-shrink-0">
+                  {formatBRL(c.amount, true)} <span className="text-[10px] text-[#55556a] font-normal">· {c.pct.toFixed(1)}%</span>
+                </span>
+              </div>
+              <div className="w-full h-2 rounded-full bg-[#1e1e30] overflow-hidden">
+                <div
+                  className="v2-cat-bar h-full rounded-full"
+                  style={{ width: `${Math.min(c.pct, 100)}%`, background: c.color }}
+                />
+              </div>
+            </button>
+
+            {isOpen && (
+              <div className="mt-1 pl-7 pr-2 pb-2 space-y-1">
+                {items.length === 0 ? (
+                  <p className="text-[11px] text-[#55556a] py-2">Sem lançamentos.</p>
+                ) : (
+                  items.map(t => (
+                    <div
+                      key={t.id}
+                      className="flex items-center justify-between gap-3 text-[11px] py-1.5 border-b border-[#1e1e30]/60 last:border-0"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[#c8c8d8]">{t.description || '—'}</p>
+                        <p className="text-[10px] text-[#55556a] mt-0.5">{formatDate(t.date)}</p>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="v2-num font-semibold text-[#ff4466]">{formatBRL(t.brl, true)}</p>
+                        {t.currency && t.currency !== 'BRL' && (
+                          <p className="text-[10px] text-[#55556a] mt-0.5 v2-num">
+                            {t.currency} {t.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function CashflowV2() {
   const { transactions, subscriptions, settings, updateTransaction, deleteTransaction, updateSubscription, deleteSubscription } = useStore()
   const allCategories = useAllCategories()
@@ -571,26 +677,11 @@ export default function CashflowV2() {
             subtitle={`${allCategoryRows.rows.length} categorias · ${formatBRL(allCategoryRows.total, true)} em despesas`}
             modalSize="lg"
             detail={
-              allCategoryRows.rows.length === 0 ? (
-                <p className="text-xs text-[#55556a] text-center py-8">Sem despesas no período.</p>
-              ) : (
-                <div className="space-y-3">
-                  {allCategoryRows.rows.map(c => (
-                    <div key={c.id}>
-                      <div className="flex items-center justify-between text-xs mb-1.5">
-                        <span className="flex items-center gap-2 min-w-0">
-                          <span className="text-base">{c.icon}</span>
-                          <span className="font-medium truncate">{c.name}</span>
-                        </span>
-                        <span className="v2-num font-semibold flex-shrink-0">{formatBRL(c.amount, true)} <span className="text-[10px] text-[#55556a] font-normal">· {c.pct.toFixed(1)}%</span></span>
-                      </div>
-                      <div className="w-full h-2 rounded-full bg-[#1e1e30] overflow-hidden">
-                        <div className="v2-cat-bar h-full rounded-full" style={{ width: `${Math.min(c.pct, 100)}%`, background: c.color }}/>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )
+              <TopCategoriesDetail
+                rows={allCategoryRows.rows}
+                periodTx={periodTx}
+                txBrl={txBrl}
+              />
             }
           >
             <p className="v2-caption pr-9">Top categorias · despesas</p>
