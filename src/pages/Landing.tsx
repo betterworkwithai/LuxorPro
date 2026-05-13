@@ -450,7 +450,7 @@ export default function Landing() {
             <span className="text-xl font-bold tracking-wide"><span className="text-[#e8e8f0]">Luxor</span><span className="text-[#e8e8f0]">.</span><span style={{ color: '#FF7900' }}>Pro</span></span>
           </div>
           <div className="flex items-center gap-3">
-            <a href="/app" className="text-sm text-[#8888aa] hover:text-[#e8e8f0] transition-colors">
+            <a href="/login" className="text-sm text-[#8888aa] hover:text-[#e8e8f0] transition-colors">
               Entrar
             </a>
             <a
@@ -1046,7 +1046,7 @@ export default function Landing() {
           <div className="flex flex-wrap justify-center gap-6 text-xs text-[#55556a]">
             <a href="#planos" className="hover:text-[#ff7a00] transition-colors">Planos</a>
             <a href="#planos" className="hover:text-[#ff7a00] transition-colors">FAQ</a>
-            <a href="/app" className="hover:text-[#ff7a00] transition-colors">Entrar</a>
+            <a href="/login" className="hover:text-[#ff7a00] transition-colors">Entrar</a>
             <a href={`mailto:suporte@luxorpro.com.br`} className="hover:text-[#ff7a00] transition-colors">suporte@luxorpro.com.br</a>
           </div>
           <p className="text-xs text-[#333348]">© {new Date().getFullYear()} Luxor Pro. Todos os direitos reservados.</p>
