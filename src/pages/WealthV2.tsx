@@ -496,14 +496,19 @@ export default function WealthV2() {
         color: palette[i % palette.length],
       })
     })
-    // Anything unseen gets dumped under "Outros"
-    const extras = Array.from(m.entries()).filter(([k]) => !seen.has(k))
-    if (extras.length > 0) {
-      const extraTotal = extras.reduce((s, [, v]) => s + v, 0)
-      const out = rows.find(r => r.label === 'Outros')
-      if (out) out.value += extraTotal
-      out && total > 0 && (out.pct = (out.value / total) * 100)
-    }
+    // Types not in the canonical list get their own rows (so they're expandable)
+    const extras = Array.from(m.entries())
+      .filter(([k]) => !seen.has(k))
+      .sort(([a], [b]) => a.localeCompare(b, 'pt-BR'))
+    extras.forEach(([k, v], idx) => {
+      rows.push({
+        label: k,
+        value: v,
+        items: (byLabel.get(k) ?? []).sort((a, b) => b.valueBRL - a.valueBRL),
+        pct: total > 0 ? (v / total) * 100 : 0,
+        color: palette[(sorted.length + idx) % palette.length],
+      })
+    })
     return { rows, total }
   }, [investments, usdToBrl, eurToBrl])
 
@@ -533,6 +538,70 @@ export default function WealthV2() {
     }))
     const slices: DonutSlice[] = rows.map(r => ({ label: riskLabel[r.key] ?? r.key, value: r.value, color: r.color }))
     return { slices, total, rows }
+  }, [investments, usdToBrl, eurToBrl])
+
+  // ── Emissor breakdown ──────────────────────────
+  const emisssorBreakdown = useMemo(() => {
+    const palette = ['#00d4ff', '#00ff88', '#8b5cf6', '#ec4899', '#f59e0b', '#3b82f6', '#ff7a00', '#14b8a6', '#a855f7', '#84cc16', '#6366f1', '#ff4466']
+    return breakdownBy(
+      i => (i.issuer && i.issuer.trim().length > 0 ? i.issuer.trim() : 'Não informado'),
+      palette,
+    )
+  }, [investments, usdToBrl, eurToBrl])
+
+  // ── Holding breakdown ──────────────────────────
+  const holdingBreakdown = useMemo(() => {
+    const palette = ['#f59e0b', '#00d4ff', '#8b5cf6', '#00ff88', '#ec4899', '#3b82f6', '#ff7a00', '#14b8a6', '#a855f7', '#84cc16', '#6366f1', '#ff4466']
+    return breakdownBy(
+      i => (i.holding && i.holding.trim().length > 0 ? i.holding.trim() : 'Não informado'),
+      palette,
+    )
+  }, [investments, usdToBrl, eurToBrl])
+
+  // ── Vencimento (maturity bucket) breakdown ─────
+  const maturityBreakdown = useMemo(() => {
+    const palette = ['#00ff88', '#84cc16', '#f59e0b', '#ff7a00', '#ff4466', '#8b5cf6', '#55556a']
+    const today = new Date()
+    function bucket(inv: Investment): string {
+      if (!inv.maturityDate) return 'Sem vencimento'
+      const diff = (new Date(inv.maturityDate).getTime() - today.getTime()) / (1000 * 60 * 60 * 24 * 365.25)
+      if (diff < 0)  return 'Vencido'
+      if (diff < 1)  return '< 1 ano'
+      if (diff < 2)  return '1–2 anos'
+      if (diff < 3)  return '2–3 anos'
+      if (diff < 5)  return '3–5 anos'
+      if (diff < 10) return '5–10 anos'
+      return '+ 10 anos'
+    }
+    const BUCKET_ORDER = ['< 1 ano', '1–2 anos', '2–3 anos', '3–5 anos', '5–10 anos', '+ 10 anos', 'Vencido', 'Sem vencimento']
+    return breakdownBy(bucket, palette, BUCKET_ORDER)
+  }, [investments, usdToBrl, eurToBrl])
+
+  // ── Payment frequency breakdown ────────────────
+  const paymentFreqBreakdown = useMemo(() => {
+    const palette = ['#00d4ff', '#8b5cf6', '#00ff88', '#f59e0b', '#ec4899', '#3b82f6', '#ff7a00', '#55556a']
+    return breakdownBy(
+      i => (i.paymentFrequency && i.paymentFrequency.trim().length > 0 ? i.paymentFrequency.trim() : 'Não informado'),
+      palette,
+    )
+  }, [investments, usdToBrl, eurToBrl])
+
+  // ── Sector breakdown ────────────────────────────
+  const sectorBreakdown = useMemo(() => {
+    const palette = ['#00d4ff', '#00ff88', '#8b5cf6', '#ec4899', '#f59e0b', '#3b82f6', '#ff7a00', '#14b8a6', '#a855f7', '#84cc16', '#6366f1', '#ff4466']
+    return breakdownBy(
+      i => (i.sector && i.sector.trim().length > 0 ? i.sector.trim() : 'Não informado'),
+      palette,
+    )
+  }, [investments, usdToBrl, eurToBrl])
+
+  // ── Benchmark breakdown ─────────────────────────
+  const benchmarkBreakdown = useMemo(() => {
+    const palette = ['#00ff88', '#00d4ff', '#f59e0b', '#8b5cf6', '#ec4899', '#3b82f6', '#ff7a00', '#55556a']
+    return breakdownBy(
+      i => (i.benchmark && i.benchmark.trim().length > 0 ? i.benchmark.trim() : 'Sem benchmark'),
+      palette,
+    )
   }, [investments, usdToBrl, eurToBrl])
 
   // ── Per-investment period metrics (used by movers + posições) ──
@@ -1560,6 +1629,248 @@ export default function WealthV2() {
             <div className="mt-4 flex justify-center"><Donut data={riskBreakdown.slices} size={150}/></div>
             <div className="mt-4 pt-3 border-t border-[#1e1e30]">
               <DonutLegend data={riskBreakdown.slices} total={riskBreakdown.total}/>
+            </div>
+          </ExpandableCard>
+
+        </section>
+
+        {/* ─── ANÁLISE · 6 DONUT CARDS ───────────────────────── */}
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 v2-reveal">
+
+          {/* Emissor */}
+          <ExpandableCard
+            title="Emissor · por emissor do ativo"
+            subtitle={`${emisssorBreakdown.rows.filter(r => r.value > 0).length} emissores · ${fmt(toBase(emisssorBreakdown.total), true)} totais`}
+            modalSize="lg"
+            detail={
+              emisssorBreakdown.rows.length === 0 ? (
+                <p className="text-xs text-[#55556a] text-center py-8">Sem emissores cadastrados.</p>
+              ) : (
+                <div className="grid sm:grid-cols-[200px_1fr] gap-6 items-start">
+                  <div className="flex justify-center"><Donut data={emisssorBreakdown.slices} size={200} centerLabel="Emissor"/></div>
+                  <div className="space-y-2">
+                    {emisssorBreakdown.rows.map(r => (
+                      <CategoryRow
+                        key={r.key}
+                        label={r.key}
+                        color={r.color}
+                        value={r.value}
+                        pct={r.pct}
+                        items={r.items}
+                        fmt={(v) => fmt(toBase(v), true)}
+                        setEditing={setEditing}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )
+            }
+          >
+            <p className="v2-caption pr-9">Emissor</p>
+            <p className="text-sm text-[#8888aa] mt-0.5">Por emissor do ativo</p>
+            <div className="mt-4 flex justify-center"><Donut data={emisssorBreakdown.slices} size={150}/></div>
+            <div className="mt-4 pt-3 border-t border-[#1e1e30]">
+              <DonutLegend data={emisssorBreakdown.slices.slice(0, 4)} total={emisssorBreakdown.total}/>
+              {emisssorBreakdown.slices.length > 4 && (
+                <p className="text-[10px] text-[#55556a] mt-2">+ {emisssorBreakdown.slices.length - 4} mais</p>
+              )}
+            </div>
+          </ExpandableCard>
+
+          {/* Holding */}
+          <ExpandableCard
+            title="Holding · grupo econômico"
+            subtitle={`${holdingBreakdown.rows.filter(r => r.value > 0).length} holdings · ${fmt(toBase(holdingBreakdown.total), true)} totais`}
+            modalSize="lg"
+            detail={
+              holdingBreakdown.rows.length === 0 ? (
+                <p className="text-xs text-[#55556a] text-center py-8">Sem holdings cadastradas.</p>
+              ) : (
+                <div className="grid sm:grid-cols-[200px_1fr] gap-6 items-start">
+                  <div className="flex justify-center"><Donut data={holdingBreakdown.slices} size={200} centerLabel="Holding"/></div>
+                  <div className="space-y-2">
+                    {holdingBreakdown.rows.map(r => (
+                      <CategoryRow
+                        key={r.key}
+                        label={r.key}
+                        color={r.color}
+                        value={r.value}
+                        pct={r.pct}
+                        items={r.items}
+                        fmt={(v) => fmt(toBase(v), true)}
+                        setEditing={setEditing}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )
+            }
+          >
+            <p className="v2-caption pr-9">Holding</p>
+            <p className="text-sm text-[#8888aa] mt-0.5">Grupo econômico</p>
+            <div className="mt-4 flex justify-center"><Donut data={holdingBreakdown.slices} size={150}/></div>
+            <div className="mt-4 pt-3 border-t border-[#1e1e30]">
+              <DonutLegend data={holdingBreakdown.slices.slice(0, 4)} total={holdingBreakdown.total}/>
+              {holdingBreakdown.slices.length > 4 && (
+                <p className="text-[10px] text-[#55556a] mt-2">+ {holdingBreakdown.slices.length - 4} mais</p>
+              )}
+            </div>
+          </ExpandableCard>
+
+          {/* Vencimento */}
+          <ExpandableCard
+            title="Vencimento · prazo dos ativos"
+            subtitle={`${maturityBreakdown.rows.filter(r => r.value > 0).length} faixas de prazo representadas`}
+            modalSize="lg"
+            detail={
+              maturityBreakdown.rows.length === 0 ? (
+                <p className="text-xs text-[#55556a] text-center py-8">Sem datas de vencimento informadas.</p>
+              ) : (
+                <div className="grid sm:grid-cols-[200px_1fr] gap-6 items-start">
+                  <div className="flex justify-center"><Donut data={maturityBreakdown.slices} size={200} centerLabel="Vencimento"/></div>
+                  <div className="space-y-2">
+                    {maturityBreakdown.rows.map(r => (
+                      <CategoryRow
+                        key={r.key}
+                        label={r.key}
+                        color={r.color}
+                        value={r.value}
+                        pct={r.pct}
+                        items={r.items}
+                        fmt={(v) => fmt(toBase(v), true)}
+                        setEditing={setEditing}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )
+            }
+          >
+            <p className="v2-caption pr-9">Vencimento</p>
+            <p className="text-sm text-[#8888aa] mt-0.5">Prazo dos ativos</p>
+            <div className="mt-4 flex justify-center"><Donut data={maturityBreakdown.slices} size={150}/></div>
+            <div className="mt-4 pt-3 border-t border-[#1e1e30]">
+              <DonutLegend data={maturityBreakdown.slices} total={maturityBreakdown.total}/>
+            </div>
+          </ExpandableCard>
+
+          {/* Frequência de pagamento de juros */}
+          <ExpandableCard
+            title="Frequência de juros · pagamento de cupons"
+            subtitle={`${paymentFreqBreakdown.rows.filter(r => r.value > 0).length} frequências representadas`}
+            modalSize="lg"
+            detail={
+              paymentFreqBreakdown.rows.length === 0 ? (
+                <p className="text-xs text-[#55556a] text-center py-8">Sem frequência de pagamento informada.</p>
+              ) : (
+                <div className="grid sm:grid-cols-[200px_1fr] gap-6 items-start">
+                  <div className="flex justify-center"><Donut data={paymentFreqBreakdown.slices} size={200} centerLabel="Frequência"/></div>
+                  <div className="space-y-2">
+                    {paymentFreqBreakdown.rows.map(r => (
+                      <CategoryRow
+                        key={r.key}
+                        label={r.key}
+                        color={r.color}
+                        value={r.value}
+                        pct={r.pct}
+                        items={r.items}
+                        fmt={(v) => fmt(toBase(v), true)}
+                        setEditing={setEditing}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )
+            }
+          >
+            <p className="v2-caption pr-9">Freq. de Juros</p>
+            <p className="text-sm text-[#8888aa] mt-0.5">Pagamento de cupons</p>
+            <div className="mt-4 flex justify-center"><Donut data={paymentFreqBreakdown.slices} size={150}/></div>
+            <div className="mt-4 pt-3 border-t border-[#1e1e30]">
+              <DonutLegend data={paymentFreqBreakdown.slices.slice(0, 4)} total={paymentFreqBreakdown.total}/>
+              {paymentFreqBreakdown.slices.length > 4 && (
+                <p className="text-[10px] text-[#55556a] mt-2">+ {paymentFreqBreakdown.slices.length - 4} mais</p>
+              )}
+            </div>
+          </ExpandableCard>
+
+          {/* Setor */}
+          <ExpandableCard
+            title="Setor · exposição setorial"
+            subtitle={`${sectorBreakdown.rows.filter(r => r.value > 0).length} setores · ${fmt(toBase(sectorBreakdown.total), true)} totais`}
+            modalSize="lg"
+            detail={
+              sectorBreakdown.rows.length === 0 ? (
+                <p className="text-xs text-[#55556a] text-center py-8">Sem setores cadastrados.</p>
+              ) : (
+                <div className="grid sm:grid-cols-[200px_1fr] gap-6 items-start">
+                  <div className="flex justify-center"><Donut data={sectorBreakdown.slices} size={200} centerLabel="Setor"/></div>
+                  <div className="space-y-2">
+                    {sectorBreakdown.rows.map(r => (
+                      <CategoryRow
+                        key={r.key}
+                        label={r.key}
+                        color={r.color}
+                        value={r.value}
+                        pct={r.pct}
+                        items={r.items}
+                        fmt={(v) => fmt(toBase(v), true)}
+                        setEditing={setEditing}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )
+            }
+          >
+            <p className="v2-caption pr-9">Setor</p>
+            <p className="text-sm text-[#8888aa] mt-0.5">Exposição setorial</p>
+            <div className="mt-4 flex justify-center"><Donut data={sectorBreakdown.slices} size={150}/></div>
+            <div className="mt-4 pt-3 border-t border-[#1e1e30]">
+              <DonutLegend data={sectorBreakdown.slices.slice(0, 4)} total={sectorBreakdown.total}/>
+              {sectorBreakdown.slices.length > 4 && (
+                <p className="text-[10px] text-[#55556a] mt-2">+ {sectorBreakdown.slices.length - 4} mais</p>
+              )}
+            </div>
+          </ExpandableCard>
+
+          {/* Benchmark */}
+          <ExpandableCard
+            title="Benchmark · índice de referência"
+            subtitle={`${benchmarkBreakdown.rows.filter(r => r.value > 0).length} benchmarks representados`}
+            modalSize="lg"
+            detail={
+              benchmarkBreakdown.rows.length === 0 ? (
+                <p className="text-xs text-[#55556a] text-center py-8">Sem benchmark informado.</p>
+              ) : (
+                <div className="grid sm:grid-cols-[200px_1fr] gap-6 items-start">
+                  <div className="flex justify-center"><Donut data={benchmarkBreakdown.slices} size={200} centerLabel="Benchmark"/></div>
+                  <div className="space-y-2">
+                    {benchmarkBreakdown.rows.map(r => (
+                      <CategoryRow
+                        key={r.key}
+                        label={r.key}
+                        color={r.color}
+                        value={r.value}
+                        pct={r.pct}
+                        items={r.items}
+                        fmt={(v) => fmt(toBase(v), true)}
+                        setEditing={setEditing}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )
+            }
+          >
+            <p className="v2-caption pr-9">Benchmark</p>
+            <p className="text-sm text-[#8888aa] mt-0.5">Índice de referência</p>
+            <div className="mt-4 flex justify-center"><Donut data={benchmarkBreakdown.slices} size={150}/></div>
+            <div className="mt-4 pt-3 border-t border-[#1e1e30]">
+              <DonutLegend data={benchmarkBreakdown.slices.slice(0, 4)} total={benchmarkBreakdown.total}/>
+              {benchmarkBreakdown.slices.length > 4 && (
+                <p className="text-[10px] text-[#55556a] mt-2">+ {benchmarkBreakdown.slices.length - 4} mais</p>
+              )}
             </div>
           </ExpandableCard>
 

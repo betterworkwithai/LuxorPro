@@ -186,7 +186,8 @@ export default function LuxorApp() {
   const needsSubscription =
     !subscriptionDone &&
     authed === true &&
-    (subVerified === false || (subVerified === null && !getStoredSubscription()));
+    !getStoredSubscription() &&
+    (subVerified === false || subVerified === null);
 
   if (authed === undefined) return <LoadingScreen />;
   if (!authed) return <Auth />;
