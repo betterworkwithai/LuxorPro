@@ -1703,10 +1703,11 @@ export default function WealthV2() {
                 )}
               </div>
               <div className="overflow-x-auto">
-                <div className="min-w-[860px] overflow-hidden rounded-xl border border-[#1e1e30] divide-y divide-[#1e1e30]">
-                  <div className="grid grid-cols-[100px_1fr_100px_140px_120px_110px_36px] items-center gap-1 px-3 py-2 text-[10px] uppercase tracking-wider text-[#55556a]">
+                <div className="min-w-[960px] overflow-hidden rounded-xl border border-[#1e1e30] divide-y divide-[#1e1e30]">
+                  <div className="grid grid-cols-[90px_minmax(160px,1.4fr)_minmax(120px,1fr)_80px_130px_110px_100px_32px] items-center gap-1 px-3 py-2 text-[10px] uppercase tracking-wider text-[#55556a]">
                     <button onClick={() => toggleSort('name')}     className="text-left hover:text-[#e8e8f0]">Ticker{sortIcon('name')}</button>
-                    <button onClick={() => toggleSort('class')}    className="text-left hover:text-[#e8e8f0]">Ativo · classe{sortIcon('class')}</button>
+                    <button onClick={() => toggleSort('name')}     className="text-left hover:text-[#e8e8f0]">Ativo{sortIcon('name')}</button>
+                    <button onClick={() => toggleSort('class')}    className="text-left hover:text-[#e8e8f0]">Classe{sortIcon('class')}</button>
                     <button onClick={() => toggleSort('qty')}      className="text-right hover:text-[#e8e8f0]">Qtd{sortIcon('qty')}</button>
                     <button onClick={() => toggleSort('avgCost')}  className="text-right hover:text-[#e8e8f0]">PM / Atual{sortIcon('avgCost')}</button>
                     <button onClick={() => toggleSort('position')} className="text-right hover:text-[#e8e8f0]">Posição{sortIcon('position')}</button>
@@ -1721,14 +1722,14 @@ export default function WealthV2() {
                       <div
                         key={p.id}
                         onClick={() => setEditing(p as Investment)}
-                        className="grid grid-cols-[100px_1fr_100px_140px_120px_110px_36px] items-center gap-1 px-3 py-2.5 text-xs v2-row-hover cursor-pointer"
+                        className="grid grid-cols-[90px_minmax(160px,1.4fr)_minmax(120px,1fr)_80px_130px_110px_100px_32px] items-center gap-1 px-3 py-2.5 text-xs v2-row-hover cursor-pointer"
                         title="Clique para editar"
                       >
                         <span className="font-mono font-semibold truncate flex items-center gap-1.5" style={{ color: '#00d4ff' }}>
                           {p.ticker || p.name.slice(0, 8)}
                         </span>
                         <span className="font-medium truncate flex items-center gap-2">
-                          <span className="truncate">{p.name}<span className="text-[#55556a]"> · {p.assetClass}</span></span>
+                          <span className="truncate">{p.name}</span>
                           {isPluggy && (
                             <span
                               className="text-[9px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-md flex-shrink-0"
@@ -1739,6 +1740,7 @@ export default function WealthV2() {
                             </span>
                           )}
                         </span>
+                        <span className="truncate text-[#8888aa]">{p.assetClass}</span>
                         <span className="v2-num text-right text-[#8888aa]">{p.quantity.toLocaleString('pt-BR', { maximumFractionDigits: 4 })}</span>
                         <span className="v2-num text-right text-[#8888aa]">{p.avgCost.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} / {p.currentPrice.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}</span>
                         <span className="v2-num text-right font-semibold">{fmt(toBase(p.currentBRL), true)}</span>
