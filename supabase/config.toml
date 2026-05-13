@@ -1,1 +1,8 @@
-project_id = "gqzsnsmagxvvntnqvidf"
+project_id = "jmbjvmmmpqkuiescerlm"
+
+# trial-day-5-email is invoked by a daily cron job (or external curl), so it
+# can't ship a Supabase JWT in the Authorization header. We bypass the
+# platform-level JWT check for THIS function only; the function itself
+# enforces auth via the CRON_SECRET it checks internally.
+[functions.trial-day-5-email]
+verify_jwt = false
