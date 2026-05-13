@@ -89,8 +89,8 @@ export async function createCheckoutSession(
       body: {
         plan:       plan.id,
         promoCode:  promoCode || undefined,
-        successUrl: `${window.location.origin}/?subscription_success=1&plan=${plan.id}`,
-        cancelUrl:  `${window.location.origin}/?checkout_canceled=1`,
+        successUrl: `${window.location.origin}/app?subscription_success=1&plan=${plan.id}`,
+        cancelUrl:  `${window.location.origin}/app?checkout_canceled=1`,
       },
     })
     if (error) return { error: error.message ?? 'Erro desconhecido' }
