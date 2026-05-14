@@ -119,6 +119,13 @@ export default function LuxorApp() {
 
   const [sessionGateChecked, setSessionGateChecked] = useState(false);
   useEffect(() => {
+    // Electron desktop: skip the session gate entirely so the user stays logged
+    // in between app restarts (session gate is a web-tab security feature only).
+    if ((window as any).electronAPI) {
+      setSessionGateChecked(true);
+      return;
+    }
+
     const TAB_MARKER = 'luxor_tab_session';
     const isFreshTab = !sessionStorage.getItem(TAB_MARKER);
     sessionStorage.setItem(TAB_MARKER, '1');

@@ -54,6 +54,21 @@ export function OnboardingModal() {
   } = useStore()
 
   const [open, setOpen] = useState(() => !localStorage.getItem(ONBOARDING_KEY))
+
+  // Guard against fresh localStorage (Electron port change, cache cleared, new device):
+  // if Supabase metadata says onboarding_done, close immediately without showing the modal.
+  useEffect(() => {
+    if (!open) return
+    supabase.auth.getUser().then(({ data }) => {
+      const meta = data.user?.user_metadata as { onboarding_done?: boolean } | undefined
+      if (meta?.onboarding_done) {
+        try { localStorage.setItem(ONBOARDING_KEY, '1') } catch {}
+        setOpen(false)
+      }
+    }).catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // Step machine: -1 = name capture, 0..3 = the 4 activation steps, 4 = complete (closes)
   const [step, setStep] = useState(-1)
 
@@ -105,6 +120,8 @@ export function OnboardingModal() {
   // ── Helpers ────────────────────────────────────
   const closeAndMarkDone = (reason: 'completed' | 'skipped' = 'completed') => {
     try { localStorage.setItem(ONBOARDING_KEY, '1') } catch {}
+    // Persist in auth metadata so fresh localStorage (new device/port) never re-shows the modal
+    supabase.auth.updateUser({ data: { onboarding_done: true } }).catch(() => {})
     fireTrack(reason === 'completed' ? 'onboarding_completed' : 'onboarding_skipped')
     setOpen(false)
   }
