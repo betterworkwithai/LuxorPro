@@ -6,6 +6,19 @@ const path = require('path')
 const http = require('http')
 const fs = require('fs')
 
+// Persist the HTTP server port across launches so localStorage origin stays stable.
+// Without this, each launch gets a random port → different origin → Supabase session lost.
+function loadSavedPort() {
+  try {
+    const data = JSON.parse(fs.readFileSync(path.join(app.getPath('userData'), 'server-port.json'), 'utf8'))
+    return typeof data.port === 'number' ? data.port : 0
+  } catch { return 0 }
+}
+
+function savePort(port) {
+  try { fs.writeFileSync(path.join(app.getPath('userData'), 'server-port.json'), JSON.stringify({ port })) } catch {}
+}
+
 // MIME types needed for the built Vite assets
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -48,10 +61,19 @@ function startServer(distPath) {
       }
     })
 
-    // Port 0 = OS picks an available port; 127.0.0.1 = loopback only (not exposed to LAN)
-    server.listen(0, '127.0.0.1', () => {
-      resolve(`http://127.0.0.1:${server.address().port}`)
+    // Prefer the previously-used port so localStorage origin stays stable across launches.
+    // If that port is busy, fall back to a random one and persist the new choice.
+    const preferred = loadSavedPort() || 51742
+
+    server.on('error', () => {
+      server.listen(0, '127.0.0.1')
     })
+    server.on('listening', () => {
+      const port = server.address().port
+      savePort(port)
+      resolve(`http://127.0.0.1:${port}`)
+    })
+    server.listen(preferred, '127.0.0.1')
   })
 }
 
@@ -81,8 +103,7 @@ async function createWindow() {
 
   mainWindow.loadURL(appUrl)
 
-  // Always open DevTools so we can see errors in production
-  mainWindow.webContents.openDevTools()
+  if (isDev) mainWindow.webContents.openDevTools()
 
   // Forward renderer console errors to the terminal
   mainWindow.webContents.on('console-message', (_e, level, message, line, source) => {

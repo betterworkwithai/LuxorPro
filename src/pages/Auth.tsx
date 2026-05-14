@@ -83,11 +83,15 @@ function Alert({ type, message }: { type: 'error' | 'success'; message: string }
   )
 }
 
+const REMEMBER_KEY = 'luxor_remember_email'
+
 // ─── Login form ───────────────────────────────
 function LoginForm({ onForgot }: { onForgot: () => void }) {
-  const [email,    setEmail]    = useState('')
+  const savedEmail  = (() => { try { return localStorage.getItem(REMEMBER_KEY) || '' } catch { return '' } })()
+  const [email,    setEmail]    = useState(savedEmail)
   const [password, setPassword] = useState('')
   const [showPwd,  setShowPwd]  = useState(false)
+  const [remember, setRemember] = useState(savedEmail !== '')
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState('')
 
@@ -98,8 +102,13 @@ function LoginForm({ onForgot }: { onForgot: () => void }) {
     setLoading(true)
     const { data, error: err } = await supabase.auth.signInWithPassword({ email, password })
     setLoading(false)
-    if (err) setError(translateError(err.message))
-    else if (data?.user?.id) {
+    if (err) {
+      setError(translateError(err.message))
+    } else if (data?.user?.id) {
+      try {
+        if (remember) localStorage.setItem(REMEMBER_KEY, email)
+        else          localStorage.removeItem(REMEMBER_KEY)
+      } catch {}
       identifyUser(data.user.id, { email: data.user.email })
       track('login_completed')
     }
@@ -135,7 +144,25 @@ function LoginForm({ onForgot }: { onForgot: () => void }) {
         }
       />
 
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between">
+        <label className="flex items-center gap-2 cursor-pointer select-none">
+          <div
+            onClick={() => setRemember(r => !r)}
+            className={clsx(
+              'w-4 h-4 rounded border flex items-center justify-center transition-all',
+              remember
+                ? 'bg-[#ff7a00] border-[#ff7a00]'
+                : 'bg-[#111118] border-[#2e2e3e] hover:border-[#ff7a00]/50',
+            )}
+          >
+            {remember && (
+              <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 10 8" fill="none">
+                <path d="M1 4l3 3 5-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            )}
+          </div>
+          <span className="text-xs text-[#55556a]">Lembrar e-mail</span>
+        </label>
         <button type="button" onClick={onForgot} className="text-xs text-[#55556a] hover:text-[#ff7a00] transition-colors">
           Esqueceu a senha?
         </button>
