@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Save, Database, AlertTriangle, Trash2, Plus, Tag, X, Download, Upload, KeyRound, Mail, CreditCard, ExternalLink, Loader2, Crown, CalendarX, RefreshCw, Heart, Pencil, FlaskConical, Sparkles, CheckCircle2 } from 'lucide-react'
+import { Save, Database, AlertTriangle, Trash2, Plus, Tag, X, Download, Upload, KeyRound, Mail, CreditCard, ExternalLink, Loader2, Crown, CalendarX, RefreshCw, Heart, Pencil, FlaskConical, Sparkles, CheckCircle2, MessageCircle, Phone, Unlink } from 'lucide-react'
 import { SharingSettings } from '../components/settings/SharingSettings'
 import { createPortalSession, cancelSubscription } from '../lib/stripe'
 import { useSubscription } from '../hooks/useSubscription'
@@ -100,7 +100,7 @@ export default function Settings() {
   const [showNewCat,     setShowNewCat]     = useState(false)
   const [activeTab,      setActiveTab]      = useState<string>(() => {
     // Allow deep-link to a specific tab via URL hash (e.g. /app/settings#investidor)
-    const validTabs = ['perfil','assinatura','seguranca','investidor','moeda','compartilhamento','instituicoes','categorias','backup','demo','conta','sugerir','suporte','apagar']
+    const validTabs = ['perfil','assinatura','seguranca','investidor','moeda','compartilhamento','instituicoes','categorias','backup','demo','whatsapp','conta','sugerir','suporte','apagar']
     const hash = (typeof window !== 'undefined' ? window.location.hash.replace('#','') : '') || ''
     return validTabs.includes(hash) ? hash : 'perfil'
   })
@@ -109,7 +109,7 @@ export default function Settings() {
   // Keep activeTab in sync with hash changes (back/forward navigation)
   useEffect(() => {
     const onHash = () => {
-      const validTabs = ['perfil','assinatura','seguranca','investidor','moeda','compartilhamento','instituicoes','categorias','backup','demo','conta','sugerir','suporte','apagar']
+      const validTabs = ['perfil','assinatura','seguranca','investidor','moeda','compartilhamento','instituicoes','categorias','backup','demo','whatsapp','conta','sugerir','suporte','apagar']
       const hash = window.location.hash.replace('#','') || ''
       if (validTabs.includes(hash)) setActiveTab(hash)
     }
@@ -992,6 +992,13 @@ export default function Settings() {
         />
         )}
 
+        {/* ── WhatsApp Bot ── */}
+        {activeTab === 'whatsapp' && (
+        <section id="whatsapp" aria-labelledby="whatsapp-heading">
+          <WhatsAppSettings />
+        </section>
+        )}
+
         {/* ── Conta (email/senha) — só com Supabase ── */}
         {activeTab === 'conta' && (
         <section id="conta" aria-labelledby="conta-heading">
@@ -1242,6 +1249,233 @@ export default function Settings() {
         </ModalFooter>
       </Modal>
     </div>
+  )
+}
+
+// ─── WhatsApp Bot section ─────────────────────────
+function WhatsAppSettings() {
+  const [phone,         setPhone]         = useState('')
+  const [code,          setCode]          = useState('')
+  const [step,          setStep]          = useState<'idle' | 'code'>('idle')
+  const [linked,        setLinked]        = useState<{ phone: string } | null>(null)
+  const [loading,       setLoading]       = useState(false)
+  const [loadingStatus, setLoadingStatus] = useState(true)
+  const [status,        setStatus]        = useState<{ type: 'ok' | 'error'; msg: string } | null>(null)
+
+  // Load existing linked number on mount
+  useEffect(() => {
+    let mounted = true
+    supabase.from('whatsapp_links').select('phone_e164').eq('verified', true).maybeSingle()
+      .then(({ data }) => {
+        if (mounted && data) setLinked({ phone: data.phone_e164 as string })
+      })
+      .finally(() => { if (mounted) setLoadingStatus(false) })
+    return () => { mounted = false }
+  }, [])
+
+  const callVerify = async (body: object) => {
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await supabase.functions.invoke('whatsapp-verify', {
+      body,
+      headers: { Authorization: `Bearer ${session?.access_token}` },
+    })
+    return res
+  }
+
+  const handleSend = async () => {
+    if (!phone.trim()) return
+    setLoading(true)
+    setStatus(null)
+    try {
+      const { error } = await callVerify({ action: 'send', phone: phone.trim() })
+      if (error) throw error
+      setStep('code')
+      setStatus({ type: 'ok', msg: 'Código enviado! Verifique seu WhatsApp.' })
+    } catch {
+      setStatus({ type: 'error', msg: 'Erro ao enviar código. Verifique o número e tente novamente.' })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleConfirm = async () => {
+    if (!code.trim()) return
+    setLoading(true)
+    setStatus(null)
+    try {
+      const { error } = await callVerify({ action: 'confirm', phone: phone.trim(), code: code.trim() })
+      if (error) throw error
+      const phoneE164 = phone.trim().startsWith('+') ? phone.trim() : `+${phone.trim()}`
+      setLinked({ phone: phoneE164 })
+      setStep('idle')
+      setPhone('')
+      setCode('')
+      setStatus({ type: 'ok', msg: '✅ Número vinculado com sucesso!' })
+    } catch (e: unknown) {
+      const msg = (e as { message?: string })?.message ?? ''
+      if (msg.includes('expired')) {
+        setStatus({ type: 'error', msg: 'Código expirado. Solicite um novo.' })
+        setStep('idle')
+      } else if (msg.includes('Incorrect')) {
+        setStatus({ type: 'error', msg: 'Código incorreto. Tente novamente.' })
+      } else {
+        setStatus({ type: 'error', msg: 'Erro ao verificar. Tente novamente.' })
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleUnlink = async () => {
+    if (!linked) return
+    setLoading(true)
+    setStatus(null)
+    try {
+      const { error } = await callVerify({ action: 'unlink', phone: linked.phone })
+      if (error) throw error
+      setLinked(null)
+      setStatus({ type: 'ok', msg: 'Número desvinculado.' })
+    } catch {
+      setStatus({ type: 'error', msg: 'Erro ao desvincular. Tente novamente.' })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loadingStatus) {
+    return (
+      <Card>
+        <CardContent className="py-8 flex justify-center">
+          <Loader2 className="w-5 h-5 animate-spin text-[#55556a]" />
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <MessageCircle className="w-4 h-4 text-[#25D366]" />
+          <CardTitle>WhatsApp Bot</CardTitle>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        {/* How it works */}
+        <div className="p-4 rounded-xl bg-[#25D366]/5 border border-[#25D366]/15 space-y-2">
+          <p className="text-sm font-semibold text-[#e8e8f0]">Registre transações pelo WhatsApp</p>
+          <p className="text-xs text-[#8888aa] leading-relaxed">
+            Após vincular seu número, envie mensagens como <em>"gastei 50 no mercado"</em> ou <em>"recebi 8000 de salário"</em>
+            e o bot registra automaticamente no Luxor Pro.
+          </p>
+          <p className="text-xs text-[#55556a]">Comandos: /extrato · /saldo · /metas · /ajuda</p>
+        </div>
+
+        {/* Linked state */}
+        {linked ? (
+          <div className="space-y-3">
+            <div className="flex items-center gap-3 p-4 rounded-xl bg-[#00ff88]/5 border border-[#00ff88]/20">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'rgba(0,255,136,0.12)' }}>
+                <CheckCircle2 className="w-4 h-4 text-[#00ff88]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-[#e8e8f0]">Número vinculado</p>
+                <p className="text-xs text-[#00ff88] font-mono">{linked.phone}</p>
+              </div>
+              <button
+                onClick={handleUnlink}
+                disabled={loading}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium text-[#8888aa] border border-[#1e1e2e] hover:border-[#ff4466]/40 hover:text-[#ff4466] transition-all disabled:opacity-50"
+              >
+                {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Unlink className="w-3.5 h-3.5" />}
+                Desvincular
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Phone input step */}
+            {step === 'idle' && (
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-[#8888aa] mb-1.5 block">Número do WhatsApp</label>
+                  <div className="flex gap-3">
+                    <div className="relative flex-1">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#55556a]" />
+                      <input
+                        className="input-dark pl-9 w-full"
+                        type="tel"
+                        placeholder="+55 11 99999-9999"
+                        value={phone}
+                        onChange={e => setPhone(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleSend()}
+                      />
+                    </div>
+                    <button
+                      onClick={handleSend}
+                      disabled={loading || !phone.trim()}
+                      className="btn-primary flex items-center gap-2 whitespace-nowrap disabled:opacity-50"
+                    >
+                      {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageCircle className="w-4 h-4" />}
+                      Enviar Código
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-[#55556a] mt-1.5">
+                    Formato: +55 (DDI) + DDD + número. Ex: +5511999990000
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Verification code step */}
+            {step === 'code' && (
+              <div className="space-y-3">
+                <div className="p-3 rounded-xl bg-[#ff7a00]/5 border border-[#ff7a00]/15 text-xs text-[#8888aa]">
+                  Código enviado para <strong className="text-[#e8e8f0]">{phone}</strong>. Verifique o WhatsApp e cole abaixo. Válido por 10 minutos.
+                </div>
+                <div>
+                  <label className="text-xs text-[#8888aa] mb-1.5 block">Código de 6 dígitos</label>
+                  <div className="flex gap-3">
+                    <input
+                      className="input-dark flex-1 tracking-[0.3em] text-center text-lg font-mono"
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      placeholder="_ _ _ _ _ _"
+                      value={code}
+                      onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      onKeyDown={e => e.key === 'Enter' && handleConfirm()}
+                      autoFocus
+                    />
+                    <button
+                      onClick={handleConfirm}
+                      disabled={loading || code.length < 6}
+                      className="btn-primary flex items-center gap-2 whitespace-nowrap disabled:opacity-50"
+                    >
+                      {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                      Verificar
+                    </button>
+                  </div>
+                </div>
+                <button
+                  onClick={() => { setStep('idle'); setCode(''); setStatus(null) }}
+                  className="text-xs text-[#55556a] hover:text-[#8888aa] underline transition-colors"
+                >
+                  Usar outro número
+                </button>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Status messages */}
+        {status && (
+          <p className={`text-xs font-medium ${status.type === 'ok' ? 'text-[#00ff88]' : 'text-[#ff4466]'}`}>
+            {status.msg}
+          </p>
+        )}
+      </CardContent>
+    </Card>
   )
 }
 

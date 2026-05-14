@@ -71,7 +71,10 @@ export function SupportSection({ userEmail }: { userEmail: string | null }) {
   const reload = async () => {
     setLoading(true)
     try {
-      const q = supabase.from('support_tickets').select('*').order('created_at', { ascending: false })
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Não autenticado')
+      let q = supabase.from('support_tickets').select('*').order('created_at', { ascending: false })
+      if (!admin) q = q.eq('user_id', user.id)
       const { data, error } = await q
       if (error) throw error
       setTickets((data ?? []) as SupportTicket[])
@@ -244,7 +247,13 @@ function TicketCard({
     if (!window.confirm('Excluir este chamado? Esta ação não pode ser desfeita.')) return
     setBusy(true)
     try {
-      const { error } = await supabase.from('support_tickets').delete().eq('id', ticket.id)
+      let q = supabase.from('support_tickets').delete().eq('id', ticket.id)
+      if (!isAdmin) {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) throw new Error('Não autenticado')
+        q = q.eq('user_id', user.id)
+      }
+      const { error } = await q
       if (error) throw error
       onChanged()
     } finally { setBusy(false) }

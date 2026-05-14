@@ -46,6 +46,7 @@ export default function WealthV2() {
   type SortKey = 'name' | 'class' | 'institution' | 'qty' | 'avgCost' | 'currentPrice' | 'position' | 'period'
   const [sortKey, setSortKey] = useState<SortKey>('position')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+  const [breakdownLocation, setBreakdownLocation] = useState<'all' | 'onshore' | 'offshore'>('all')
   const toggleSort = (k: SortKey) => {
     if (sortKey === k) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
     else { setSortKey(k); setSortDir('desc') }
@@ -246,6 +247,7 @@ export default function WealthV2() {
     let total = 0
     investments.forEach(i => {
       if (i.location === 'physical-re') return
+      if (breakdownLocation !== 'all' && i.location !== breakdownLocation) return
       const v = convert(i.quantity * i.currentPrice, i.currency, 'BRL', usdToBrl, eurToBrl)
       if (v <= 0) return
       const k = keyFn(i)
@@ -282,7 +284,7 @@ export default function WealthV2() {
       palette,
       LIQ_ORDER,
     )
-  }, [investments, usdToBrl, eurToBrl])
+  }, [investments, usdToBrl, eurToBrl, breakdownLocation])
 
   // ── Tax treatment breakdown ────────────────────
   const taxLabel: Record<string, string> = {
@@ -298,6 +300,7 @@ export default function WealthV2() {
     let total = 0
     investments.forEach(i => {
       if (i.location === 'physical-re') return
+      if (breakdownLocation !== 'all' && i.location !== breakdownLocation) return
       const v = convert(i.quantity * i.currentPrice, i.currency, 'BRL', usdToBrl, eurToBrl)
       if (v <= 0) return
       const k = i.taxTreatment ?? 'unset'
@@ -316,7 +319,7 @@ export default function WealthV2() {
     }))
     const slices: DonutSlice[] = rows.map(r => ({ label: taxLabel[r.key] ?? r.key, value: r.value, color: r.color }))
     return { slices, total, rows }
-  }, [investments, usdToBrl, eurToBrl])
+  }, [investments, usdToBrl, eurToBrl, breakdownLocation])
 
   // ── Institution / broker breakdown ─────────────
   const institutionBreakdown = useMemo(() => {
@@ -325,7 +328,7 @@ export default function WealthV2() {
       i => (i.institution && i.institution.trim().length > 0 ? i.institution : 'Sem instituição'),
       palette,
     )
-  }, [investments, usdToBrl, eurToBrl])
+  }, [investments, usdToBrl, eurToBrl, breakdownLocation])
 
   // ── Risk level breakdown ───────────────────────
   const riskLabel: Record<string, string> = {
@@ -520,6 +523,7 @@ export default function WealthV2() {
     let total = 0
     investments.forEach(i => {
       if (i.location === 'physical-re') return
+      if (breakdownLocation !== 'all' && i.location !== breakdownLocation) return
       const v = convert(i.quantity * i.currentPrice, i.currency, 'BRL', usdToBrl, eurToBrl)
       if (v <= 0) return
       const k = i.riskLevel ? String(i.riskLevel) : 'unset'
@@ -538,7 +542,7 @@ export default function WealthV2() {
     }))
     const slices: DonutSlice[] = rows.map(r => ({ label: riskLabel[r.key] ?? r.key, value: r.value, color: r.color }))
     return { slices, total, rows }
-  }, [investments, usdToBrl, eurToBrl])
+  }, [investments, usdToBrl, eurToBrl, breakdownLocation])
 
   // ── Emissor breakdown ──────────────────────────
   const emisssorBreakdown = useMemo(() => {
@@ -547,7 +551,7 @@ export default function WealthV2() {
       i => (i.issuer && i.issuer.trim().length > 0 ? i.issuer.trim() : 'Não informado'),
       palette,
     )
-  }, [investments, usdToBrl, eurToBrl])
+  }, [investments, usdToBrl, eurToBrl, breakdownLocation])
 
   // ── Holding breakdown ──────────────────────────
   const holdingBreakdown = useMemo(() => {
@@ -556,7 +560,7 @@ export default function WealthV2() {
       i => (i.holding && i.holding.trim().length > 0 ? i.holding.trim() : 'Não informado'),
       palette,
     )
-  }, [investments, usdToBrl, eurToBrl])
+  }, [investments, usdToBrl, eurToBrl, breakdownLocation])
 
   // ── Vencimento (maturity bucket) breakdown ─────
   const maturityBreakdown = useMemo(() => {
@@ -575,7 +579,7 @@ export default function WealthV2() {
     }
     const BUCKET_ORDER = ['< 1 ano', '1–2 anos', '2–3 anos', '3–5 anos', '5–10 anos', '+ 10 anos', 'Vencido', 'Sem vencimento']
     return breakdownBy(bucket, palette, BUCKET_ORDER)
-  }, [investments, usdToBrl, eurToBrl])
+  }, [investments, usdToBrl, eurToBrl, breakdownLocation])
 
   // ── Payment frequency breakdown ────────────────
   const paymentFreqBreakdown = useMemo(() => {
@@ -584,7 +588,7 @@ export default function WealthV2() {
       i => (i.paymentFrequency && i.paymentFrequency.trim().length > 0 ? i.paymentFrequency.trim() : 'Não informado'),
       palette,
     )
-  }, [investments, usdToBrl, eurToBrl])
+  }, [investments, usdToBrl, eurToBrl, breakdownLocation])
 
   // ── Sector breakdown ────────────────────────────
   const sectorBreakdown = useMemo(() => {
@@ -593,7 +597,7 @@ export default function WealthV2() {
       i => (i.sector && i.sector.trim().length > 0 ? i.sector.trim() : 'Não informado'),
       palette,
     )
-  }, [investments, usdToBrl, eurToBrl])
+  }, [investments, usdToBrl, eurToBrl, breakdownLocation])
 
   // ── Benchmark breakdown ─────────────────────────
   const benchmarkBreakdown = useMemo(() => {
@@ -602,7 +606,7 @@ export default function WealthV2() {
       i => (i.benchmark && i.benchmark.trim().length > 0 ? i.benchmark.trim() : 'Sem benchmark'),
       palette,
     )
-  }, [investments, usdToBrl, eurToBrl])
+  }, [investments, usdToBrl, eurToBrl, breakdownLocation])
 
   // ── Per-investment period metrics (used by movers + posições) ──
   const movers = useMemo(() => {
@@ -1467,6 +1471,24 @@ export default function WealthV2() {
           </ExpandableCard>
 
         </section>
+
+        {/* ─── Breakdown location toggle ─────────────────────────── */}
+        <div className="flex items-center gap-3 v2-reveal">
+          <span className="text-xs text-[#55556a] font-medium">Visão:</span>
+          {(['all', 'onshore', 'offshore'] as const).map(loc => (
+            <button
+              key={loc}
+              onClick={() => setBreakdownLocation(loc)}
+              className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${
+                breakdownLocation === loc
+                  ? 'bg-[#00d4ff] text-black'
+                  : 'bg-[#1e1e30] text-[#8888aa] hover:bg-[#2a2a3f] hover:text-white'
+              }`}
+            >
+              {loc === 'all' ? 'Global' : loc === 'onshore' ? 'Onshore' : 'Offshore'}
+            </button>
+          ))}
+        </div>
 
         {/* ─── BREAKDOWNS · 4 DONUT CARDS ───────────────────────── */}
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 v2-reveal">

@@ -3,6 +3,7 @@ import { clsx } from 'clsx'
 import {
   User, CreditCard, ShieldCheck, BarChart2, Wallet, Target, Heart,
   Building2, Tag, Database, Download, KeyRound, Sparkles, LifeBuoy, AlertTriangle, FlaskConical,
+  MessageCircle,
 } from 'lucide-react'
 
 export interface SettingsNavItem {
@@ -24,6 +25,7 @@ export const SETTINGS_NAV_ITEMS: SettingsNavItem[] = [
   { id: 'categorias',      label: 'Categorias',             icon: Tag },
   { id: 'backup',          label: 'Backup',                 icon: Download },
   { id: 'demo',            label: 'Modo Demo',              icon: FlaskConical },
+  { id: 'whatsapp',        label: 'WhatsApp Bot',           icon: MessageCircle },
   { id: 'conta',           label: 'Conta',                  icon: KeyRound },
   { id: 'sugerir',         label: 'Sugerir Função',         icon: Sparkles },
   { id: 'suporte',         label: 'Suporte',                icon: LifeBuoy },
