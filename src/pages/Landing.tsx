@@ -11,7 +11,7 @@ const STRIPE_ANNUAL   = 'https://buy.stripe.com/fZu3cp3gc0yrb0j47e3wQ02'
 const STRIPE_LIFETIME = 'https://buy.stripe.com/8x23cp6sodld3xR5bi3wQ01'
 
 // Update this URL when you publish the installer to GitHub Releases or your CDN
-const DOWNLOAD_WINDOWS = 'https://github.com/betterworkwithai/LuxorPro/releases/latest/download/Luxor%20Pro%20Setup%201.0.0.exe'
+const DOWNLOAD_WINDOWS = 'https://github.com/betterworkwithai/LuxorPro/releases/latest/download/Luxor.Pro.Setup.1.0.0.exe'
 
 // ── Motion primitives ────────────────────────────────────────────────────────
 // Premium easing tuned to Apple's fluid system (out-expo-ish).

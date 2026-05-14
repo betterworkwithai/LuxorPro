@@ -1030,7 +1030,7 @@ export default function Settings() {
             </div>
 
             <a
-              href="https://github.com/betterworkwithai/LuxorPro/releases/latest/download/Luxor%20Pro%20Setup%201.0.0.exe"
+              href="https://github.com/betterworkwithai/LuxorPro/releases/latest/download/Luxor.Pro.Setup.1.0.0.exe"
               className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#ff7a00] text-[#0a0a0f] font-bold text-sm hover:bg-[#e06500] transition-colors whitespace-nowrap flex-shrink-0"
             >
               <Download className="w-4 h-4" />
