@@ -381,35 +381,64 @@ export default function WealthV2() {
     return m[canon] ?? null
   }
   const onshoreClassBreakdown = useMemo(() => {
+    if (breakdownLocation === 'onshore') {
+      // Canonical 9-class mapping for onshore
+      const m = new Map<string, number>()
+      const byLabel = new Map<string, { inv: Investment; valueBRL: number }[]>()
+      let total = 0
+      let unmapped = 0
+      investments.forEach(i => {
+        if (i.location !== 'onshore') return
+        const v = convert(i.quantity * i.currentPrice, i.currency, 'BRL', usdToBrl, eurToBrl)
+        if (v <= 0) return
+        const canon = canonicalLocalClass(i.assetClass)
+        const label = mapOnshoreCanon(canon)
+        if (label) {
+          m.set(label, (m.get(label) ?? 0) + v)
+          const arr = byLabel.get(label) ?? []
+          arr.push({ inv: i, valueBRL: v })
+          byLabel.set(label, arr)
+          total += v
+        } else {
+          unmapped += v
+        }
+      })
+      const rows = ONSHORE_CLASS_ORDER.map(label => ({
+        label,
+        value: m.get(label) ?? 0,
+        pct: total > 0 ? ((m.get(label) ?? 0) / total) * 100 : 0,
+        color: ONSHORE_CLASS_PALETTE[label] ?? '#55556a',
+        items: (byLabel.get(label) ?? []).sort((a, b) => b.valueBRL - a.valueBRL),
+      }))
+      return { rows, total, unmapped }
+    }
+    // offshore / all: group by raw asset class, sorted by value
+    const palette = ['#00d4ff', '#00ff88', '#8b5cf6', '#ec4899', '#f59e0b', '#3b82f6', '#ff7a00', '#14b8a6', '#a855f7', '#84cc16', '#6366f1', '#ff4466']
     const m = new Map<string, number>()
     const byLabel = new Map<string, { inv: Investment; valueBRL: number }[]>()
     let total = 0
-    let unmapped = 0
     investments.forEach(i => {
-      if (i.location !== 'onshore') return
+      if (i.location === 'physical-re') return
+      if (breakdownLocation !== 'all' && i.location !== breakdownLocation) return
       const v = convert(i.quantity * i.currentPrice, i.currency, 'BRL', usdToBrl, eurToBrl)
       if (v <= 0) return
-      const canon = canonicalLocalClass(i.assetClass)
-      const label = mapOnshoreCanon(canon)
-      if (label) {
-        m.set(label, (m.get(label) ?? 0) + v)
-        const arr = byLabel.get(label) ?? []
-        arr.push({ inv: i, valueBRL: v })
-        byLabel.set(label, arr)
-        total += v
-      } else {
-        unmapped += v
-      }
+      const label = i.assetClass || 'Não classificado'
+      m.set(label, (m.get(label) ?? 0) + v)
+      const arr = byLabel.get(label) ?? []
+      arr.push({ inv: i, valueBRL: v })
+      byLabel.set(label, arr)
+      total += v
     })
-    const rows = ONSHORE_CLASS_ORDER.map(label => ({
-      label,
-      value: m.get(label) ?? 0,
-      pct: total > 0 ? ((m.get(label) ?? 0) / total) * 100 : 0,
-      color: ONSHORE_CLASS_PALETTE[label] ?? '#55556a',
-      items: (byLabel.get(label) ?? []).sort((a, b) => b.valueBRL - a.valueBRL),
-    }))
-    return { rows, total, unmapped }
-  }, [investments, usdToBrl, eurToBrl])
+    const rows = Array.from(m.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([label, value], idx) => ({
+        label, value,
+        pct: total > 0 ? (value / total) * 100 : 0,
+        color: palette[idx % palette.length],
+        items: (byLabel.get(label) ?? []).sort((a, b) => b.valueBRL - a.valueBRL),
+      }))
+    return { rows, total, unmapped: 0 }
+  }, [investments, usdToBrl, eurToBrl, breakdownLocation])
 
   // ── Onshore product type breakdown (alphabetical) ──
   const ONSHORE_PRODUCT_TYPES = [
@@ -473,7 +502,8 @@ export default function WealthV2() {
     const byLabel = new Map<string, { inv: Investment; valueBRL: number }[]>()
     let total = 0
     investments.forEach(i => {
-      if (i.location !== 'onshore') return
+      if (i.location === 'physical-re') return
+      if (breakdownLocation !== 'all' && i.location !== breakdownLocation) return
       const v = convert(i.quantity * i.currentPrice, i.currency, 'BRL', usdToBrl, eurToBrl)
       if (v <= 0) return
       const t = inferProductType(i)
@@ -513,7 +543,7 @@ export default function WealthV2() {
       })
     })
     return { rows, total }
-  }, [investments, usdToBrl, eurToBrl])
+  }, [investments, usdToBrl, eurToBrl, breakdownLocation])
 
   const riskBreakdown = useMemo(() => {
     // Green → yellow → red gradient
@@ -1367,17 +1397,35 @@ export default function WealthV2() {
 
         </section>
 
-        {/* ─── ONSHORE TAXONOMIES · CLASS + PRODUCT TYPE ──────── */}
+        {/* ─── Breakdown location toggle ─────────────────────────── */}
+        <div className="flex items-center gap-3 v2-reveal">
+          <span className="text-xs text-[#55556a] font-medium">Visão:</span>
+          {(['all', 'onshore', 'offshore'] as const).map(loc => (
+            <button
+              key={loc}
+              onClick={() => setBreakdownLocation(loc)}
+              className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${
+                breakdownLocation === loc
+                  ? 'bg-[#00d4ff] text-black'
+                  : 'bg-[#1e1e30] text-[#8888aa] hover:bg-[#2a2a3f] hover:text-white'
+              }`}
+            >
+              {loc === 'all' ? 'Global' : loc === 'onshore' ? 'Onshore' : 'Offshore'}
+            </button>
+          ))}
+        </div>
+
+        {/* ─── TAXONOMIES · CLASS + PRODUCT TYPE ──────── */}
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-4 v2-reveal">
 
-          {/* Onshore by canonical asset class */}
+          {/* Class breakdown */}
           <ExpandableCard
-            title="Carteira Onshore · por classe canônica"
-            subtitle={`9 classes oficiais · ${fmt(toBase(onshoreClassBreakdown.total), true)} totais onshore`}
+            title={`Carteira ${breakdownLocation === 'all' ? 'Global' : breakdownLocation === 'onshore' ? 'Onshore' : 'Offshore'} · por classe`}
+            subtitle={`${onshoreClassBreakdown.rows.filter(r => r.value > 0).length} classes · ${fmt(toBase(onshoreClassBreakdown.total), true)} totais`}
             modalSize="lg"
             detail={
               onshoreClassBreakdown.total <= 0 ? (
-                <p className="text-xs text-[#55556a] text-center py-8">Sem ativos onshore para classificar.</p>
+                <p className="text-xs text-[#55556a] text-center py-8">Sem ativos para classificar.</p>
               ) : (
                 <div className="space-y-2">
                   {onshoreClassBreakdown.rows.map(r => (
@@ -1397,12 +1445,12 @@ export default function WealthV2() {
             }
           >
             <div className="flex items-center justify-between mb-1 pr-9">
-              <p className="v2-caption">Onshore · por classe</p>
+              <p className="v2-caption">{breakdownLocation === 'all' ? 'Global' : breakdownLocation === 'onshore' ? 'Onshore' : 'Offshore'} · por classe</p>
             </div>
-            <p className="text-sm text-[#8888aa] mt-0.5">9 classes oficiais · ordem fixa</p>
+            <p className="text-sm text-[#8888aa] mt-0.5">{onshoreClassBreakdown.rows.filter(r => r.value > 0).length} classes · {breakdownLocation === 'onshore' ? 'ordem fixa' : 'por valor'}</p>
             <div className="mt-4 space-y-2.5">
               {onshoreClassBreakdown.total <= 0 ? (
-                <p className="text-xs text-[#55556a] text-center py-6">Sem ativos onshore.</p>
+                <p className="text-xs text-[#55556a] text-center py-6">Sem ativos.</p>
               ) : onshoreClassBreakdown.rows.map(r => (
                 <div key={r.label}>
                   <div className="flex items-center justify-between text-xs mb-1">
@@ -1420,14 +1468,14 @@ export default function WealthV2() {
             </div>
           </ExpandableCard>
 
-          {/* Onshore by product type */}
+          {/* Product type breakdown */}
           <ExpandableCard
-            title="Carteira Onshore · por tipo de produto"
+            title={`Carteira ${breakdownLocation === 'all' ? 'Global' : breakdownLocation === 'onshore' ? 'Onshore' : 'Offshore'} · por tipo de produto`}
             subtitle={`${onshoreProductBreakdown.rows.filter(r => r.value > 0).length} tipos com posição · ${fmt(toBase(onshoreProductBreakdown.total), true)} totais`}
             modalSize="xl"
             detail={
               onshoreProductBreakdown.total <= 0 ? (
-                <p className="text-xs text-[#55556a] text-center py-8">Sem ativos onshore para classificar.</p>
+                <p className="text-xs text-[#55556a] text-center py-8">Sem ativos para classificar.</p>
               ) : (
                 <div className="space-y-2">
                   {onshoreProductBreakdown.rows.filter(r => r.value > 0).map(r => (
@@ -1447,12 +1495,12 @@ export default function WealthV2() {
             }
           >
             <div className="flex items-center justify-between mb-1 pr-9">
-              <p className="v2-caption">Onshore · por produto</p>
+              <p className="v2-caption">{breakdownLocation === 'all' ? 'Global' : breakdownLocation === 'onshore' ? 'Onshore' : 'Offshore'} · por produto</p>
             </div>
             <p className="text-sm text-[#8888aa] mt-0.5">{onshoreProductBreakdown.rows.filter(r => r.value > 0).length} tipos com posição · alfabético</p>
             <div className="mt-4 space-y-1.5 max-h-[280px] overflow-y-auto pr-1">
               {onshoreProductBreakdown.total <= 0 ? (
-                <p className="text-xs text-[#55556a] text-center py-6">Sem ativos onshore.</p>
+                <p className="text-xs text-[#55556a] text-center py-6">Sem ativos.</p>
               ) : onshoreProductBreakdown.rows.filter(r => r.value > 0).map(r => (
                 <div key={r.label}>
                   <div className="flex items-center justify-between text-[11px] mb-0.5">
@@ -1471,24 +1519,6 @@ export default function WealthV2() {
           </ExpandableCard>
 
         </section>
-
-        {/* ─── Breakdown location toggle ─────────────────────────── */}
-        <div className="flex items-center gap-3 v2-reveal">
-          <span className="text-xs text-[#55556a] font-medium">Visão:</span>
-          {(['all', 'onshore', 'offshore'] as const).map(loc => (
-            <button
-              key={loc}
-              onClick={() => setBreakdownLocation(loc)}
-              className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${
-                breakdownLocation === loc
-                  ? 'bg-[#00d4ff] text-black'
-                  : 'bg-[#1e1e30] text-[#8888aa] hover:bg-[#2a2a3f] hover:text-white'
-              }`}
-            >
-              {loc === 'all' ? 'Global' : loc === 'onshore' ? 'Onshore' : 'Offshore'}
-            </button>
-          ))}
-        </div>
 
         {/* ─── BREAKDOWNS · 4 DONUT CARDS ───────────────────────── */}
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 v2-reveal">
