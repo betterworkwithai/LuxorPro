@@ -3,12 +3,15 @@ import {
   Check, ChevronDown, TrendingUp, Target, FileSearch,
   Calculator, Zap, Shield, ArrowRight, Lock,
   BarChart3, Wallet, Globe, Wifi,
-  Eye, Clock, Brain,
+  Eye, Clock, Brain, Download, Monitor,
 } from 'lucide-react'
 
 const STRIPE_MONTHLY  = 'https://buy.stripe.com/eVqbIV9EAa91c4navC3wQ03'
 const STRIPE_ANNUAL   = 'https://buy.stripe.com/fZu3cp3gc0yrb0j47e3wQ02'
 const STRIPE_LIFETIME = 'https://buy.stripe.com/8x23cp6sodld3xR5bi3wQ01'
+
+// Update this URL when you publish the installer to GitHub Releases or your CDN
+const DOWNLOAD_WINDOWS = 'https://github.com/luxorpro/luxorpro-desktop/releases/latest/download/Luxor.Pro.Setup.1.0.0.exe'
 
 // ── Motion primitives ────────────────────────────────────────────────────────
 // Premium easing tuned to Apple's fluid system (out-expo-ish).
@@ -993,6 +996,72 @@ export default function Landing() {
       </section>
 
       {/* ════════════════════════════════════════════════════════════
+          DESKTOP APP DOWNLOAD
+      ════════════════════════════════════════════════════════════ */}
+      <section id="download" className="py-24 px-6 relative overflow-hidden">
+        <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse 60% 60% at 50% 50%, rgba(100,60,255,0.07) 0%, transparent 70%)' }} />
+        <div className="max-w-4xl mx-auto">
+          <Reveal direction="up" delay={0}>
+            <div className="text-center mb-12">
+              <span className="inline-flex items-center gap-2 text-xs font-semibold tracking-widest text-[#ff7a00] uppercase mb-4">
+                <Monitor className="w-4 h-4" /> App Desktop
+              </span>
+              <h2 className="text-3xl sm:text-4xl font-bold text-[#e8e8f0] mb-4">
+                Luxor Pro no seu computador
+              </h2>
+              <p className="text-[#8888aa] text-lg max-w-xl mx-auto">
+                Acesse seu painel financeiro direto no desktop — sem abrir o navegador, com ou sem internet.
+              </p>
+            </div>
+          </Reveal>
+
+          <Reveal direction="up" delay={120}>
+            <div className="bg-[#111118] border border-[#2a2a3e] rounded-3xl p-8 sm:p-12 flex flex-col sm:flex-row items-center gap-8">
+              <div className="flex items-center gap-5 flex-1 min-w-0">
+                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#1e1e2e] to-[#0d0d15] border border-[#2a2a3e] flex items-center justify-center flex-shrink-0 shadow-[0_0_30px_rgba(255,122,0,0.15)]">
+                  <img src="/logo.png" alt="Luxor Pro" className="w-14 h-14 rounded-xl object-cover" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-lg font-bold text-[#e8e8f0]">Luxor Pro Desktop</div>
+                  <div className="text-sm text-[#55556a] mt-0.5">Versão 1.0.0 · Windows 10/11</div>
+                  <div className="flex items-center gap-1.5 mt-2">
+                    <Check className="w-3.5 h-3.5 text-[#00ff88] flex-shrink-0" />
+                    <span className="text-xs text-[#00ff88]">Gratuito para assinantes</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col items-center gap-2 w-full sm:w-auto flex-shrink-0">
+                <a
+                  href={DOWNLOAD_WINDOWS}
+                  className="inline-flex items-center justify-center gap-2.5 px-8 py-4 rounded-2xl bg-[#ff7a00] text-[#0a0a0f] font-bold hover:bg-[#e06500] transition-all btn-glow whitespace-nowrap w-full sm:w-auto"
+                >
+                  <Download className="w-5 h-5" />
+                  Baixar para Windows
+                </a>
+                <span className="text-xs text-[#333348]">macOS e Linux em breve</span>
+              </div>
+            </div>
+          </Reveal>
+
+          <Reveal direction="up" delay={220}>
+            <div className="flex flex-wrap justify-center gap-8 mt-10">
+              {[
+                { icon: Wifi,   label: 'Funciona offline' },
+                { icon: Shield, label: 'Dados criptografados' },
+                { icon: Zap,    label: 'Abre instantaneamente' },
+              ].map(({ icon: Icon, label }) => (
+                <span key={label} className="flex items-center gap-2 text-sm text-[#55556a]">
+                  <Icon className="w-4 h-4 text-[#ff7a00]" />
+                  {label}
+                </span>
+              ))}
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════════════════════════════
           FINAL CTA
       ════════════════════════════════════════════════════════════ */}
       <section className="py-28 px-6 relative overflow-hidden">
@@ -1046,6 +1115,7 @@ export default function Landing() {
           <div className="flex flex-wrap justify-center gap-6 text-xs text-[#55556a]">
             <a href="#planos" className="hover:text-[#ff7a00] transition-colors">Planos</a>
             <a href="#planos" className="hover:text-[#ff7a00] transition-colors">FAQ</a>
+            <a href="#download" className="hover:text-[#ff7a00] transition-colors">Download</a>
             <a href="/login" className="hover:text-[#ff7a00] transition-colors">Entrar</a>
             <a href={`mailto:suporte@luxorpro.com.br`} className="hover:text-[#ff7a00] transition-colors">suporte@luxorpro.com.br</a>
           </div>

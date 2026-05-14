@@ -1,0 +1,61 @@
+appId: com.luxorpro.app
+productName: Luxor Pro
+copyright: Copyright © 2026 Luxor Pro
+
+# Files to bundle — all frontend deps are already bundled by Vite into dist/
+# dependencies:{} in package.json ensures electron-builder bundles zero node_modules
+files:
+  - dist/**/*
+  - electron/**/*
+  - public/**/*
+  - package.json
+
+# macOS
+mac:
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+    - target: zip
+      arch: [x64, arm64]
+  icon: public/icon-512.png
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: electron/entitlements.mac.plist
+  entitlementsInherit: electron/entitlements.mac.plist
+  darkModeSupport: true
+
+dmg:
+  title: Luxor Pro
+  icon: public/icon-512.png
+
+# Windows
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: public/icon-512.png
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Luxor Pro
+
+# Linux (optional)
+linux:
+  target: AppImage
+  icon: public/icon-512.png
+  category: Finance
+
+# Auto-updater: publish to GitHub Releases
+publish:
+  provider: github
+  owner: luxorpro          # update to your GitHub org/user
+  repo: luxorpro-desktop
+
+# Output directory
+directories:
+  output: dist-electron
+  buildResources: electron

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Save, Database, AlertTriangle, Trash2, Plus, Tag, X, Download, Upload, KeyRound, Mail, CreditCard, ExternalLink, Loader2, Crown, CalendarX, RefreshCw, Heart, Pencil, FlaskConical, Sparkles, CheckCircle2, MessageCircle, Phone, Unlink } from 'lucide-react'
+import { Save, Database, AlertTriangle, Trash2, Plus, Tag, X, Download, Upload, KeyRound, Mail, CreditCard, ExternalLink, Loader2, Crown, CalendarX, RefreshCw, Heart, Pencil, FlaskConical, Sparkles, CheckCircle2, MessageCircle, Phone, Unlink, Monitor, Check, Zap, Shield, Wifi } from 'lucide-react'
 import { SharingSettings } from '../components/settings/SharingSettings'
 import { createPortalSession, cancelSubscription } from '../lib/stripe'
 import { useSubscription } from '../hooks/useSubscription'
@@ -1003,6 +1003,58 @@ export default function Settings() {
         {activeTab === 'whatsapp' && (
         <section id="whatsapp" aria-labelledby="whatsapp-heading">
           <WhatsAppSettings />
+        </section>
+        )}
+
+        {/* ── App Desktop ── */}
+        {activeTab === 'desktop' && (
+        <section id="desktop" aria-labelledby="desktop-heading">
+          <div className="mb-6">
+            <h2 id="desktop-heading" className="text-xl font-bold text-[#e8e8f0]">App Desktop</h2>
+            <p className="text-sm text-[#8888aa] mt-1">Acesse o Luxor Pro direto no seu computador, sem abrir o navegador.</p>
+          </div>
+
+          <div className="bg-[#111118] border border-[#2a2a3e] rounded-2xl p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center gap-6">
+            <div className="flex items-center gap-4 flex-1 min-w-0">
+              <div className="w-16 h-16 rounded-2xl bg-[#0d0d15] border border-[#2a2a3e] flex items-center justify-center flex-shrink-0">
+                <img src="/logo.png" alt="Luxor Pro" className="w-11 h-11 rounded-xl object-cover" />
+              </div>
+              <div className="min-w-0">
+                <div className="font-semibold text-[#e8e8f0]">Luxor Pro Desktop</div>
+                <div className="text-sm text-[#55556a] mt-0.5">Versão 1.0.0 · Windows 10/11</div>
+                <div className="flex items-center gap-1.5 mt-1.5">
+                  <Check className="w-3.5 h-3.5 text-[#00ff88]" />
+                  <span className="text-xs text-[#00ff88]">Incluído na sua assinatura</span>
+                </div>
+              </div>
+            </div>
+
+            <a
+              href="https://github.com/luxorpro/luxorpro-desktop/releases/latest/download/Luxor.Pro.Setup.1.0.0.exe"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#ff7a00] text-[#0a0a0f] font-bold text-sm hover:bg-[#e06500] transition-colors whitespace-nowrap flex-shrink-0"
+            >
+              <Download className="w-4 h-4" />
+              Baixar para Windows
+            </a>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+            {[
+              { icon: Wifi,    title: 'Funciona offline',       desc: 'Acesse seus dados sem conexão com a internet.' },
+              { icon: Zap,     title: 'Abre instantaneamente',  desc: 'Sem tempo de carregamento — direto no desktop.' },
+              { icon: Shield,  title: 'Dados criptografados',   desc: 'A mesma segurança da versão web, localmente.' },
+            ].map(({ icon: Icon, title, desc }) => (
+              <div key={title} className="bg-[#0d0d15] border border-[#1e1e2e] rounded-xl p-4 flex gap-3">
+                <Icon className="w-5 h-5 text-[#ff7a00] flex-shrink-0 mt-0.5" />
+                <div>
+                  <div className="text-sm font-semibold text-[#e8e8f0]">{title}</div>
+                  <div className="text-xs text-[#55556a] mt-0.5">{desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <p className="text-xs text-[#333348] mt-4">macOS e Linux em breve. Dúvidas? Entre em contato pelo suporte.</p>
         </section>
         )}
 

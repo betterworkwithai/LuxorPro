@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Luxor Pro — Platform Setup Guide</title>
+<style>
+  /* ── Fonts ── */
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap');
+
+  /* ── Reset ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* ── Page layout ── */
+  html { font-size: 14px; }
+  body {
+    font-family: 'Inter', sans-serif;
+    background: #f8f7f4;
+    color: #1a1a2e;
+    line-height: 1.7;
+    padding: 0;
+  }
+
+  /* ── Print button (hidden when printing) ── */
+  .print-btn {
+    position: fixed;
+    top: 24px; right: 24px;
+    background: #ff7a00;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 12px 24px;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(255,122,0,0.4);
+    z-index: 999;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: opacity 0.2s;
+  }
+  .print-btn:hover { opacity: 0.9; }
+  @media print { .print-btn { display: none !important; } }
+
+  /* ── Cover page ── */
+  .cover {
+    width: 100%;
+    min-height: 100vh;
+    background: #0a0a0f;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 60px 40px;
+    page-break-after: always;
+  }
+  .cover-logo {
+    width: 80px; height: 80px;
+    border-radius: 20px;
+    background: linear-gradient(135deg, #ff7a00, #ff4500);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 32px;
+    font-size: 36px;
+  }
+  .cover h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 48px;
+    color: #fff;
+    margin-bottom: 12px;
+    letter-spacing: -0.5px;
+  }
+  .cover .subtitle {
+    font-size: 18px;
+    color: #8888aa;
+    margin-bottom: 48px;
+  }
+  .cover .badges {
+    display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;
+    margin-bottom: 60px;
+  }
+  .badge {
+    padding: 8px 18px;
+    border-radius: 100px;
+    font-size: 13px;
+    font-weight: 600;
+    border: 1px solid;
+  }
+  .badge-green  { background: rgba(0,255,136,.08); color: #00ff88; border-color: rgba(0,255,136,.3); }
+  .badge-orange { background: rgba(255,122,0,.08); color: #ff7a00; border-color: rgba(255,122,0,.3); }
+  .badge-blue   { background: rgba(0,212,255,.08); color: #00d4ff; border-color: rgba(0,212,255,.3); }
+  .badge-purple { background: rgba(139,92,246,.08); color: #a78bfa; border-color: rgba(139,92,246,.3); }
+
+  .cover-meta {
+    font-size: 12px; color: #3a3a4e;
+    margin-top: auto; padding-top: 40px;
+  }
+
+  /* ── TOC ── */
+  .toc-page {
+    background: #fff;
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 60px 60px 80px;
+    page-break-after: always;
+  }
+  .toc-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 28px;
+    color: #0a0a0f;
+    margin-bottom: 32px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid #f0ede8;
+  }
+  .toc-part {
+    margin-bottom: 24px;
+  }
+  .toc-part-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: #ff7a00;
+    margin-bottom: 10px;
+  }
+  .toc-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 6px 0;
+    border-bottom: 1px dotted #e8e4de;
+    color: #2a2a3e;
+    font-size: 13.5px;
+  }
+  .toc-item .toc-step { color: #8888aa; font-size: 12px; }
+
+  /* ── Content pages ── */
+  .content {
+    max-width: 820px;
+    margin: 0 auto;
+    background: #fff;
+  }
+
+  /* ── Part header ── */
+  .part-header {
+    padding: 50px 60px 36px;
+    page-break-before: always;
+  }
+  .part-number {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #ff7a00;
+    margin-bottom: 10px;
+  }
+  .part-header h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 34px;
+    color: #0a0a0f;
+    margin-bottom: 14px;
+    line-height: 1.2;
+  }
+  .part-overview {
+    font-size: 14px;
+    color: #55556a;
+    line-height: 1.7;
+    padding: 16px 20px;
+    background: #faf9f7;
+    border-left: 3px solid #ff7a00;
+    border-radius: 0 8px 8px 0;
+  }
+
+  /* ── Steps ── */
+  .steps { padding: 0 60px 60px; }
+
+  .step {
+    margin-bottom: 36px;
+    page-break-inside: avoid;
+  }
+  .step-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+  .step-num {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #ff7a00, #ff4500);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .step h3 {
+    font-size: 16px;
+    font-weight: 700;
+    color: #0a0a0f;
+  }
+  .step p, .step li {
+    font-size: 13.5px;
+    color: #3a3a4e;
+    line-height: 1.75;
+  }
+  .step ol, .step ul {
+    padding-left: 20px;
+    margin-top: 8px;
+    margin-bottom: 8px;
+  }
+  .step li {
+    margin-bottom: 6px;
+  }
+  .step li strong {
+    color: #0a0a0f;
+    font-weight: 600;
+  }
+
+  /* ── Code blocks ── */
+  pre, code {
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  }
+  pre {
+    background: #0f0f1a;
+    color: #e8e8f0;
+    border-radius: 10px;
+    padding: 16px 20px;
+    font-size: 12px;
+    line-height: 1.7;
+    overflow-x: auto;
+    margin: 12px 0;
+    border: 1px solid #1e1e2e;
+    page-break-inside: avoid;
+  }
+  pre .comment { color: #55556a; }
+  pre .key     { color: #ff7a00; }
+  pre .val     { color: #00ff88; }
+  pre .cmd     { color: #00d4ff; }
+  code {
+    background: #f0ede8;
+    color: #c0392b;
+    font-size: 12px;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  /* ── Callout boxes ── */
+  .callout {
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin: 14px 0;
+    font-size: 13px;
+    line-height: 1.6;
+    page-break-inside: avoid;
+  }
+  .callout-warn {
+    background: rgba(255,68,102,.05);
+    border: 1px solid rgba(255,68,102,.2);
+    color: #c0392b;
+  }
+  .callout-warn::before { content: '⚠️  '; }
+  .callout-info {
+    background: rgba(0,212,255,.05);
+    border: 1px solid rgba(0,212,255,.2);
+    color: #1a6b8a;
+  }
+  .callout-info::before { content: 'ℹ️  '; }
+  .callout-tip {
+    background: rgba(0,255,136,.05);
+    border: 1px solid rgba(0,255,136,.25);
+    color: #1a6b4a;
+  }
+  .callout-tip::before { content: '✅  '; }
+
+  /* ── Tables ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 14px 0;
+    font-size: 13px;
+    page-break-inside: avoid;
+  }
+  th {
+    background: #0a0a0f;
+    color: #e8e8f0;
+    font-weight: 600;
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+  }
+  td {
+    padding: 10px 14px;
+    border-bottom: 1px solid #f0ede8;
+    color: #2a2a3e;
+    vertical-align: top;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:nth-child(even) td { background: #faf9f7; }
+
+  /* ── Divider ── */
+  .divider {
+    height: 1px;
+    background: #f0ede8;
+    margin: 32px 0;
+  }
+
+  /* ── Quick ref section ── */
+  .quick-ref {
+    background: #0a0a0f;
+    padding: 50px 60px;
+    page-break-before: always;
+  }
+  .quick-ref h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 28px;
+    color: #fff;
+    margin-bottom: 8px;
+  }
+  .quick-ref .sub { color: #55556a; font-size: 13px; margin-bottom: 28px; }
+  .quick-ref pre {
+    background: #16161f;
+    border-color: #2a2a3e;
+  }
+
+  /* ── Troubleshooting ── */
+  .trouble {
+    max-width: 820px;
+    margin: 0 auto;
+    background: #fff;
+    padding: 50px 60px 80px;
+    page-break-before: always;
+  }
+  .trouble h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 28px;
+    color: #0a0a0f;
+    margin-bottom: 24px;
+  }
+
+  /* ── Footer ── */
+  .footer {
+    background: #0a0a0f;
+    padding: 30px 60px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    color: #3a3a4e;
+  }
+  .footer span { color: #55556a; }
+
+  /* ── Print settings ── */
+  @page {
+    size: A4;
+    margin: 0;
+  }
+  @media print {
+    html { font-size: 13px; }
+    body { background: #fff; }
+    .cover { min-height: 100vh; }
+    pre { font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Print button -->
+<button class="print-btn" onclick="window.print()">
+  🖨️ Save as PDF
+</button>
+
+<!-- ═══════════════════════════════════════════════════════════ COVER -->
+<div class="cover">
+  <div class="cover-logo">🏆</div>
+  <h1>Luxor Pro</h1>
+  <p class="subtitle">Platform Setup Guide — Step by Step for Beginners</p>
+
+  <div class="badges">
+    <span class="badge badge-green">💬 WhatsApp Bot</span>
+    <span class="badge badge-orange">🤖 Android App</span>
+    <span class="badge badge-blue">🍎 iOS App</span>
+    <span class="badge badge-purple">🖥️ Desktop App</span>
+  </div>
+
+  <p class="cover-meta">
+    Luxor Pro · May 2026 · For internal use
+  </p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ TOC -->
+<div class="toc-page">
+  <h2 class="toc-title">Table of Contents</h2>
+
+  <div class="toc-part">
+    <div class="toc-part-label">Part 1 — WhatsApp Bot</div>
+    <div class="toc-item"><span>Step 1 — Create a Meta Developer Account</span><span class="toc-step">Step 1</span></div>
+    <div class="toc-item"><span>Step 2 — Create a Meta App</span><span class="toc-step">Step 2</span></div>
+    <div class="toc-item"><span>Step 3 — Get your WhatsApp credentials</span><span class="toc-step">Step 3</span></div>
+    <div class="toc-item"><span>Step 4 — Create a permanent System User token</span><span class="toc-step">Step 4</span></div>
+    <div class="toc-item"><span>Step 5 — Register a real WhatsApp number</span><span class="toc-step">Step 5</span></div>
+    <div class="toc-item"><span>Step 6 — Set up the Webhook</span><span class="toc-step">Step 6</span></div>
+    <div class="toc-item"><span>Step 7 — Get your Anthropic API key</span><span class="toc-step">Step 7</span></div>
+    <div class="toc-item"><span>Step 8 — Set Supabase secrets</span><span class="toc-step">Step 8</span></div>
+    <div class="toc-item"><span>Step 9 — Deploy migration and Edge Functions</span><span class="toc-step">Step 9</span></div>
+    <div class="toc-item"><span>Step 10 — Test it</span><span class="toc-step">Step 10</span></div>
+  </div>
+
+  <div class="toc-part">
+    <div class="toc-part-label">Part 2 — Android App (Google Play)</div>
+    <div class="toc-item"><span>Step 1 — Install prerequisites</span><span class="toc-step">Step 1</span></div>
+    <div class="toc-item"><span>Step 2 — Install project dependencies</span><span class="toc-step">Step 2</span></div>
+    <div class="toc-item"><span>Step 3 — Initialize Capacitor for Android</span><span class="toc-step">Step 3</span></div>
+    <div class="toc-item"><span>Step 4 — Build and sync</span><span class="toc-step">Step 4</span></div>
+    <div class="toc-item"><span>Step 5 — Open in Android Studio</span><span class="toc-step">Step 5</span></div>
+    <div class="toc-item"><span>Step 6 — Create a keystore (app signing)</span><span class="toc-step">Step 6</span></div>
+    <div class="toc-item"><span>Step 7 — Create Google Play Developer account</span><span class="toc-step">Step 7</span></div>
+    <div class="toc-item"><span>Step 8 — Create the app on Google Play</span><span class="toc-step">Step 8</span></div>
+    <div class="toc-item"><span>Step 9 — Fill in the store listing</span><span class="toc-step">Step 9</span></div>
+    <div class="toc-item"><span>Step 10 — Upload and publish</span><span class="toc-step">Step 10</span></div>
+  </div>
+
+  <div class="toc-part">
+    <div class="toc-part-label">Part 3 — iOS App (Apple App Store)</div>
+    <div class="toc-item"><span>Step 1 — Prerequisites on Mac</span><span class="toc-step">Step 1</span></div>
+    <div class="toc-item"><span>Step 2 — Copy project to Mac</span><span class="toc-step">Step 2</span></div>
+    <div class="toc-item"><span>Step 3–4 — Add iOS and sync</span><span class="toc-step">Steps 3–4</span></div>
+    <div class="toc-item"><span>Step 5 — Open in Xcode</span><span class="toc-step">Step 5</span></div>
+    <div class="toc-item"><span>Step 6 — Join Apple Developer Program</span><span class="toc-step">Step 6</span></div>
+    <div class="toc-item"><span>Step 7 — Configure the app in Xcode</span><span class="toc-step">Step 7</span></div>
+    <div class="toc-item"><span>Step 8 — Add app icons</span><span class="toc-step">Step 8</span></div>
+    <div class="toc-item"><span>Step 9 — Create the App Store listing</span><span class="toc-step">Step 9</span></div>
+    <div class="toc-item"><span>Step 10 — Archive and upload from Xcode</span><span class="toc-step">Step 10</span></div>
+  </div>
+
+  <div class="toc-part">
+    <div class="toc-part-label">Part 4 — Electron Desktop App</div>
+    <div class="toc-item"><span>Step 1 — Install dependencies</span><span class="toc-step">Step 1</span></div>
+    <div class="toc-item"><span>Step 2 — Test in development mode</span><span class="toc-step">Step 2</span></div>
+    <div class="toc-item"><span>Step 3 — Build the installer</span><span class="toc-step">Step 3</span></div>
+    <div class="toc-item"><span>Step 4 — Set up auto-updates</span><span class="toc-step">Step 4</span></div>
+    <div class="toc-item"><span>Step 5 — Code signing</span><span class="toc-step">Step 5</span></div>
+  </div>
+
+  <div class="toc-part">
+    <div class="toc-part-label">Reference</div>
+    <div class="toc-item"><span>Quick Command Reference</span></div>
+    <div class="toc-item"><span>Troubleshooting Table</span></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ PART 1 -->
+<div class="content">
+  <div class="part-header">
+    <div class="part-number">Part 1 of 4</div>
+    <h2>WhatsApp Bot</h2>
+    <p class="part-overview">
+      You'll create a Meta (Facebook) business account, get a WhatsApp phone number, connect it to your Supabase backend, and configure your API keys. Once done, users can send messages like <em>"gastei 50 no mercado"</em> and the bot registers the transaction automatically in Luxor Pro.
+    </p>
+  </div>
+
+  <div class="steps">
+
+    <!-- Step 1 -->
+    <div class="step">
+      <div class="step-header"><div class="step-num">1</div><h3>Create a Meta Developer Account</h3></div>
+      <ol>
+        <li>Go to <strong>developers.facebook.com</strong></li>
+        <li>Click <strong>Get Started</strong> (top right)</li>
+        <li>Log in with any Facebook / Meta account</li>
+        <li>Accept the developer terms</li>
+        <li>You are now a Meta developer ✓</li>
+      </ol>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="step">
+      <div class="step-header"><div class="step-num">2</div><h3>Create a Meta App</h3></div>
+      <ol>
+        <li>On the developer dashboard click <strong>My Apps → Create App</strong></li>
+        <li>Choose <strong>Business</strong> as the app type → click <strong>Next</strong></li>
+        <li>Fill in: App name <code>Luxor Pro Bot</code> and your contact email</li>
+        <li>Click <strong>Create App</strong></li>
+        <li>On the next screen (Add Products) find <strong>WhatsApp</strong> and click <strong>Set up</strong></li>
+      </ol>
+    </div>
+
+    <!-- Step 3 -->
+    <div class="step">
+      <div class="step-header"><div class="step-num">3</div><h3>Get your WhatsApp credentials</h3></div>
+      <p>After clicking Set up you land on <strong>WhatsApp → Getting Started</strong>.</p>
+      <ol>
+        <li>Under <em>Step 1 — Select phone numbers</em>, Meta gives you a <strong>free test number</strong> — click it to select it</li>
+        <li>Copy and save these two values (you will need them in Step 8):</li>
+      </ol>
+      <table>
+        <thead><tr><th>Value</th><th>Where to find it</th><th>Example</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Phone Number ID</strong></td><td>Shown below "From" on Getting Started</td><td><code>123456789012345</code></td></tr>
+          <tr><td><strong>Temporary Access Token</strong></td><td>Click Generate button</td><td><code>EAABs...</code></td></tr>
+        </tbody>
+      </table>
+      <div class="callout callout-warn">The temporary token expires in 24 hours. You will replace it with a permanent one in Step 4.</div>
+    </div>
+
+    <!-- Step 4 -->
+    <div class="step">
+      <div class="step-header"><div class="step-num">4</div><h3>Create a permanent System User token</h3></div>
+      <ol>
+        <li>Go to <strong>business.facebook.com</strong></li>
+        <li>Click the gear icon ⚙️ → <strong>Business Settings</strong></li>
+        <li>Left sidebar: <strong>Users → System Users</strong></li>
+        <li>Click <strong>Add</strong> → name it <code>luxorpro-bot</code> → role: <strong>Admin</strong> → click <strong>Create System User</strong></li>
+        <li>Click <strong>Generate New Token</strong></li>
+        <li>Check these two permissions: <code>whatsapp_business_messaging</code> and <code>whatsapp_business_management</code></li>
+        <li>Click <strong>Generate Token</strong> and copy it — this is your permanent <strong>WHATSAPP_TOKEN</strong></li>
+      </ol>
+      <div class="callout callout-warn">Save this token in a password manager. You cannot view it again after closing the dialog.</div>
+    </div>
+
+    <!-- Step 5 -->
+    <div class="step">
+      <div class="step-header"><div class="step-num">5</div><h3>Register a real WhatsApp number <em>(optional — skip for testing)</em></h3></div>
+      <p>The free Meta test number only sends to approved numbers. For production, add your own:</p>
+      <ol>
+        <li>In Meta Developer Console → <strong>WhatsApp → Phone Numbers → Add phone number</strong></li>
+        <li>Enter a phone number you own (can be a virtual number)</li>
+        <li>Verify via SMS or call as prompted</li>
+        <li>Copy the new <strong>Phone Number ID</strong> and save it</li>
+      </ol>
+      <div class="callout callout-info">Virtual numbers from services like Twilio, VoIP.ms, or a dedicated Brazilian SIM card all work.</div>
+    </div>
+
+    <!-- Step 6 -->
+    <div class="step">
+      <div class="step-header"><div class="step-num">6</div><h3>Set up the Webhook</h3></div>
+      <ol>
+        <li>In Meta Developer Console → <strong>WhatsApp → Configuration</strong></li>
+        <li>Under <strong>Webhook</strong>, click <strong>Edit</strong></li>
+        <li>Fill in <strong>Callback URL</strong>:</li>
+      </ol>
+      <pre><span class="val">https://YOUR-PROJECT-REF.supabase.co/functions/v1/whatsapp-webhook</span>
+<span class="comment"># Find YOUR-PROJECT-REF at supabase.com/dashboard → your project → Settings → API</span></pre>
+      <ol start="4">
+        <li>Fill in <strong>Verify token</strong>: make up any secret word, e.g. <code>luxor_webhook_2026</code></li>
+        <li>Click <strong>Verify and save</strong></li>
+        <li>Under <strong>Webhook fields</strong> click <strong>Manage</strong> and toggle ON: <strong>messages</strong></li>
+        <li>Click <strong>Done</strong></li>
+      </ol>
+    </div>
+
+    <!-- Step 7 -->
+    <div class="step">
+      <div class="step-header"><div class="step-num">7</div><h3>Get your Anthropic (Claude) API key</h3></div>
+      <ol>
+        <li>Go to <strong>console.anthropic.com</strong></li>
+        <li>Sign up or log in</li>
+        <li>Click <strong>API Keys → Create Key</strong></li>
+        <li>Name it <code>luxorpro-whatsapp-bot</code></li>
+        <li>Copy the key (starts with <code>sk-ant-...</code>) — you won't see it again</li>
+      </ol>
+    </div>
+
+    <!-- Step 8 -->
+    <div class="step">
+      <div class="step-header"><div class="step-num">8</div><h3>Set Supabase secrets</h3></div>
+      <p>Open a terminal in your project folder and run each command (paste your real values):</p>
+      <pre><span class="comment"># 1. Install Supabase CLI (run once, skip if already installed)</span>
+<span class="cmd">npm install -g supabase</span>
+
+<span class="comment"># 2. Log in to Supabase</span>
+<span class="cmd">supabase login</span>
+
+<span class="comment"># 3. Link to your project (find project-ref at supabase.com → Settings → General)</span>
+<span class="cmd">supabase link --project-ref YOUR_PROJECT_REF</span>
+
+<span class="comment"># 4. Set secrets one by one</span>
+<span class="cmd">supabase secrets set WHATSAPP_TOKEN="your_permanent_token_here"</span>
+<span class="cmd">supabase secrets set WHATSAPP_PHONE_NUMBER_ID="your_phone_number_id_here"</span>
+<span class="cmd">supabase secrets set WHATSAPP_VERIFY_TOKEN="luxor_webhook_2026"</span>
+<span class="cmd">supabase secrets set ANTHROPIC_API_KEY="sk-ant-your_key_here"</span></pre>
+      <div class="callout callout-info"><code>SUPABASE_SERVICE_ROLE_KEY</code> is automatically injected by the Supabase runtime — you do not need to set it manually.</div>
+    </div>
+
+    <!-- Step 9 -->
+    <div class="step">
+      <div class="step-header"><div class="step-num">9</div><h3>Deploy the database migration and Edge Functions</h3></div>
+      <pre><span class="comment"># Creates the whatsapp_links and whatsapp_sessions tables</span>
+<span class="cmd">supabase db push</span>
+
+<span class="comment"># Deploys the webhook handler and phone-linking function</span>
+<span class="cmd">supabase functions deploy whatsapp-webhook</span>
+<span class="cmd">supabase functions deploy whatsapp-verify</span></pre>
+    </div>
+
+    <!-- Step 10 -->
+    <div class="step">
+      <div class="step-header"><div class="step-num">10</div><h3>Test it end-to-end</h3></div>
+      <ol>
+        <li>In Meta Developer Console → <strong>WhatsApp → Getting Started</strong></li>
+        <li>Under <em>Step 2</em>, enter your personal WhatsApp number and click <strong>Send message</strong> — you should receive a template message</li>
+        <li>Open Luxor Pro → <strong>Settings → WhatsApp Bot</strong></li>
+        <li>Enter your phone number and click <strong>Send Code</strong></li>
+        <li>You receive a 6-digit code on WhatsApp</li>
+        <li>Enter the code and click <strong>Verify</strong></li>
+        <li>Send a message to your bot number: <em>"gastei 50 no mercado"</em></li>
+        <li>Bot replies asking you to confirm → reply <em>"sim"</em> → transaction appears in your Luxor Pro dashboard ✓</li>
+      </ol>
+      <div class="callout callout-tip">Try all commands: /extrato, /saldo, /metas, /ajuda — each should return a formatted reply.</div>
+    </div>
+
+  </div><!-- /steps -->
+</div><!-- /content -->
+
+<!-- ═══════════════════════════════════════════════════════════ PART 2 -->
+<div class="content">
+  <div class="part-header">
+    <div class="part-number">Part 2 of 4</div>
+    <h2>Android App — Google Play Store</h2>
+    <p class="part-overview">
+      You'll build the web app, wrap it with Capacitor (no React Native rewrite needed), open it in Android Studio, sign it, and upload it to the Google Play Console. Budget about 2–3 hours the first time.
+    </p>
+  </div>
+
+  <div class="steps">
+
+    <div class="step">
+      <div class="step-header"><div class="step-num">1</div><h3>Install prerequisites</h3></div>
+      <table>
+        <thead><tr><th>Tool</th><th>Where to get it</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Node.js</strong></td><td>nodejs.org (LTS version)</td><td>Required to run the build</td></tr>
+          <tr><td><strong>Android Studio</strong></td><td>developer.android.com/studio</td><td>Accept all defaults during install</td></tr>
+          <tr><td><strong>Android SDK 34</strong></td><td>Inside Android Studio: Tools → SDK Manager</td><td>Install after opening Android Studio</td></tr>
+        </tbody>
+      </table>
+      <div class="callout callout-info">Java (JDK 17) is installed automatically with Android Studio. No separate download needed.</div>
+    </div>
+
+    <div class="step">
+      <div class="step-header"><div class="step-num">2</div><h3>Install project dependencies</h3></div>
+      <pre><span class="cmd">cd "C:\Users\gabia\OneDrive\Desktop\AI\luxorpro"</span>
+<span class="cmd">npm install</span></pre>
+      <p>This installs Capacitor and all other packages. Takes 1–3 minutes.</p>
+    </div>
+
+    <div class="step">
+      <div class="step-header"><div class="step-num">3</div><h3>Initialize Capacitor for Android</h3></div>
+      <pre><span class="cmd">npx cap add android</span></pre>
+      <p>This creates the <code>android/</code> folder in your project. Run only once.</p>
+    </div>
+
+    <div class="step">
+      <div class="step-header"><div class="step-num">4</div><h3>Build and sync</h3></div>
+      <pre><span class="cmd">npm run cap:sync</span></pre>
+      <p>This builds the web app and copies everything into the Android project. <strong>Run this every time you make changes to the app.</strong></p>
+    </div>
+
+    <div class="step">
+      <div class="step-header"><div class="step-num">5</div><h3>Open in Android Studio</h3></div>
+      <pre><span class="cmd">npx cap open android</span></pre>
+      <p>Android Studio opens. Wait for it to finish syncing (progress bar at the bottom — may take 2–5 minutes the first time).</p>
+    </div>
+
+    <div class="step">
+      <div class="step-header"><div class="step-num">6</div><h3>Create a keystore — app signing (do this once)</h3></div>
+      <div class="callout callout-warn">The keystore is your app's digital identity. If you lose it, you can never update the app on Google Play. Back it up somewhere safe immediately.</div>
+      <ol>
+        <li>In Android Studio: <strong>Build → Generate Signed Bundle / APK</strong></li>
+        <li>Choose <strong>Android App Bundle</strong> → click <strong>Next</strong></li>
+        <li>Click <strong>Create new</strong> under "Key store path"</li>
+        <li>Save it somewhere safe, e.g. <code>C:\Users\gabia\luxorpro-keystore.jks</code></li>
+        <li>Fill in all fields:</li>
+      </ol>
+      <table>
+        <thead><tr><th>Field</th><th>What to enter</th></tr></thead>
+        <tbody>
+          <tr><td>Password</td><td>A strong password — save it in your password manager</td></tr>
+          <tr><td>Key alias</td><td><code>luxorpro</code></td></tr>
+          <tr><td>Key password</td><td>Same or different strong password — save it</td></tr>
+          <tr><td>Validity</td><td><code>25</code> years</td></tr>
+          <tr><td>First and Last Name</td><td>Your name</td></tr>
+          <tr><td>Country Code</td><td><code>BR</code></td></tr>
+        </tbody>
+      </table>
+      <ol start="6">
+        <li>Click <strong>OK → Next</strong> → choose <strong>Release</strong> → click <strong>Finish</strong></li>
+        <li>Android Studio builds a <code>.aab</code> file — find it in <code>android/app/release/</code></li>
+      </ol>
+    </div>
+
+    <div class="step">
+      <div class="step-header"><div class="step-num">7</div><h3>Create a Google Play Developer account</h3></div>
+      <ol>
+        <li>Go to <strong>play.google.com/console</strong></li>
+        <li>Sign in with a Google account</li>
+        <li>Pay the one-time <strong>$25</strong> registration fee (credit card)</li>
+        <li>Fill in your developer profile (name, email, phone)</li>
+        <li>Accept the Developer Distribution Agreement</li>
+      </ol>
+    </div>
+
+    <div class="step">
+      <div class="step-header"><div class="step-num">8</div><h3>Create the app on Google Play</h3></div>
+      <ol>
+        <li>In Play Console: <strong>All apps → Create app</strong></li>
+        <li>App name: <code>Luxor Pro</code></li>
+        <li>Default language: <strong>Portuguese (Brazil)</strong></li>
+        <li>App or game: <strong>App</strong></li>
+        <li>Click <strong>Create app</strong></li>
+      </ol>
+    </div>
+
+    <div class="step">
+      <div class="step-header"><div class="step-num">9</div><h3>Fill in the store listing</h3></div>
+      <p>Left sidebar: <strong>Grow → Store presence → Main store listing</strong></p>
+      <table>
+        <thead><tr><th>Field</th><th>Requirement</th></tr></thead>
+        <tbody>
+          <tr><td>Short description</td><td>Max 80 characters</td></tr>
+          <tr><td>Full description</td><td>Max 4000 characters — describe all features</td></tr>
+          <tr><td>App icon</td><td>Upload <code>public/icon-512.png</code> (512×512 px)</td></tr>
+          <tr><td>Screenshots</td><td>At least 2, taken from Android emulator (phone size)</td></tr>
+          <tr><td>Feature graphic</td><td>1024×500 px banner — create in Canva (free)</td></tr>
+          <tr><td>Privacy policy</td><td>Required — create a free one at privacypolicygenerator.info</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="step">
+      <div class="step-header"><div class="step-num">10</div><h3>Upload your build and publish</h3></div>
+      <ol>
+        <li>Left sidebar: <strong>Release → Production → Create new release</strong></li>
+        <li>Click <strong>Upload</strong> and select your <code>.aab</code> file from Step 6</li>
+        <li>Write release notes (what's new)</li>
+        <li>Click <strong>Save → Review release → Start rollout to Production</strong></li>
+        <li>Google reviews the app — <strong>usually 1–3 days for first submission</strong></li>
+      </ol>
+      <div class="callout callout-tip">After the first approval, updates are usually reviewed within hours.</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ PART 3 -->
+<div class="content">
+  <div class="part-header">
+    <div class="part-number">Part 3 of 4</div>
+    <h2>iOS App — Apple App Store</h2>
+    <p class="part-overview">
+      The process mirrors Android but uses Xcode on a Mac. You need a physical or virtual Mac — iOS builds cannot be produced on Windows.
+    </p>
+  </div>
+
+  <div class="steps">
+
+    <div class="step">
+      <div class="step-header"><div class="step-num">1</div><h3>Prerequisites (on Mac)</h3></div>
+      <div class="callout callout-warn">A Mac computer is required. If you don't have one, consider renting a Mac cloud machine at MacStadium.com or using a GitHub Actions macOS runner.</div>
+      <table>
+        <thead><tr><th>Tool</th><th>Where to get it</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Xcode</strong></td><td>Mac App Store → search "Xcode" → Install (~15 GB, be patient)</td></tr>
+          <tr><td><strong>Xcode CLI tools</strong></td><td>Open Mac Terminal → <code>xcode-select --install</code></td></tr>
+          <tr><td><strong>Node.js</strong></td><td>nodejs.org (LTS)</td></tr>
+          <tr><td><strong>CocoaPods</strong></td><td>Terminal → <code>sudo gem install cocoapods</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="step">
+      <div class="step-header"><div class="step-num">2</div><h3>Copy the project to your Mac</h3></div>
+      <p>Copy the project folder to the Mac (USB drive, cloud drive, or zip). Then in Terminal:</p>
+      <pre><span class="cmd">cd /path/to/luxorpro</span>
+<span class="cmd">npm install</span></pre>
+    </div>
+
+    <div class="step">
+      <div class="step-header"><div class="step-num">3</div><h3>Add iOS and sync</h3></div>
+      <pre><span class="cmd">npx cap add ios</span>         <span class="comment"># run once — creates ios/ folder</span>
+<span class="cmd">npm run cap:sync</span>         <span class="comment"># run every time you change the app</span></pre>
+    </div>
+
+    <div class="step">
+      <div class="step-header"><div class="step-num">4</div><h3>Open in Xcode</h3></div>
+      <pre><span class="cmd">npx cap open ios</span></pre>
+      <p>Xcode opens. Let it index and resolve dependencies (progress shown at top).</p>
+    </div>
+
+    <div class="step">
+      <div class="step-header"><div class="step-num">5</div><h3>Join Apple Developer Program</h3></div>
+      <ol>
+        <li>Go to <strong>developer.apple.com/programs</strong></li>
+        <li>Click <strong>Enroll</strong></li>
+        <li>Sign in with an Apple ID (create one if needed at appleid.apple.com)</li>
+        <li>Choose <strong>Individual</strong> enrollment</li>
+        <li>Pay <strong>$99/year</strong> (credit card or PayPal)</li>
+        <li>Approval is usually instant for individuals — check your email</li>
+      </ol>
+    </div>
+
+    <div class="step">
+      <div class="step-header"><div class="step-num">6</div><h3>Configure the app in Xcode</h3></div>
+      <ol>
+        <li>In the left panel, click on <strong>App</strong> (the top-level blue icon)</li>
+        <li>In the main panel, click <strong>Signing &amp; Capabilities</strong></li>
+        <li>Check <strong>Automatically manage signing</strong></li>
+        <li>Under <strong>Team</strong>: click the dropdown → <strong>Add an account</strong> → sign in with your Apple Developer Apple ID</li>
+        <li>Set <strong>Bundle Identifier</strong> to: <code>com.luxorpro.app</code></li>
+        <li>Click <strong>General</strong> tab and set:
+          <ul>
+            <li>Display Name: <code>Luxor Pro</code></li>
+            <li>Version: <code>1.0.0</code></li>
+            <li>Build: <code>1</code></li>
+          </ul>
+        </li>
+      </ol>
+    </div>
+
+    <div class="step">
+      <div class="step-header"><div class="step-num">7</div><h3>Add app icons</h3></div>
+      <ol>
+        <li>In Xcode, click <strong>Assets.xcassets → AppIcon</strong></li>
+        <li>Drag <code>public/icon-512.png</code> from your project into the <strong>1024×1024</strong> slot</li>
+        <li>Xcode auto-generates all required sizes</li>
+      </ol>
+    </div>
+
+    <div class="step">
+      <div class="step-header"><div class="step-num">8</div><h3>Create the App Store listing</h3></div>
+      <ol>
+        <li>Go to <strong>appstoreconnect.apple.com</strong></li>
+        <li>Click <strong>Apps → + (New App)</strong></li>
+        <li>Fill in:</li>
+      </ol>
+      <table>
+        <thead><tr><th>Field</th><th>Value</th></tr></thead>
+        <tbody>
+          <tr><td>Name</td><td>Luxor Pro</td></tr>
+          <tr><td>Primary Language</td><td>Portuguese (Brazil)</td></tr>
+          <tr><td>Bundle ID</td><td>com.luxorpro.app</td></tr>
+          <tr><td>SKU</td><td>luxorpro-v1</td></tr>
+        </tbody>
+      </table>
+      <div class="callout callout-info">If "com.luxorpro.app" doesn't appear in the Bundle ID dropdown, first register it at developer.apple.com → Certificates, IDs &amp; Profiles → Identifiers → + → App IDs.</div>
+      <ol start="4">
+        <li>Fill in the description, keywords, support URL, and screenshots</li>
+      </ol>
+    </div>
+
+    <div class="step">
+      <div class="step-header"><div class="step-num">9</div><h3>Archive and upload from Xcode</h3></div>
+      <ol>
+        <li>In Xcode top bar, set the destination to <strong>Any iOS Device (arm64)</strong></li>
+        <li>Menu: <strong>Product → Archive</strong> (takes 3–10 minutes)</li>
+        <li>The <strong>Organizer</strong> window opens automatically</li>
+        <li>Click <strong>Distribute App → App Store Connect → Next → Next → Upload</strong></li>
+        <li>Wait for upload to complete</li>
+        <li>In App Store Connect, go to <strong>TestFlight</strong> — your build appears after ~10 min processing</li>
+        <li>When processed: <strong>App Store → + Version → 1.0.0</strong>, attach the build → <strong>Submit for Review</strong></li>
+        <li>Apple reviews in <strong>1–3 days</strong></li>
+      </ol>
+      <div class="callout callout-tip">After the first approval, updates usually review in under 24 hours.</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ PART 4 -->
+<div class="content">
+  <div class="part-header">
+    <div class="part-number">Part 4 of 4</div>
+    <h2>Electron Desktop App</h2>
+    <p class="part-overview">
+      Electron packages the existing web app as a native desktop binary. You get a <code>.exe</code> installer for Windows and a <code>.dmg</code> for macOS. No app store account required — you can distribute the installer directly.
+    </p>
+  </div>
+
+  <div class="steps">
+
+    <div class="step">
+      <div class="step-header"><div class="step-num">1</div><h3>Install dependencies</h3></div>
+      <pre><span class="cmd">cd "C:\Users\gabia\OneDrive\Desktop\AI\luxorpro"</span>
+<span class="cmd">npm install</span></pre>
+      <p>Installs Electron (~150 MB), electron-builder, and helpers. Takes 2–5 minutes.</p>
+    </div>
+
+    <div class="step">
+      <div class="step-header"><div class="step-num">2</div><h3>Test in development mode</h3></div>
+      <pre><span class="cmd">npm run electron:dev</span></pre>
+      <p>This starts the Vite dev server and simultaneously opens Luxor Pro in an Electron window. You should see the app running as a native desktop window. Close it when done testing.</p>
+    </div>
+
+    <div class="step">
+      <div class="step-header"><div class="step-num">3</div><h3>Build the installer</h3></div>
+      <pre><span class="cmd">npm run electron:build</span></pre>
+      <p>This will take 3–10 minutes. When done, find your installer in <code>dist-electron/</code>:</p>
+      <table>
+        <thead><tr><th>Platform</th><th>Output file</th><th>How to distribute</th></tr></thead>
+        <tbody>
+          <tr><td>Windows</td><td><code>Luxor Pro Setup 1.0.0.exe</code></td><td>Share the .exe directly or upload to a file host</td></tr>
+          <tr><td>macOS</td><td><code>Luxor Pro-1.0.0.dmg</code></td><td>Share the .dmg or upload to GitHub Releases</td></tr>
+          <tr><td>Linux</td><td><code>Luxor Pro-1.0.0.AppImage</code></td><td>Share the AppImage</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="step">
+      <div class="step-header"><div class="step-num">4</div><h3>Set up auto-updates <em>(optional but recommended)</em></h3></div>
+      <p>Auto-updates let existing users get new versions automatically.</p>
+      <ol>
+        <li>Create a GitHub account at <strong>github.com</strong></li>
+        <li>Create a new repository named <code>luxorpro-desktop</code></li>
+        <li>Open <code>electron-builder.yml</code> and update the owner field to your GitHub username</li>
+        <li>Create a GitHub Personal Access Token:
+          <ul>
+            <li>GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)</li>
+            <li>Click <strong>Generate new token (classic)</strong></li>
+            <li>Check the <strong>repo</strong> scope → Generate → copy the token</li>
+          </ul>
+        </li>
+        <li>Build and publish in one command:</li>
+      </ol>
+      <pre><span class="comment"># Windows</span>
+<span class="cmd">set GH_TOKEN=your_github_token_here</span>
+<span class="cmd">npm run electron:build -- --publish always</span>
+
+<span class="comment"># macOS / Linux</span>
+<span class="cmd">export GH_TOKEN=your_github_token_here</span>
+<span class="cmd">npm run electron:build -- --publish always</span></pre>
+      <p>The installer is automatically uploaded to GitHub Releases. Users with the app already installed will see an update notification next time they open it.</p>
+    </div>
+
+    <div class="step">
+      <div class="step-header"><div class="step-num">5</div><h3>Code signing <em>(removes security warnings — optional)</em></h3></div>
+      <p>Without signing, Windows shows a SmartScreen warning and macOS shows "unidentified developer." You can dismiss these, but for a professional release, sign the app.</p>
+      <table>
+        <thead><tr><th>Platform</th><th>What you need</th><th>Approximate cost</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Windows</strong></td><td>Code Signing Certificate from DigiCert or Sectigo</td><td>~$200/year</td></tr>
+          <tr><td><strong>macOS</strong></td><td>Apple Developer account (Part 3) + Developer ID certificate (free with membership)</td><td>Included in $99/year</td></tr>
+        </tbody>
+      </table>
+      <p style="margin-top:12px">For macOS, once your Apple Developer account is set up and Xcode is configured, electron-builder picks up the certificate automatically when you run the build on a Mac.</p>
+      <p style="margin-top:8px">For Windows, add these lines to <code>electron-builder.yml</code>:</p>
+      <pre><span class="key">win:</span>
+  <span class="key">certificateFile:</span> <span class="val">path/to/your-cert.pfx</span>
+  <span class="key">certificatePassword:</span> <span class="val">your_cert_password</span></pre>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ QUICK REF -->
+<div class="quick-ref">
+  <h2>Quick Command Reference</h2>
+  <p class="sub">All commands run from the project root: <code style="background:#2a2a3e;color:#00d4ff">C:\Users\gabia\OneDrive\Desktop\AI\luxorpro</code></p>
+
+  <pre><span class="comment">── WhatsApp — deploy to Supabase ─────────────────────────────────</span>
+<span class="cmd">supabase db push</span>
+<span class="cmd">supabase functions deploy whatsapp-webhook</span>
+<span class="cmd">supabase functions deploy whatsapp-verify</span>
+
+<span class="comment">── Android ────────────────────────────────────────────────────────</span>
+<span class="cmd">npx cap add android</span>            <span class="comment"># first time only</span>
+<span class="cmd">npm run cap:sync</span>               <span class="comment"># every time you change the app</span>
+<span class="cmd">npx cap open android</span>           <span class="comment"># opens Android Studio</span>
+
+<span class="comment">── iOS (Mac only) ─────────────────────────────────────────────────</span>
+<span class="cmd">npx cap add ios</span>                <span class="comment"># first time only</span>
+<span class="cmd">npm run cap:sync</span>               <span class="comment"># every time you change the app</span>
+<span class="cmd">npx cap open ios</span>               <span class="comment"># opens Xcode</span>
+
+<span class="comment">── Electron ───────────────────────────────────────────────────────</span>
+<span class="cmd">npm run electron:dev</span>           <span class="comment"># test as desktop app (dev mode)</span>
+<span class="cmd">npm run electron:build</span>         <span class="comment"># build installer → dist-electron/</span></pre>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ TROUBLE -->
+<div class="trouble">
+  <h2>Troubleshooting</h2>
+  <table>
+    <thead><tr><th>Problem</th><th>Solution</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>WhatsApp bot doesn't respond</td>
+        <td>Check logs: Supabase Dashboard → Edge Functions → whatsapp-webhook → Logs</td>
+      </tr>
+      <tr>
+        <td>Webhook verification fails in Meta</td>
+        <td>Make sure <code>WHATSAPP_VERIFY_TOKEN</code> in Supabase secrets exactly matches what you typed in Meta Console</td>
+      </tr>
+      <tr>
+        <td>Bot says "número não vinculado"</td>
+        <td>Open Luxor Pro → Settings → WhatsApp Bot and link your number first</td>
+      </tr>
+      <tr>
+        <td>Android build fails with SDK error</td>
+        <td>Android Studio → Tools → SDK Manager → install Android SDK 34</td>
+      </tr>
+      <tr>
+        <td><code>npx cap sync</code> fails</td>
+        <td>Run <code>npm run build</code> first — the <code>dist/</code> folder must exist before syncing</td>
+      </tr>
+      <tr>
+        <td>iOS build says "no team"</td>
+        <td>Xcode → Signing &amp; Capabilities → add your Apple Developer account via "Add an account"</td>
+      </tr>
+      <tr>
+        <td>iOS "Bundle ID already exists"</td>
+        <td>Register <code>com.luxorpro.app</code> at developer.apple.com → Identifiers → + → App IDs</td>
+      </tr>
+      <tr>
+        <td>Electron app shows blank screen</td>
+        <td>Run <code>npm run electron:dev</code> and press <code>Ctrl+Shift+I</code> to open DevTools and see errors</td>
+      </tr>
+      <tr>
+        <td>Electron build says "electron not found"</td>
+        <td>Run <code>npm install</code> first to install all dependencies</td>
+      </tr>
+      <tr>
+        <td>macOS "cannot be opened" warning</td>
+        <td>Right-click the app → Open → Open anyway. Or distribute via Mac App Store with code signing.</td>
+      </tr>
+      <tr>
+        <td>Windows SmartScreen warning</td>
+        <td>Click "More info" → "Run anyway". Disappears after enough users have installed the app or after code signing.</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ FOOTER -->
+<div class="footer">
+  <span>Luxor Pro · Platform Setup Guide</span>
+  <span>May 2026 · For internal use only</span>
+</div>
+
+</body>
+</html>
