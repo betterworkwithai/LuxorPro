@@ -134,8 +134,8 @@ export function Sidebar() {
           )}
         </NavLink>
 
-        {/* Admin link — only for admin emails */}
-        {isAdmin(email) && (
+        {/* Admin link — only for admin users */}
+        {isAdmin(user) && (
           <NavLink
             to={pfPath('/admin')}
             className={({ isActive }) =>

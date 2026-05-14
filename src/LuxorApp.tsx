@@ -6,8 +6,9 @@ import { supabase, SUPABASE_CONFIGURED } from "./lib/supabase";
 import { setActiveUser } from "./lib/db";
 import Auth from "./pages/Auth";
 import Subscription from "./pages/Subscription";
-import { getStoredSubscription, setStoredSubscription } from "./lib/stripe";
+import { getStoredSubscription, setStoredSubscription, clearStoredSubscription } from "./lib/stripe";
 import { LOCAL_AUTH_KEY } from "./App";
+import type { User } from "@supabase/supabase-js";
 
 import { OnboardingModal } from "./components/ui/OnboardingModal";
 import Dashboard from "./pages/Dashboard";
@@ -33,7 +34,7 @@ function LoadingScreen() {
   );
 }
 
-function AppRoutes({ userEmail }: { userEmail?: string }) {
+function AppRoutes({ isAdminUser }: { isAdminUser: boolean }) {
   return (
     <PageLayout>
       <Routes>
@@ -50,7 +51,7 @@ function AppRoutes({ userEmail }: { userEmail?: string }) {
         <Route path="/connections" element={<Connections />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/tools" element={<FinancialTools />} />
-        {isAdmin(userEmail) && <Route path="/admin" element={<Admin />} />}
+        {isAdminUser && <Route path="/admin" element={<Admin />} />}
         <Route path="*" element={<DashboardV2 />} />
       </Routes>
       <OnboardingModal />
@@ -62,7 +63,7 @@ export default function LuxorApp() {
   const { init, isLoading } = useStore();
   const [authed, setAuthed] = useState<boolean | undefined>(undefined);
   const [userId, setUserId] = useState<string | undefined>(undefined);
-  const [userEmail, setUserEmail] = useState<string | undefined>(undefined);
+  const [sessionUser, setSessionUser] = useState<User | undefined>(undefined);
   const [subscriptionDone, setSubscriptionDone] = useState(false);
   const [showSubscription, setShowSubscription] = useState(false);
   const [subVerified, setSubVerified] = useState<boolean | null>(null);
@@ -98,8 +99,8 @@ export default function LuxorApp() {
   useEffect(() => {
     if (!authed || !userId) { setSubVerified(null); return; }
     if (!SUPABASE_CONFIGURED) { setSubVerified(true); return; }
-    // Admin emails bypass subscription entirely
-    if (isAdmin(userEmail)) { setSubVerified(true); return; }
+    // Admin users (role set in Supabase app_metadata) bypass subscription entirely
+    if (isAdmin(sessionUser)) { setSubVerified(true); return; }
 
     supabase
       .from('profiles')
@@ -107,13 +108,14 @@ export default function LuxorApp() {
       .eq('id', userId)
       .single()
       .then(({ data }) => {
-        if (!data) { setSubVerified(!!getStoredSubscription()); return; }
+        if (!data) { clearStoredSubscription(); setSubVerified(false); return; }
         const active = data.subscription_status === 'active' || data.subscription_status === 'trialing';
         if (active && data.subscription_plan) setStoredSubscription(data.subscription_plan as string);
+        else clearStoredSubscription();
         setSubVerified(active);
       })
       .catch(() => setSubVerified(!!getStoredSubscription()));
-  }, [authed, userId, userEmail]);
+  }, [authed, userId, sessionUser]);
 
   const [sessionGateChecked, setSessionGateChecked] = useState(false);
   useEffect(() => {
@@ -159,7 +161,7 @@ export default function LuxorApp() {
       if (has) {
         setActiveUser(data.session?.user?.id);
         setUserId(data.session?.user?.id);
-        setUserEmail(data.session?.user?.email);
+        setSessionUser(data.session?.user);
         init();
       }
     });
@@ -170,24 +172,22 @@ export default function LuxorApp() {
       if (has) {
         setActiveUser(session?.user?.id);
         setUserId(session?.user?.id);
-        setUserEmail(session?.user?.email);
+        setSessionUser(session?.user);
         init();
       } else {
         setActiveUser(null);
         setUserId(undefined);
-        setUserEmail(undefined);
+        setSessionUser(undefined);
       }
     });
 
     return () => subscription.unsubscribe();
   }, [sessionGateChecked]);
 
+  // Show loading screen while awaiting sub check; skip if we have a local hint (avoids flash for returning users)
   const awaitingSubCheck = authed === true && subVerified === null && !getStoredSubscription();
-  const needsSubscription =
-    !subscriptionDone &&
-    authed === true &&
-    !getStoredSubscription() &&
-    (subVerified === false || subVerified === null);
+  // Gate is server-authoritative: only block when Supabase explicitly confirms inactive
+  const needsSubscription = !subscriptionDone && authed === true && subVerified === false;
 
   if (authed === undefined) return <LoadingScreen />;
   if (!authed) return <Auth />;
@@ -200,5 +200,5 @@ export default function LuxorApp() {
       />
     );
 
-  return <AppRoutes userEmail={userEmail} />;
+  return <AppRoutes isAdminUser={isAdmin(sessionUser)} />;
 }

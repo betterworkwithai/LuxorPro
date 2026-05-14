@@ -105,6 +105,7 @@ export default function Settings() {
     return validTabs.includes(hash) ? hash : 'perfil'
   })
   const [user,           setUser]           = useState<{ email: string | null } | null>(null)
+  const [isAdminUser,    setIsAdminUser]    = useState(false)
 
   // Keep activeTab in sync with hash changes (back/forward navigation)
   useEffect(() => {
@@ -120,10 +121,16 @@ export default function Settings() {
   useEffect(() => {
     let mounted = true
     supabase.auth.getUser().then(({ data }) => {
-      if (mounted) setUser(data.user ? { email: data.user.email ?? null } : null)
+      if (mounted) {
+        setUser(data.user ? { email: data.user.email ?? null } : null)
+        setIsAdminUser(data.user?.app_metadata?.role === 'admin')
+      }
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
-      if (mounted) setUser(session?.user ? { email: session.user.email ?? null } : null)
+      if (mounted) {
+        setUser(session?.user ? { email: session.user.email ?? null } : null)
+        setIsAdminUser(session?.user?.app_metadata?.role === 'admin')
+      }
     })
     return () => { mounted = false; subscription.unsubscribe() }
   }, [])
@@ -1135,7 +1142,7 @@ export default function Settings() {
         {/* ── Suporte e Bugs ── */}
         {activeTab === 'suporte' && (
         <section id="suporte" aria-labelledby="suporte-heading">
-          <SupportSection userEmail={user?.email ?? null} />
+          <SupportSection userEmail={user?.email ?? null} isAdminUser={isAdminUser} />
         </section>
         )}
 

@@ -1,5 +1,5 @@
 import { createRoot } from "react-dom/client"
-import { BrowserRouter, HashRouter } from "react-router-dom"
+import { BrowserRouter } from "react-router-dom"
 import App from "./App.tsx"
 import "./index.css"
 import { initAnalytics } from "./lib/analytics"
@@ -8,11 +8,15 @@ import { initAnalytics } from "./lib/analytics"
 // React mounts. Wrappers no-op silently if env vars are missing.
 initAnalytics()
 
-// file:// protocol (packaged Electron) requires HashRouter; HTTP(S) uses BrowserRouter
-const Router = window.location.protocol === 'file:' ? HashRouter : BrowserRouter
+window.addEventListener('unhandledrejection', (e) => {
+  console.error('Unhandled rejection:', e.reason)
+})
+window.addEventListener('error', (e) => {
+  console.error('Uncaught error:', e.message, e.filename, e.lineno)
+})
 
 createRoot(document.getElementById("root")!).render(
-  <Router>
+  <BrowserRouter>
     <App />
-  </Router>
+  </BrowserRouter>
 )

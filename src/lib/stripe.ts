@@ -136,6 +136,10 @@ export function setStoredSubscription(planId: string) {
   try { localStorage.setItem(SUBSCRIPTION_STORAGE_KEY, planId) } catch {}
 }
 
+export function clearStoredSubscription() {
+  try { localStorage.removeItem(SUBSCRIPTION_STORAGE_KEY) } catch {}
+}
+
 export function markNewUser() {
   try { localStorage.setItem(NEW_USER_STORAGE_KEY, '1') } catch {}
 }

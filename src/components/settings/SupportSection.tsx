@@ -7,7 +7,6 @@ import { clsx } from 'clsx'
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card'
 import { Modal, ModalFooter } from '../ui/Modal'
 import { supabase } from '../../lib/supabase'
-import { isAdmin } from '../../lib/admin'
 
 type Severity = 'low' | 'medium' | 'high' | 'critical'
 type Status   = 'open' | 'in_progress' | 'resolved' | 'closed'
@@ -61,8 +60,8 @@ function fmtDate(iso: string): string {
 
 // ─── Main section ────────────────────────────────────────────────────────────
 
-export function SupportSection({ userEmail }: { userEmail: string | null }) {
-  const admin = isAdmin(userEmail)
+export function SupportSection({ userEmail, isAdminUser }: { userEmail: string | null; isAdminUser: boolean }) {
+  const admin = isAdminUser
   const [tickets, setTickets]     = useState<SupportTicket[]>([])
   const [loading, setLoading]     = useState(true)
   const [composeOpen, setCompose] = useState(false)
