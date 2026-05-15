@@ -62,6 +62,17 @@ export interface PricePoint {
   price: number
 }
 
+export type CashflowEventType = 'dividend' | 'coupon' | 'amortization' | 'jcp' | 'other'
+
+export interface CashflowEvent {
+  /** ISO YYYY-MM-DD */
+  date: string
+  type: CashflowEventType
+  /** Total amount received (not per-unit), in the asset's native currency */
+  amount: number
+  description?: string
+}
+
 export type TaxTreatment = 'taxable' | 'tax-deferred' | 'tax-exempt'
 
 export interface Investment {
@@ -95,6 +106,8 @@ export interface Investment {
   grossUpRate?: number        // default 0.15 for tax-exempt
   /** Optional manual price history (for performance charts / TWR) */
   priceHistory?: PricePoint[]
+  /** Optional log of individual cashflow events (dividends, coupons, amortizations) */
+  cashflowHistory?: CashflowEvent[]
   // Product type (new structured form)
   productType?: 'titulo' | 'fundo' | 'acao' | 'coe'
   tituloType?: string        // CDB, LCI, LCA, etc.

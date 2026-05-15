@@ -3,7 +3,7 @@ import { Globe, Building2, Home, ChevronDown, ChevronRight, Plus, X } from 'luci
 import { Modal, ModalFooter } from '../ui/Modal'
 import { useStore } from '../../store/useStore'
 import { todayISO, formatDate } from '../../lib/formatters'
-import type { Investment, AssetLocation, TaxTreatment, PricePoint } from '../../lib/types'
+import type { Investment, AssetLocation, TaxTreatment, PricePoint, CashflowEvent, CashflowEventType } from '../../lib/types'
 import { LIQUIDITY_OPTIONS, BENCHMARK_OPTIONS, RISK_LABELS } from '../../lib/types'
 import { LOCAL_CLASSES, INTL_CLASSES } from '../../lib/suitability'
 import { markInvestmentEdited } from '../../lib/userEditedInvestments'
@@ -168,8 +168,16 @@ interface Props {
 const STEPS = [
   { key: 'classify', label: 'Tipo & Classe' },
   { key: 'core',     label: 'Posição' },
-  { key: 'history',  label: 'Histórico' },
+  { key: 'history',  label: 'Histórico & Rendimentos' },
 ] as const
+
+const CASHFLOW_EVENT_TYPES: { value: CashflowEventType; label: string; color: string }[] = [
+  { value: 'dividend',     label: 'Dividendo / Rendimento',  color: '#00ff88' },
+  { value: 'coupon',       label: 'Cupom / Juros',           color: '#00d4ff' },
+  { value: 'amortization', label: 'Amortização',             color: '#f59e0b' },
+  { value: 'jcp',          label: 'JCP',                     color: '#8b5cf6' },
+  { value: 'other',        label: 'Outro',                   color: '#55556a' },
+]
 
 // ─── Risk buttons ────────────────────────────
 function RiskButtons({ value, onChange }: { value: '' | 1|2|3|4|5; onChange: (v: ''|1|2|3|4|5) => void }) {
@@ -260,11 +268,20 @@ export function InvestmentModal({ open, onClose, initial, seedFromTransaction, o
   const [history, setHistory] = useState<PricePoint[]>(initial?.priceHistory ?? [])
   const [hpDate, setHpDate]   = useState('')
   const [hpPrice, setHpPrice] = useState('')
+  // Cashflow events (dividends, coupons, amortizations, etc.)
+  const [cashflowHistory, setCashflowHistory] = useState<CashflowEvent[]>(initial?.cashflowHistory ?? [])
+  const [cfDate, setCfDate]     = useState('')
+  const [cfType, setCfType]     = useState<CashflowEventType>('dividend')
+  const [cfAmount, setCfAmount] = useState('')
+  const [cfDesc, setCfDesc]     = useState('')
+  const [histTab, setHistTab]   = useState<'prices' | 'cashflow'>('prices')
 
   useEffect(() => {
     if (!open) return
     setF(buildInitial())
     setHistory(initial?.priceHistory ?? [])
+    setCashflowHistory(initial?.cashflowHistory ?? [])
+    setHistTab('prices')
     setStep(0)
     setSaveError(null)
     setSaveSuccess(false)
@@ -321,6 +338,19 @@ export function InvestmentModal({ open, onClose, initial, seedFromTransaction, o
   }
   const removeHistoryPoint = (date: string) => setHistory(prev => prev.filter(p => p.date !== date))
 
+  const addCashflowEvent = () => {
+    const amt = parseFloat(cfAmount)
+    if (!cfDate || isNaN(amt) || amt <= 0) return
+    setCashflowHistory(prev => {
+      const next: CashflowEvent[] = [...prev, { date: cfDate, type: cfType, amount: amt, description: cfDesc.trim() || undefined }]
+      next.sort((a, b) => a.date.localeCompare(b.date))
+      return next
+    })
+    setCfDate(''); setCfAmount(''); setCfDesc('')
+  }
+  const removeCashflowEvent = (idx: number) =>
+    setCashflowHistory(prev => prev.filter((_, i) => i !== idx))
+
   const canAdvance =
     step === 0 ? (f.assetClass !== CLASS_CUSTOM || f.customClass.trim().length > 0) :
     step === 1 ? Boolean(f.productType && f.name && f.quantity && f.avgCost && f.currentPrice && resolvedInstitution) :
@@ -357,6 +387,7 @@ export function InvestmentModal({ open, onClose, initial, seedFromTransaction, o
       liquidity:         f.liquidity || undefined,
       riskLevel:         f.riskLevel !== '' ? (f.riskLevel as 1|2|3|4|5) : undefined,
       priceHistory:      history.length > 0 ? history : undefined,
+      cashflowHistory:   cashflowHistory.length > 0 ? cashflowHistory : undefined,
       productType:       f.productType || undefined,
       tituloType:        f.tituloType || undefined,
       fundType:          f.fundType || undefined,
@@ -838,46 +869,163 @@ export function InvestmentModal({ open, onClose, initial, seedFromTransaction, o
           </>
         )}
 
-        {/* ─── Step 3: Histórico ─── */}
+        {/* ─── Step 3: Histórico & Rendimentos ─── */}
         {step === 2 && (
           <div className="col-span-2 space-y-4">
-            <div className="p-3 bg-[#ff7a00]/5 border border-[#ff7a00]/20 rounded-xl">
-              <p className="text-xs text-[#ff7a00] font-medium mb-1">Histórico de Preços (opcional)</p>
-              <p className="text-[11px] text-[#8888aa]">
-                Adicione pontos históricos para que os gráficos de performance (1M, 6M, YTD, 1Y, ALL) e o cálculo de Time-Weighted Return reflitam dados reais.
-              </p>
+            {/* Tab switcher */}
+            <div className="flex gap-1 p-1 bg-[#0a0a0f] rounded-xl border border-[#1e1e2e]">
+              {[
+                { key: 'prices',   label: `Preços ${history.length > 0 ? `(${history.length})` : ''}` },
+                { key: 'cashflow', label: `Rendimentos ${cashflowHistory.length > 0 ? `(${cashflowHistory.length})` : ''}` },
+              ].map(tab => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setHistTab(tab.key as 'prices' | 'cashflow')}
+                  className={clsx(
+                    'flex-1 py-1.5 rounded-lg text-xs font-medium transition-all',
+                    histTab === tab.key
+                      ? 'bg-[#ff7a00] text-[#0a0a0f]'
+                      : 'text-[#55556a] hover:text-[#e8e8f0]',
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
 
-            <div className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
-              <div>
-                <label className="text-xs text-[#8888aa] mb-1.5 block">Data</label>
-                <input type="date" className="input-dark" value={hpDate} onChange={e => setHpDate(e.target.value)} />
-              </div>
-              <div>
-                <label className="text-xs text-[#8888aa] mb-1.5 block">Preço ({f.currency})</label>
-                <input type="number" className="input-dark" value={hpPrice} onChange={e => setHpPrice(e.target.value)} />
-              </div>
-              <button onClick={addHistoryPoint} disabled={!hpDate || !hpPrice} className="btn-primary h-[38px]">
-                <Plus className="w-4 h-4" />
-              </button>
-            </div>
-
-            {history.length === 0 ? (
-              <p className="text-xs text-[#55556a] italic text-center py-6">Nenhum ponto histórico ainda.</p>
-            ) : (
-              <div className="border border-[#1e1e2e] rounded-xl overflow-hidden">
-                <div className="max-h-64 overflow-y-auto">
-                  {history.map(p => (
-                    <div key={p.date} className="flex items-center justify-between px-3 py-2 border-b border-[#1e1e2e] last:border-0 text-xs">
-                      <span className="text-[#8888aa]">{formatDate(p.date)}</span>
-                      <span className="text-[#e8e8f0] font-mono">{p.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                      <button onClick={() => removeHistoryPoint(p.date)} className="text-[#55556a] hover:text-[#ff4466]">
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ))}
+            {/* ── Prices tab ── */}
+            {histTab === 'prices' && (
+              <>
+                <div className="p-3 bg-[#ff7a00]/5 border border-[#ff7a00]/20 rounded-xl">
+                  <p className="text-xs text-[#ff7a00] font-medium mb-1">Histórico de Preços (opcional)</p>
+                  <p className="text-[11px] text-[#8888aa]">
+                    Adicione pontos históricos para que os gráficos de performance (1M, 6M, YTD, 1Y, ALL) reflitam dados reais.
+                  </p>
                 </div>
-              </div>
+                <div className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
+                  <div>
+                    <label className="text-xs text-[#8888aa] mb-1.5 block">Data</label>
+                    <input type="date" className="input-dark" value={hpDate} onChange={e => setHpDate(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="text-xs text-[#8888aa] mb-1.5 block">Preço ({f.currency})</label>
+                    <input type="number" className="input-dark" value={hpPrice} onChange={e => setHpPrice(e.target.value)} />
+                  </div>
+                  <button onClick={addHistoryPoint} disabled={!hpDate || !hpPrice} className="btn-primary h-[38px]">
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+                {history.length === 0 ? (
+                  <p className="text-xs text-[#55556a] italic text-center py-6">Nenhum ponto histórico ainda.</p>
+                ) : (
+                  <div className="border border-[#1e1e2e] rounded-xl overflow-hidden">
+                    <div className="max-h-56 overflow-y-auto">
+                      {history.map(p => (
+                        <div key={p.date} className="flex items-center justify-between px-3 py-2 border-b border-[#1e1e2e] last:border-0 text-xs">
+                          <span className="text-[#8888aa]">{formatDate(p.date)}</span>
+                          <span className="text-[#e8e8f0] font-mono">{p.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                          <button onClick={() => removeHistoryPoint(p.date)} className="text-[#55556a] hover:text-[#ff4466]">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* ── Cashflow events tab ── */}
+            {histTab === 'cashflow' && (
+              <>
+                <div className="p-3 bg-[#00ff88]/5 border border-[#00ff88]/20 rounded-xl">
+                  <p className="text-xs text-[#00ff88] font-medium mb-1">Histórico de Rendimentos (opcional)</p>
+                  <p className="text-[11px] text-[#8888aa]">
+                    Registre dividendos, cupons, amortizações e JCP recebidos. O total é acumulado separadamente dos campos manuais do ativo.
+                  </p>
+                </div>
+
+                {/* Event type selector */}
+                <div>
+                  <label className="text-xs text-[#8888aa] mb-1.5 block">Tipo de Evento</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {CASHFLOW_EVENT_TYPES.map(et => (
+                      <button
+                        key={et.value}
+                        type="button"
+                        onClick={() => setCfType(et.value)}
+                        className="px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-all"
+                        style={cfType === et.value
+                          ? { background: et.color + '18', borderColor: et.color + '55', color: et.color }
+                          : { background: '#16161f', borderColor: '#1e1e2e', color: '#55556a' }}
+                      >
+                        {et.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
+                  <div>
+                    <label className="text-xs text-[#8888aa] mb-1.5 block">Data</label>
+                    <input type="date" className="input-dark" value={cfDate} onChange={e => setCfDate(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="text-xs text-[#8888aa] mb-1.5 block">Valor Total ({f.currency})</label>
+                    <input type="number" className="input-dark" placeholder="0.00" value={cfAmount} onChange={e => setCfAmount(e.target.value)} />
+                  </div>
+                  <button onClick={addCashflowEvent} disabled={!cfDate || !cfAmount} className="btn-primary h-[38px]">
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div>
+                  <label className="text-xs text-[#8888aa] mb-1.5 block">Descrição (opcional)</label>
+                  <input className="input-dark" placeholder="Ex: Dividendo referente a nov/24" value={cfDesc} onChange={e => setCfDesc(e.target.value)} />
+                </div>
+
+                {cashflowHistory.length === 0 ? (
+                  <p className="text-xs text-[#55556a] italic text-center py-4">Nenhum rendimento registrado ainda.</p>
+                ) : (
+                  <>
+                    {/* Summary by type */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {CASHFLOW_EVENT_TYPES.filter(et => cashflowHistory.some(e => e.type === et.value)).map(et => {
+                        const total = cashflowHistory.filter(e => e.type === et.value).reduce((s, e) => s + e.amount, 0)
+                        return (
+                          <div key={et.value} className="px-2.5 py-2 rounded-xl border text-xs" style={{ borderColor: et.color + '30', background: et.color + '08' }}>
+                            <p className="text-[10px] truncate" style={{ color: et.color }}>{et.label}</p>
+                            <p className="font-semibold v2-num mt-0.5">{total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} {f.currency}</p>
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    <div className="border border-[#1e1e2e] rounded-xl overflow-hidden">
+                      <div className="max-h-48 overflow-y-auto">
+                        {[...cashflowHistory].reverse().map((e, i) => {
+                          const et = CASHFLOW_EVENT_TYPES.find(t => t.value === e.type)
+                          return (
+                            <div key={i} className="flex items-center gap-2 px-3 py-2 border-b border-[#1e1e2e] last:border-0 text-xs">
+                              <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: et?.color ?? '#55556a' }} />
+                              <span className="text-[#8888aa] w-20 flex-shrink-0">{formatDate(e.date)}</span>
+                              <span className="text-[10px] flex-shrink-0" style={{ color: et?.color ?? '#55556a' }}>{et?.label ?? e.type}</span>
+                              <span className="flex-1 text-[#55556a] truncate">{e.description ?? ''}</span>
+                              <span className="font-mono font-semibold text-[#e8e8f0] flex-shrink-0">
+                                {e.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </span>
+                              <button onClick={() => removeCashflowEvent(cashflowHistory.length - 1 - i)} className="text-[#55556a] hover:text-[#ff4466] flex-shrink-0">
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </>
             )}
           </div>
         )}

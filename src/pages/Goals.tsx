@@ -17,6 +17,16 @@ import { GOAL_CATEGORIES } from '../lib/types'
 import type { FinancialGoal, GoalCategory, GoalImpact } from '../lib/types'
 import { clsx } from 'clsx'
 
+// ─── Wealth pyramid tiers (mirrors DashboardV2) ─────────────────
+const PYRAMID_TIERS = [
+  { key: 'topo',         name: 'Topo',          min: 10_000_000, color: '#ffc857' },
+  { key: 'soberania',    name: 'Soberania',      min: 3_000_000,  color: '#ff9a3f' },
+  { key: 'independencia',name: 'Independência',  min: 1_000_000,  color: '#ff7a00' },
+  { key: 'conforto',     name: 'Conforto',       min: 300_000,    color: '#f59e0b' },
+  { key: 'estabilidade', name: 'Estabilidade',   min: 50_000,     color: '#d97706' },
+  { key: 'base',         name: 'Base',           min: 0,          color: '#78716c' },
+]
+
 // ─── Helpers ────────────────────────────────
 function monthsBetween(from: Date, to: Date) {
   return (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth())
@@ -620,6 +630,25 @@ export default function Goals() {
     buildProjection(goalsWithDrafts, currentNetWorth, totalMonthlyContrib, growthRate, monthlyExpenses, horizonYears, hiddenGoalIds),
     [goalsWithDrafts, currentNetWorth, totalMonthlyContrib, growthRate, monthlyExpenses, horizonYears, hiddenGoalIds])
 
+  // Pyramid tier crossings — tiers above current net worth that the projection will reach
+  const tierCrossings = useMemo(() => {
+    const chartMax = projectionData.reduce((m, p) => Math.max(m, p.withGoals as number), 0)
+    return PYRAMID_TIERS
+      .filter(t => t.min > 0 && t.min > currentNetWorth)
+      .map(tier => {
+        const idx = projectionData.findIndex(p => (p.withGoals as number) >= tier.min)
+        if (idx === -1 || tier.min > chartMax * 1.15) return null
+        const monthsAhead = idx * 3
+        const years = Math.floor(monthsAhead / 12)
+        const months = monthsAhead % 12
+        const timeLabel = years > 0
+          ? months > 0 ? `${years}a ${months}m` : `${years}a`
+          : `${months}m`
+        return { tier, idx, timeLabel, label: projectionData[idx]?.label ?? '' }
+      })
+      .filter(Boolean) as { tier: typeof PYRAMID_TIERS[0]; idx: number; timeLabel: string; label: string }[]
+  }, [projectionData, currentNetWorth])
+
   // Filtered goals
   const filteredGoals = useMemo(() => {
     if (filter === 'completed') return goals.filter(g => g.isCompleted)
@@ -820,6 +849,24 @@ export default function Goals() {
                          tickFormatter={v => formatBRL(v, true)} width={YAXIS_WIDTH} />
                   <Tooltip content={<ProjectionTooltip />} />
 
+                  {/* Pyramid tier threshold lines — gold/orange horizontal markers */}
+                  {tierCrossings.map(({ tier }) => (
+                    <ReferenceLine
+                      key={`tier-${tier.key}`}
+                      y={tier.min}
+                      stroke={tier.color}
+                      strokeDasharray="6 3"
+                      strokeWidth={1.5}
+                      label={{
+                        value: `${tier.name} · ${formatBRL(tier.min, true)}`,
+                        position: 'insideTopRight',
+                        fill: tier.color,
+                        fontSize: 9,
+                        fontWeight: 600,
+                      }}
+                    />
+                  ))}
+
                   {/* Reference lines — first occurrences have no label (overlaid by draggable div) */}
                   {goalEvents.map(({ goal, idx, occurrenceIndex }) => (
                     <ReferenceLine
@@ -899,6 +946,28 @@ export default function Goals() {
                     </span>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* Pyramid tier crossing legend */}
+            {tierCrossings.length > 0 && (
+              <div className="mt-4 px-3">
+                <p className="text-[10px] text-[#55556a] uppercase tracking-wider mb-2">Próximas camadas da pirâmide</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                  {tierCrossings.map(({ tier, timeLabel }) => (
+                    <div
+                      key={tier.key}
+                      className="flex items-center gap-2 px-2.5 py-2 rounded-xl border text-xs"
+                      style={{ borderColor: tier.color + '40', background: tier.color + '0a' }}
+                    >
+                      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: tier.color }} />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold truncate" style={{ color: tier.color }}>{tier.name}</p>
+                        <p className="text-[10px] text-[#55556a]">{formatBRL(tier.min, true)} · em {timeLabel}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </CardContent>
