@@ -2,29 +2,15 @@ import React, { useState, useEffect } from 'react'
 import { clsx } from 'clsx'
 import {
   Check, X, Zap, Shield, Star, Gift, ChevronDown,
-  Infinity, Calendar, Crown, Lock,
+  Infinity, Calendar, Crown, Lock, Loader2,
 } from 'lucide-react'
 import luxorLogo from '../assets/logo.png'
 import {
-  STRIPE_PLANS, STRIPE_PUBLISHABLE_KEY,
+  STRIPE_PLANS, buildCheckoutUrl,
   setStoredSubscription, clearNewUser,
   type StripePlan,
 } from '../lib/stripe'
 import { SUPABASE_CONFIGURED, supabase } from '../lib/supabase'
-
-// TypeScript declaration for Stripe Buy Button web component
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      'stripe-buy-button': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> & {
-        'buy-button-id': string
-        'publishable-key': string
-        'client-reference-id'?: string
-        'customer-email'?: string
-      }
-    }
-  }
-}
 
 // ─── Color tokens ────────────────────────────────────────────────────────────
 const BRAND  = '#ff7a00'
@@ -35,7 +21,7 @@ const GOLD   = 'linear-gradient(135deg, #ffd700 0%, #ff7a00 60%, #ff4500 100%)'
 const PLAN_META: Record<string, { trial?: string; guarantee?: string; cancelNote?: string }> = {
   monthly:  { cancelNote: 'Cancele a qualquer momento' },
   annual:   { trial: '7 dias grátis', guarantee: '30 dias de satisfação garantida', cancelNote: 'Cancele a qualquer momento' },
-  lifetime: { trial: '7 dias grátis', guarantee: '30 dias de garantia de reembolso total' },
+  lifetime: { guarantee: '30 dias de garantia de reembolso total' },
 }
 
 // ─── Feature matrix ───────────────────────────────────────────────────────────
@@ -111,10 +97,12 @@ function FeatureRow({ text, included }: { text: string; included: boolean }) {
 }
 
 function PricingCard({
-  plan, userId,
+  plan, promoCode, onSubscribe, isLoading,
 }: {
-  plan:   StripePlan
-  userId: string | undefined
+  plan:        StripePlan
+  promoCode:   string
+  onSubscribe: (plan: StripePlan) => void
+  isLoading:   boolean
 }) {
   const meta       = PLAN_META[plan.id] ?? {}
   const isLifetime = plan.id === 'lifetime'
@@ -237,14 +225,33 @@ function PricingCard({
         {features.map(f => <FeatureRow key={f.text} text={f.text} included={f.included} />)}
       </div>
 
-      {/* CTA — Stripe Buy Button */}
-      <div className="w-full flex justify-center">
-        <stripe-buy-button
-          buy-button-id={plan.buyButtonId}
-          publishable-key={STRIPE_PUBLISHABLE_KEY}
-          client-reference-id={userId ?? ''}
-        />
-      </div>
+      {/* CTA */}
+      <button
+        onClick={() => onSubscribe(plan)}
+        disabled={isLoading}
+        className={clsx(
+          'w-full py-3 rounded-2xl text-sm font-bold transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed',
+          isLifetime
+            ? 'text-white shadow-lg hover:opacity-90'
+            : 'border hover:border-[#ff7a00]/50 hover:text-[#ff7a00]',
+        )}
+        style={isLifetime ? {
+          background: GRAD,
+          boxShadow:  '0 8px 24px rgba(255,122,0,0.35)',
+        } : {
+          background:  'transparent',
+          borderColor: '#2a2a3e',
+          color:       '#8888aa',
+        }}
+      >
+        {isLoading
+          ? <Loader2 className="w-4 h-4 animate-spin" />
+          : plan.id === 'lifetime'
+            ? '⚡ Acesso Vitalício'
+            : plan.id === 'annual'
+              ? '🚀 Começar 7 dias grátis'
+              : 'Assinar Mensalmente'}
+      </button>
     </div>
   )
 }
@@ -304,6 +311,16 @@ export default function Subscription({ userId, onComplete }: SubscriptionProps) 
     setPromoCode(code)
     setPromoApplied(true)
     setPromoError('')
+  }
+
+  const [checkingOut, setCheckingOut] = useState<string | null>(null)
+
+  const handleSubscribe = (plan: StripePlan) => {
+    setCheckingOut(plan.id)
+    const url = buildCheckoutUrl(plan, promoCode || undefined, userId)
+    setStoredSubscription(plan.id)
+    clearNewUser()
+    window.location.href = url
   }
 
   const orderedPlans = [
@@ -393,7 +410,9 @@ export default function Subscription({ userId, onComplete }: SubscriptionProps) 
             <PricingCard
               key={plan.id}
               plan={plan}
-              userId={userId}
+              promoCode={promoCode}
+              onSubscribe={handleSubscribe}
+              isLoading={checkingOut === plan.id}
             />
           ))}
         </div>
