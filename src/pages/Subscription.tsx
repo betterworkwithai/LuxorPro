@@ -10,7 +10,7 @@ import {
   setStoredSubscription, clearNewUser,
   type StripePlan,
 } from '../lib/stripe'
-import { SUPABASE_CONFIGURED } from '../lib/supabase'
+import { SUPABASE_CONFIGURED, supabase } from '../lib/supabase'
 
 // ─── Color tokens ────────────────────────────────────────────────────────────
 const BRAND  = '#ff7a00'
@@ -298,6 +298,11 @@ export default function Subscription({ userId, onComplete }: SubscriptionProps) 
       setStoredSubscription(plan)
       clearNewUser()
       window.history.replaceState({}, '', window.location.pathname)
+      // Sync subscription status directly from Stripe into the database,
+      // as a fallback in case the webhook didn't fire.
+      if (SUPABASE_CONFIGURED) {
+        supabase.functions.invoke('sync-subscription').catch(console.error)
+      }
       onComplete()
     }
   }, [onComplete])
