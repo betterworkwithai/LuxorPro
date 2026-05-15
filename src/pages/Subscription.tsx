@@ -354,17 +354,13 @@ export default function Subscription({ userId, onComplete }: SubscriptionProps) 
           >
             <img src={luxorLogo} alt="Luxor" className="w-7 h-7 object-contain" />
           </div>
-          <span className="text-xl font-bold text-[#e8e8f0] tracking-tight">Luxor</span>
+          <span className="text-xl font-bold tracking-tight">
+            <span className="text-[#e8e8f0]">Luxor</span><span style={{ color: BRAND }}>.Pro</span>
+          </span>
         </div>
 
         {/* Hero */}
         <div className="text-center max-w-2xl mb-4">
-          <div
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-semibold mb-5"
-            style={{ background: 'rgba(255,122,0,0.1)', border: '1px solid rgba(255,122,0,0.25)', color: BRAND }}
-          >
-            <Zap className="w-3 h-3" /> Luxor Pro
-          </div>
           <h1 className="text-3xl sm:text-4xl font-bold text-[#e8e8f0] leading-tight mb-4">
             {userName ? `${userName}, você está quase lá.` : 'Você está quase lá.'}
             <br />
