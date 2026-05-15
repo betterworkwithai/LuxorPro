@@ -51,8 +51,9 @@ async function getUserIdFromCustomer(customerId: string): Promise<string | null>
 
 function inferPlan(priceId: string | undefined): string {
   if (!priceId) return 'unknown'
-  if (priceId === Deno.env.get('STRIPE_PRICE_ID_MONTHLY')) return 'monthly'
-  if (priceId === Deno.env.get('STRIPE_PRICE_ID_ANNUAL'))  return 'annual'
+  if (priceId === Deno.env.get('STRIPE_PRICE_ID_MONTHLY'))  return 'monthly'
+  if (priceId === Deno.env.get('STRIPE_PRICE_ID_ANNUAL'))   return 'annual'
+  if (priceId === Deno.env.get('STRIPE_PRICE_ID_LIFETIME')) return 'lifetime'
   return 'unknown'
 }
 
@@ -81,20 +82,69 @@ Deno.serve(async (req) => {
   try {
     switch (event.type) {
 
-      // ── Checkout completed (lifetime one-time payment) ───────────────────
+      // ── Checkout completed — link customer to user, set baseline status ─
+      // Fires for BOTH one-time payments (lifetime) AND subscription
+      // checkouts. This is the only Stripe event that carries both
+      // `client_reference_id` (our user_id) AND `customer` (Stripe
+      // customer id), so it's our only chance to wire them together.
+      // Subsequent `customer.subscription.*` events have only `customer`
+      // — they rely on the linkage we establish here to resolve back to
+      // a user. Without this, paying customers stay stuck on the plan
+      // selection page forever because no `subscription_status='active'`
+      // ever lands in `profiles`.
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session
-        if (session.mode !== 'payment') break  // subscriptions handled below
+        const userId  = session.client_reference_id
+        if (!userId) {
+          console.warn('[stripe-webhook] checkout.session.completed without client_reference_id — cannot link customer', session.id)
+          break
+        }
 
-        const userId = session.client_reference_id
-        if (!userId) break
+        // Always link the Stripe customer to this user_id. Subsequent
+        // subscription.updated / .deleted events will be able to find
+        // the user via `stripe_customer_id`.
+        const customerId = typeof session.customer === 'string' ? session.customer : session.customer?.id
+        if (customerId) {
+          await upsertProfile(userId, { stripe_customer_id: customerId })
+        }
 
-        await upsertProfile(userId, {
-          subscription_status: 'active',
-          subscription_plan:   'lifetime',
-          subscription_current_period_end: null,
-          trial_end: null,
-        })
+        if (session.mode === 'payment') {
+          // Lifetime — one-time payment, no recurring sub.
+          await upsertProfile(userId, {
+            subscription_status: 'active',
+            subscription_plan:   'lifetime',
+            subscription_current_period_end: null,
+            trial_end: null,
+          })
+        } else if (session.mode === 'subscription' && session.subscription) {
+          // Recurring sub — fetch the full subscription object so we can
+          // record status + plan + period end immediately, without
+          // waiting for the (eventually-consistent) subscription.created
+          // event to come through. Whatever it sends next will be a
+          // no-op upsert on the same row.
+          try {
+            const subId = typeof session.subscription === 'string' ? session.subscription : session.subscription.id
+            const sub   = await stripe.subscriptions.retrieve(subId)
+            const priceId = sub.items.data[0]?.price?.id
+            const plan    = (sub.metadata?.plan as string | undefined) ?? inferPlan(priceId)
+            await upsertProfile(userId, {
+              subscription_status:             sub.status,
+              subscription_plan:               plan,
+              subscription_current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
+              trial_end:           sub.trial_end ? new Date(sub.trial_end * 1000).toISOString() : null,
+              cancel_at_period_end: sub.cancel_at_period_end,
+            })
+          } catch (err) {
+            console.error('[stripe-webhook] failed to retrieve subscription from session — falling back to trialing', err)
+            // Best-effort fallback so the user isn't locked out even if
+            // the retrieve call fails. The next subscription.updated
+            // event will correct any inaccurate fields.
+            await upsertProfile(userId, {
+              subscription_status: 'trialing',
+              subscription_plan:   'unknown',
+            })
+          }
+        }
         break
       }
 

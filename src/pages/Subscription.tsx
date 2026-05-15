@@ -7,7 +7,7 @@ import {
 import luxorLogo from '../assets/logo.png'
 import {
   STRIPE_PLANS, buildCheckoutUrl, createCheckoutSession,
-  setStoredSubscription, clearNewUser,
+  setStoredSubscription, clearNewUser, reconcileSubscription,
   type StripePlan,
 } from '../lib/stripe'
 import { SUPABASE_CONFIGURED } from '../lib/supabase'
@@ -285,6 +285,8 @@ export default function Subscription({ userId, onComplete }: SubscriptionProps) 
   const [showPromo,    setShowPromo]    = useState(false)
   const [checkingOut,  setCheckingOut]  = useState<string | null>(null)
   const [checkoutErr,  setCheckoutErr]  = useState('')
+  const [recoverState, setRecoverState] = useState<'idle' | 'checking' | 'recovered' | 'not_found'>('idle')
+  const [recoverMsg,   setRecoverMsg]   = useState('')
 
   const userName = (() => {
     try { return localStorage.getItem('luxor_signup_name')?.split(' ')[0] || '' } catch { return '' }
@@ -429,6 +431,57 @@ export default function Subscription({ userId, onComplete }: SubscriptionProps) 
             <p className="text-sm text-[#ff4466]">{checkoutErr}</p>
           </div>
         )}
+
+        {/* Already paid? — explicit recovery for users whose webhook
+            didn't fire / customer was paid under a different surface.
+            Calls reconcile-subscription which queries Stripe directly. */}
+        <div className="w-full max-w-3xl mb-6 flex flex-col items-center text-center gap-2 px-4 py-3 rounded-2xl"
+          style={{ background: 'rgba(0,212,255,0.04)', border: '1px solid rgba(0,212,255,0.18)' }}
+        >
+          <p className="text-xs text-[#8888aa]">
+            Já assinou e está vendo essa tela? Vamos verificar com o Stripe e te liberar agora.
+          </p>
+          {recoverState === 'recovered' ? (
+            <p className="text-sm font-semibold" style={{ color: '#00ff88' }}>
+              ✓ Assinatura confirmada · {recoverMsg}. Recarregando…
+            </p>
+          ) : recoverState === 'not_found' ? (
+            <p className="text-xs" style={{ color: '#ff7a00' }}>
+              Não encontramos nenhuma assinatura ativa no Stripe pra esse email. Se acabou de pagar, aguarde 30 segundos e tente novamente — ou nos chame em <a href="mailto:suporte@luxorpro.com.br" className="underline">suporte@luxorpro.com.br</a>.
+            </p>
+          ) : (
+            <button
+              type="button"
+              disabled={recoverState === 'checking'}
+              onClick={async () => {
+                setRecoverState('checking')
+                setRecoverMsg('')
+                try {
+                  const result = await reconcileSubscription()
+                  if ('error' in result) {
+                    setRecoverState('not_found')
+                    setRecoverMsg(result.error)
+                    return
+                  }
+                  if (result.active) {
+                    if (result.plan) setStoredSubscription(result.plan)
+                    setRecoverState('recovered')
+                    setRecoverMsg(`plano ${result.plan ?? '—'}`)
+                    setTimeout(() => { window.location.reload() }, 1200)
+                  } else {
+                    setRecoverState('not_found')
+                  }
+                } catch {
+                  setRecoverState('not_found')
+                }
+              }}
+              className="text-xs font-semibold underline hover:no-underline disabled:opacity-50"
+              style={{ color: '#00d4ff' }}
+            >
+              {recoverState === 'checking' ? 'Verificando no Stripe…' : 'Verificar minha assinatura'}
+            </button>
+          )}
+        </div>
 
         {/* Pricing cards */}
         <div className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5 mb-10">

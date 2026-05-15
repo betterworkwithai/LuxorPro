@@ -6,7 +6,7 @@ import { supabase, SUPABASE_CONFIGURED } from "./lib/supabase";
 import { setActiveUser } from "./lib/db";
 import Auth from "./pages/Auth";
 import Subscription from "./pages/Subscription";
-import { getStoredSubscription, setStoredSubscription } from "./lib/stripe";
+import { getStoredSubscription, setStoredSubscription, reconcileSubscription } from "./lib/stripe";
 import { LOCAL_AUTH_KEY } from "./App";
 
 import { OnboardingModal } from "./components/ui/OnboardingModal";
@@ -83,6 +83,8 @@ export default function LuxorApp() {
   // before it has a chance to render <Subscription> while the webhook is still
   // propagating. Webhook will catch up; in the meantime, the local flag is
   // enough to land the user on the dashboard immediately after payment.
+  // We ALSO call reconcile-subscription server-side to front-run the webhook
+  // — that way the DB has the truth even before Stripe's async dispatch fires.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('subscription_success') === '1') {
@@ -92,6 +94,10 @@ export default function LuxorApp() {
       setSubVerified(true);
       // Clean the URL so a refresh doesn't re-trigger
       window.history.replaceState({}, '', window.location.pathname);
+      // Fire-and-forget: write the truth to profiles right now so the
+      // user doesn't depend on Stripe's webhook arriving. Safe to fail —
+      // the local flags above already let them in for this session.
+      reconcileSubscription().catch(() => { /* ignore */ });
     }
   }, []);
 
@@ -101,18 +107,55 @@ export default function LuxorApp() {
     // Admin emails bypass subscription entirely
     if (isAdmin(userEmail)) { setSubVerified(true); return; }
 
+    let cancelled = false;
     supabase
       .from('profiles')
       .select('subscription_status, subscription_plan')
       .eq('id', userId)
       .single()
-      .then(({ data }) => {
-        if (!data) { setSubVerified(!!getStoredSubscription()); return; }
-        const active = data.subscription_status === 'active' || data.subscription_status === 'trialing';
-        if (active && data.subscription_plan) setStoredSubscription(data.subscription_plan as string);
-        setSubVerified(active);
+      .then(async ({ data }) => {
+        if (cancelled) return;
+        const active = !!data && (data.subscription_status === 'active' || data.subscription_status === 'trialing');
+        if (active && data?.subscription_plan) setStoredSubscription(data.subscription_plan as string);
+
+        // If the DB says active/trialing OR the row doesn't exist at
+        // all (race with profile creation), trust the result and exit.
+        if (active) { setSubVerified(true); return; }
+        if (!data && getStoredSubscription()) { setSubVerified(true); return; }
+
+        // Otherwise the DB says "no active sub". Before locking the user
+        // out of their paid product, ask Stripe directly — this catches
+        // every case where the webhook failed/lagged/silently dropped a
+        // customer-link event. Frontend-driven recovery is the last line
+        // of defense; without it, a webhook miss is permanent lockout.
+        try {
+          const result = await reconcileSubscription();
+          if (cancelled) return;
+          if ('active' in result && result.active) {
+            if (result.plan) setStoredSubscription(result.plan);
+            setSubVerified(true);
+            return;
+          }
+        } catch { /* ignore — fall through to false */ }
+        if (!cancelled) setSubVerified(false);
       })
-      .catch(() => setSubVerified(!!getStoredSubscription()));
+      .catch(async () => {
+        if (cancelled) return;
+        // Network failure on the profile query — try reconcile as a
+        // tiebreaker before locking the user out.
+        try {
+          const result = await reconcileSubscription();
+          if (cancelled) return;
+          if ('active' in result && result.active) {
+            if (result.plan) setStoredSubscription(result.plan);
+            setSubVerified(true);
+            return;
+          }
+        } catch { /* ignore */ }
+        if (!cancelled) setSubVerified(!!getStoredSubscription());
+      });
+
+    return () => { cancelled = true };
   }, [authed, userId, userEmail]);
 
   const [sessionGateChecked, setSessionGateChecked] = useState(false);
@@ -182,11 +225,24 @@ export default function LuxorApp() {
     return () => subscription.unsubscribe();
   }, [sessionGateChecked]);
 
+  // While the subscription check is in flight, only block on the loading
+  // screen if we don't already have a localStorage marker telling us this
+  // user has paid before. With a marker, render the app optimistically —
+  // the async check will downgrade them silently if it eventually decides
+  // they're not paid (rare, and the reconcile fallback above prevents it).
   const awaitingSubCheck = authed === true && subVerified === null && !getStoredSubscription();
+
+  // The gate. Three things bypass it (in order of authority):
+  //   1. subscriptionDone — in-session flag set after a successful payment
+  //   2. subVerified===true — DB or reconcile confirmed active/trialing
+  //   3. getStoredSubscription() — the user has a localStorage marker from
+  //      a prior successful checkout. Soft signal but enough to avoid
+  //      forcing a paying customer back to plan select while we recover.
   const needsSubscription =
     !subscriptionDone &&
     authed === true &&
-    (subVerified === false || (subVerified === null && !getStoredSubscription()));
+    subVerified === false &&
+    !getStoredSubscription();
 
   if (authed === undefined) return <LoadingScreen />;
   if (!authed) return <Auth />;

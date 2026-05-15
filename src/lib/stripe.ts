@@ -113,6 +113,32 @@ export async function createPortalSession(): Promise<{ url: string } | { error: 
   }
 }
 
+/**
+ * Server-side recovery: ask the reconcile-subscription edge function to
+ * query Stripe directly for the current user's status and write the
+ * truth back to `profiles`. Use when the DB might be out of sync — e.g.
+ * right after returning from Stripe (front-running the webhook), or on
+ * login when localStorage says "paid" but the gate would otherwise block.
+ *
+ * Returns the reconciled state. Caller can use `.active` to decide
+ * whether to bypass the subscription gate.
+ */
+export async function reconcileSubscription(): Promise<{
+  active: boolean
+  plan?: string
+  subscription_status?: string
+  status?: string         // 'reconciled' | 'no_customer' | 'no_active_subscription'
+  message?: string
+} | { error: string }> {
+  try {
+    const { data, error } = await supabase.functions.invoke('reconcile-subscription', { body: {} })
+    if (error) return { error: error.message ?? 'reconcile failed' }
+    return data as { active: boolean; plan?: string; subscription_status?: string; status?: string; message?: string }
+  } catch (e: unknown) {
+    return { error: e instanceof Error ? e.message : 'reconcile failed' }
+  }
+}
+
 /** Cancels the active subscription at period end (no immediate loss of access). */
 export async function cancelSubscription(): Promise<{ success: true; periodEnd: number } | { error: string }> {
   try {

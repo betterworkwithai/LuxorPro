@@ -1,0 +1,610 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Council of Five — Luxor Pro Viability & Revenue Projection</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #0f1018;
+    --surface-2: #131426;
+    --border: #1e1e30;
+    --text: #e8e8f0;
+    --muted: #8888aa;
+    --dim: #55556a;
+    --brand: #ff7a00;
+    --brand-dark: #ff4500;
+    --gold: #ffc857;
+    --cyan: #00d4ff;
+    --green: #00ff88;
+    --red: #ff4466;
+    --purple: #8b5cf6;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Arial, sans-serif;
+    line-height: 1.65;
+    font-size: 15px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap {
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 48px 28px 96px;
+  }
+  .brand-bar {
+    height: 4px;
+    background: linear-gradient(90deg, var(--brand), var(--brand-dark));
+    border-radius: 2px;
+    margin-bottom: 36px;
+  }
+  .eyebrow {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--brand);
+    margin: 0 0 10px;
+  }
+  h1 {
+    font-size: 34px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    line-height: 1.2;
+    margin: 0 0 12px;
+  }
+  .lede {
+    color: var(--muted);
+    font-size: 16px;
+    margin: 0 0 8px;
+  }
+  .meta {
+    color: var(--dim);
+    font-size: 12px;
+    margin-bottom: 40px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  h2 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    margin: 48px 0 16px;
+    padding-top: 12px;
+  }
+  h3 {
+    font-size: 17px;
+    font-weight: 600;
+    margin: 32px 0 10px;
+    color: var(--text);
+  }
+  h4 {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin: 24px 0 8px;
+    color: var(--brand);
+  }
+  p { margin: 0 0 14px; }
+  a { color: var(--cyan); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* Council member cards */
+  .council {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin: 24px 0 8px;
+  }
+  .voice {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--brand);
+    border-radius: 12px;
+    padding: 18px 20px;
+  }
+  .voice .role {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    background: rgba(255,122,0,0.12);
+    color: var(--brand);
+  }
+  .voice p { margin: 0; color: #c8c8d8; }
+  .voice.adversary  { border-left-color: var(--red);    }
+  .voice.adversary  .role { background: rgba(255,68,102,0.12); color: var(--red); }
+  .voice.architect  { border-left-color: var(--purple); }
+  .voice.architect  .role { background: rgba(139,92,246,0.12); color: var(--purple); }
+  .voice.pragmatist { border-left-color: var(--green);  }
+  .voice.pragmatist .role { background: rgba(0,255,136,0.10); color: var(--green); }
+  .voice.researcher { border-left-color: var(--cyan);   }
+  .voice.researcher .role { background: rgba(0,212,255,0.12); color: var(--cyan); }
+  .voice.jurist     { border-left-color: var(--gold);   }
+  .voice.jurist     .role { background: rgba(255,200,87,0.12); color: var(--gold); }
+
+  /* Decree */
+  .decree {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 28px 12px;
+    margin-top: 24px;
+  }
+  .verdict-banner {
+    background: linear-gradient(135deg, rgba(255,122,0,0.15), rgba(255,69,0,0.05));
+    border: 1px solid rgba(255,122,0,0.35);
+    border-radius: 12px;
+    padding: 18px 22px;
+    margin: 16px 0 28px;
+  }
+  .verdict-banner strong { color: var(--brand); }
+
+  /* Table */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin: 16px 0 28px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  th, td {
+    text-align: left;
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  thead th {
+    background: #161729;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 700;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td.num { font-variant-numeric: tabular-nums; }
+  td.horizon { font-weight: 700; color: var(--gold); }
+  td.metric { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--text); }
+
+  /* Lists */
+  ul, ol { padding-left: 22px; margin: 0 0 14px; }
+  li { margin-bottom: 6px; color: #c8c8d8; }
+  li::marker { color: var(--brand); }
+
+  /* Callouts */
+  .callout {
+    background: var(--surface);
+    border-left: 3px solid var(--cyan);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 16px 0;
+    font-size: 14px;
+    color: #c8c8d8;
+  }
+  .callout.warn { border-left-color: var(--red); }
+  .callout.warn strong { color: var(--red); }
+  .callout.good { border-left-color: var(--green); }
+  .callout.good strong { color: var(--green); }
+
+  .kicker {
+    font-size: 19px;
+    font-weight: 600;
+    color: var(--text);
+    background: rgba(255,122,0,0.06);
+    border: 1px solid rgba(255,122,0,0.25);
+    border-radius: 12px;
+    padding: 22px 26px;
+    margin: 32px 0;
+    line-height: 1.55;
+  }
+  .kicker em { color: var(--brand); font-style: normal; }
+
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 40px 0;
+  }
+  code {
+    font-family: 'SF Mono', Monaco, Consolas, monospace;
+    font-size: 13px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 1px 6px;
+    border-radius: 4px;
+    color: var(--cyan);
+  }
+  .footer {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    color: var(--dim);
+    font-size: 11px;
+    text-align: center;
+  }
+
+  @media print {
+    html, body { background: white; color: #111; }
+    .wrap { padding: 16px; max-width: 100%; }
+    .voice, .decree, table, .callout, .kicker, .verdict-banner {
+      background: white !important;
+      color: #111 !important;
+      border-color: #ddd !important;
+      page-break-inside: avoid;
+    }
+    .voice p, td, li { color: #222 !important; }
+    h1, h2, h3, h4 { color: #111 !important; }
+    a { color: #1a73e8 !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand-bar"></div>
+
+  <p class="eyebrow">The Council of Five · Strategy Deliberation</p>
+  <h1>Luxor Pro — Viability &amp; Revenue Projection</h1>
+  <p class="lede">A five-lens deliberation on whether a solo-founded, premium-paid-only personal finance SaaS can win in Brazil, plus realistic revenue projections at 3-, 6-, 12-, 24-, 36-, and 60-month horizons.</p>
+  <p class="meta">Prepared for: Luxor Pro founder · Stage: 0 paying customers, payment plumbing just shipped · Surface: web (luxorpro.com.br)</p>
+
+  <!-- ─────────────────────────────  DELIBERATION  ───────────────────────────── -->
+  <h2>🏛️ Council Deliberation</h2>
+
+  <div class="council">
+    <div class="voice adversary">
+      <span class="role">The Adversary · Constructive Pessimist</span>
+      <p>You have zero paying customers and you&rsquo;re already planning a WhatsApp bot and two native apps — that&rsquo;s how solo founders die. The lifetime plan at R$ 350 is a self-inflicted wound: it caps LTV at ~R$ 350 forever while every other PFM in Brazil collects R$ 15&ndash;25/month indefinitely. Your &ldquo;premium institutional&rdquo; positioning collides with reality: Brazilians with R$ 1M+ in patrimônio are already on XP/BTG/Inter dashboards that are free, native, and integrated with their custody — you&rsquo;re asking them to maintain a parallel system. PT-BR-only and no mobile app means you&rsquo;re invisible on the channel where 70%+ of Brazilian fintech engagement happens. The 30-day money-back + 7-day trial stack means a sophisticated user gets ~37 days free, then refunds — your effective free tier is over a month. Trial→paid conversion on premium PFM in BR without a free tier is closer to 3&ndash;6%, not 5&ndash;15%.</p>
+    </div>
+
+    <div class="voice architect">
+      <span class="role">The Architect · Visionary</span>
+      <p>The architecture you&rsquo;ve built is actually defensible long-term — unified multi-currency wealth + cashflow + Open Finance is a position Mobills/Organizze structurally can&rsquo;t reach without rebuilding (cashflow-first, investment-shallow), and the brokers can&rsquo;t reach without becoming neutral (they won&rsquo;t). The pirâmide patrimonial is a real wedge: gamified percentile positioning against IBGE/WID data is shareable, viral, and hard to copy without your willingness to publish brackets that anchor to wealth inequality. Your moat over 24&ndash;36 months isn&rsquo;t features — it&rsquo;s the <em>data graph</em>: every Pluggy connection + every PDF imported + every category corrected makes your AI categorizer smarter for the next user, and that compounds. WhatsApp is the right second surface (90% of BR adults daily, friction-free transaction logging is 10× web), but iOS/Android native is premature — a PWA gets you 80% of the value for 5% of the build cost until you have ≥1,000 paying users justifying app-store presence.</p>
+    </div>
+
+    <div class="voice pragmatist">
+      <span class="role">The Pragmatist · Simplifier</span>
+      <p>You have one job for the next 90 days: get to 100 paying customers. That&rsquo;s R$ 2k MRR or R$ 20k in lifetime revenue — enough signal to know if anything works, not enough to matter financially. Everything that doesn&rsquo;t directly produce a paid signup is a distraction: WhatsApp bot, native apps, &ldquo;constant updating.&rdquo; Kill the lifetime plan or 3× the price to R$ 997 — it&rsquo;s bleeding LTV and the people buying it are exactly the people who&rsquo;d otherwise pay annually for years. Build one lead magnet (the pirâmide calculator as a public, ungated tool that captures email after showing the result) and one acquisition channel (organic Twitter/X + LinkedIn personal brand of the founder, posting daily about wealth in BR with the calculator as the CTA). That&rsquo;s it. Ship that, drive 10k visitors/month to it within 90 days, and the rest of the funnel will tell you what to fix.</p>
+    </div>
+
+    <div class="voice researcher">
+      <span class="role">The Researcher · Contextualist</span>
+      <p>The relevant comparable here isn&rsquo;t Mobills (mass-market, ad-supported, freemium) — it&rsquo;s <strong>Toshl</strong> (CH, ~$40/yr, ~1M users globally), <strong>Monarch Money</strong> (US, $99/yr, ~150k paid users in 3 years, ICP HNW couples), and <strong>Copilot Money</strong> (US, $95/yr, ~50k paid users). Monarch is the closest direct analog: founder-led, premium PFM, post-Mint exodus, hit $10M ARR in ~24 months. OpenView/a16z benchmarks 2024 on premium PFM: blended trial→paid converts at 4&ndash;8%, monthly churn is 5&ndash;7% in year one and settles at 3&ndash;4% in year two, and 60&ndash;70% of revenue comes from annual plans. Brazil-specific: the only premium consumer fintech to scale past 50k paid in &lt;5 years was <strong>GuiaBolso (acquired by PicPay)</strong> and they did it on FREE freemium, then sold credit leads. The premium-paid-only PFM model in BR has <em>no scaled success case yet</em> — Luxor would be the first to prove it works, which is both the opportunity and the risk. Apple/Google ToS allows external payment links in BR (post-2023 ruling) — you can route mobile users through Stripe and avoid the 30% tax, this is a real edge.</p>
+    </div>
+
+    <div class="voice jurist">
+      <span class="role">The Jurist · Unbiased Observer</span>
+      <p>The four voices converge on three points and split on one. <strong>Convergent:</strong> (1) the next 90 days is a single-channel acquisition test, not a feature-build sprint; (2) the lifetime plan is mispriced and should be removed or repriced to R$ 997+; (3) WhatsApp before native apps. <strong>Divergent:</strong> the Architect sees defensible long-term positioning that justifies patience; the Adversary sees a 1-person team building a category that has no proven winner in Brazil and is structurally squeezed by free broker dashboards above and Mobills/Organizze below. Weighing the evidence: the Researcher&rsquo;s Monarch comp is the strongest data point in favor — premium PFM <em>can</em> hit $10M ARR in 24 months with the right ICP and channel — but Monarch had $25M in venture funding for that ride, and Luxor has a solo founder with effectively zero burn capital. The honest read: viable but only in a <strong>narrow path</strong> where the founder personally becomes the acquisition channel (LinkedIn/Twitter content + pirâmide calculator wedge) for 12&ndash;18 months, lifetime gets killed, mobile defers to PWA, and revenue stays under R$ 50k MRR for the first year. Anything more ambitious requires capital the founder doesn&rsquo;t have.</p>
+    </div>
+  </div>
+
+  <!-- ─────────────────────────────  DECREE  ───────────────────────────── -->
+  <h2>⚖️ Final Decree</h2>
+
+  <div class="decree">
+
+    <h3>Honest viability verdict</h3>
+    <div class="verdict-banner">
+      <strong>Conditional viable.</strong> Not viable as currently scoped (broad feature roadmap, solo team, no acquisition channel). Viable as a focused, founder-led, content-driven niche play targeting the top ~5% of BR wealth — and the bar to clear is &ldquo;founder becomes a known voice in PT-BR personal finance content within 12 months.&rdquo; If that doesn&rsquo;t happen, the product dies regardless of how good the code is.
+    </div>
+
+    <p>You are competing in a category with <strong>zero scaled winners in Brazil at the premium-paid-only tier.</strong> That&rsquo;s both the opportunity (open lane) and the warning (everyone who tried before either died, sold to a free competitor, or went freemium). Monarch Money is your proof-of-concept comp in the US — but they had $25M in venture and you have you.</p>
+
+    <h3>Revenue projections (realistic, not flattering)</h3>
+
+    <p style="color: var(--muted); font-size: 13px;">Core assumptions baked in:</p>
+    <ul>
+      <li>Trial→paid conversion: <strong>5%</strong> (low end; no free tier, no founder brand yet, no social proof)</li>
+      <li>Monthly churn: <strong>6%</strong> year 1, <strong>4%</strong> year 2, <strong>3%</strong> year 3 (PFM churn is high; people abandon when life is busy)</li>
+      <li>Plan mix after killing lifetime: <strong>~25% monthly, ~75% annual</strong></li>
+      <li>ARPU blended: ~R$ 15/mo (R$ 20 monthly × 0.25 + R$ 200/12 × 0.75)</li>
+      <li>Lifetime: keep at R$ 997 repriced — caps at ~10% revenue mix, treated as bonus not core</li>
+      <li>Organic growth driven by founder content + pirâmide calculator + word of mouth; <strong>no paid ads year 1</strong></li>
+    </ul>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Horizon</th>
+          <th>New trials/mo</th>
+          <th>Paying customers (end)</th>
+          <th>MRR (BRL)</th>
+          <th>ARR (BRL)</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="horizon">3 months</td>
+          <td class="num">50 → 150</td>
+          <td class="metric">15–30</td>
+          <td class="metric">R$ 250 – 500</td>
+          <td class="metric">R$ 3k – 6k</td>
+          <td>Founder content ramping. Conversion below 5% likely while you learn. Pure signal phase.</td>
+        </tr>
+        <tr>
+          <td class="horizon">6 months</td>
+          <td class="num">200 → 400</td>
+          <td class="metric">80–150</td>
+          <td class="metric">R$ 1.2k – 2.3k</td>
+          <td class="metric">R$ 14k – 27k</td>
+          <td>Calculator gaining SEO traction. First WhatsApp bot MVP if you ship it.</td>
+        </tr>
+        <tr>
+          <td class="horizon">12 months</td>
+          <td class="num">500 → 800</td>
+          <td class="metric">300–600</td>
+          <td class="metric">R$ 4.5k – 9k</td>
+          <td class="metric">R$ 54k – 108k</td>
+          <td>Critical inflection. If you&rsquo;re below R$ 3k MRR here, kill or pivot.</td>
+        </tr>
+        <tr>
+          <td class="horizon">24 months</td>
+          <td class="num">1,000 → 1,500</td>
+          <td class="metric">1,200–2,500</td>
+          <td class="metric">R$ 18k – 37k</td>
+          <td class="metric">R$ 216k – 450k</td>
+          <td>PWA mobile + WhatsApp bot mature. Niche brand established. Sustainable solo.</td>
+        </tr>
+        <tr>
+          <td class="horizon">36 months</td>
+          <td class="num">1,500 → 2,500</td>
+          <td class="metric">2,800–5,000</td>
+          <td class="metric">R$ 42k – 75k</td>
+          <td class="metric">R$ 500k – 900k</td>
+          <td>First hire becomes viable. Founder transitions to brand + product.</td>
+        </tr>
+        <tr>
+          <td class="horizon">60 months</td>
+          <td class="num">3,000 → 5,000</td>
+          <td class="metric">6,000–10,000</td>
+          <td class="metric">R$ 90k – 150k</td>
+          <td class="metric">R$ 1.1M – 1.8M</td>
+          <td>Realistic ceiling for solo→small-team in this niche without raising capital.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout good">
+      <strong>Best case (top 10% outcome):</strong> R$ 3–5M ARR by year 5 — requires the founder to break out as a Brazilian personal-finance influencer (50k+ engaged followers), OR an acquisition channel beyond content kicking in (referral viral loop, podcast circuit, B2B2C partnership with an XP-style broker who licenses Luxor for their HNW clients).
+    </div>
+
+    <div class="callout warn">
+      <strong>Worst case (40% probability):</strong> Below R$ 5k MRR at month 18, founder burns out, project dies or becomes a side-hustle generating R$ 30–50k/yr. This is the modal outcome for solo BR B2C subscription products.
+    </div>
+
+    <h3>WhatsApp + native apps — accelerant or distraction?</h3>
+
+    <table>
+      <thead>
+        <tr><th style="width:30%">Initiative</th><th style="width:22%">Verdict</th><th>Why</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>WhatsApp bot</strong><br><span style="color:var(--muted);font-size:11px">AI transaction logging</span></td>
+          <td style="color:var(--gold);font-weight:700">Ship in months 4–6, not now</td>
+          <td>Real accelerant — 10× friction reduction for daily logging, perfect BR channel. But useless without paid users to retain. Build after first 50 paying customers tell you which feature they want on WhatsApp.</td>
+        </tr>
+        <tr>
+          <td><strong>Native iOS</strong></td>
+          <td style="color:var(--red);font-weight:700">Defer 18+ months</td>
+          <td>Apple review, 30% tax, 3–6 months solo build, PWA viability all argue against. The pirâmide calculator and dashboard work fine in mobile browsers.</td>
+        </tr>
+        <tr>
+          <td><strong>Native Android</strong></td>
+          <td style="color:var(--red);font-weight:700">Same — defer</td>
+          <td>Slightly better economics (Google is laxer). PWA + TWA wrapper to get on Play Store as a thin layer is the right move if you must have store presence.</td>
+        </tr>
+        <tr>
+          <td><strong>PWA polish</strong></td>
+          <td style="color:var(--green);font-weight:700">Ship in months 2–3</td>
+          <td>Real ROI. Service worker + add-to-home-screen + offline cashflow entry. ~2 weeks of work, 80% of mobile-app value.</td>
+        </tr>
+        <tr>
+          <td><strong>&ldquo;Constant updating&rdquo;</strong></td>
+          <td style="color:var(--red);font-weight:700">Kill the framing</td>
+          <td>&ldquo;Constant updates&rdquo; is a feature treadmill that buries the founder. Replace with &ldquo;one big bet per quarter.&rdquo;</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Highest-leverage thing to do RIGHT NOW</h3>
+
+    <p>Stop building product features. For the next 90 days, you build <strong>one thing</strong> and you do <strong>one thing daily.</strong></p>
+
+    <h4>Build (one-time, ~2 weeks)</h4>
+    <p><strong>Public pirâmide patrimonial calculator</strong> — <code>luxorpro.com.br/calculadora-piramide-patrimonial</code></p>
+    <p><strong>Inputs:</strong> idade, patrimônio total (R$), composição (imóveis %, investimentos %, outros %).<br>
+    <strong>Output:</strong> which tier (Base → Topo), exact percentile of BR adult population, comparison to peer age cohort, what the path looks like to climb one tier (e.g. &ldquo;Para chegar em Independência aos 45 anos com 6% de retorno real, você precisa aportar R$ X/mês&rdquo;).</p>
+    <p>This is your wedge because:</p>
+    <ul>
+      <li>Self-contained, no signup required, fully indexable</li>
+      <li>Highly shareable (everyone wants to know their percentile)</li>
+      <li>SEO gold — &ldquo;quanto preciso para ser top 1% no Brasil&rdquo;, &ldquo;pirâmide patrimonial brasileira&rdquo;, &ldquo;patrimônio classe alta brasil&rdquo; — zero-competition keywords with intent</li>
+      <li>Captures email at the &ldquo;show me the path&rdquo; CTA, exactly when commercial intent peaks</li>
+      <li>Cites IBGE/WID/Credit Suisse → press/journalist bait (Valor, Exame, InfoMoney love this data packaged for retail)</li>
+      <li>Pirâmide is <em>the</em> unique brand asset — owning the calculator URL means you own the conversation</li>
+    </ul>
+
+    <h4>Do (daily, ~1hr/day, every day for 90 days straight)</h4>
+    <p><strong>LinkedIn + Twitter content from the founder&rsquo;s personal account.</strong> Not the brand account. Yours.</p>
+    <p>One post per day. The format:</p>
+    <ul>
+      <li><strong>Mon/Wed/Fri:</strong> a specific finding from BR wealth data (&ldquo;Apenas 4% dos brasileiros têm mais de R$ 1M em patrimônio. Aqui está como eles dividem entre imóveis, ações e renda fixa: [chart]&rdquo;) — link to calculator</li>
+      <li><strong>Tue/Thu:</strong> a tactical post about premium personal finance (asset allocation, IR otimização, offshore para BR investors, planejamento sucessório)</li>
+      <li><strong>Weekend:</strong> founder POV / build-in-public (&ldquo;Mês 2 do Luxor Pro: 23 clientes pagantes. O que aprendi com as primeiras conversas:&rdquo;)</li>
+    </ul>
+    <p>Why this works for Luxor specifically: your ICP (Independência tier and aspirants) are on LinkedIn at high density. They follow people like Thiago Nigro, Bruno Perini, Gustavo Cerbasi. There is <em>room</em> in PT-BR fintwit for a credible, technical, premium voice. The Pragmatist is right: there is no other channel that costs R$ 0 and reaches this ICP. Paid ads at your stage = setting money on fire because you don&rsquo;t have a tuned funnel yet.</p>
+
+    <h4>Kill / Reprice</h4>
+    <ul>
+      <li><strong>Kill or reprice the R$ 350 lifetime to R$ 1,497.</strong> At R$ 350 you&rsquo;re trading R$ 200/yr × 7 years of stable cashflow for one quick hit. The buyer of a R$ 350 lifetime is <em>exactly</em> the customer who&rsquo;d happily pay R$ 200/yr indefinitely. At R$ 1,497 it becomes a real &ldquo;patron tier&rdquo; that signals seriousness, doesn&rsquo;t cannibalize annual, and only sells to the small fraction who genuinely fear future price hikes. If repricing feels too aggressive, just kill lifetime entirely for now.</li>
+      <li><strong>Cut the 30-day money-back guarantee.</strong> 7-day trial is enough. The 30-day stack hands sophisticated users a 37-day free period and is the kind of policy a fully-funded company uses to reduce signup friction. Keep &ldquo;cancel anytime&rdquo; prominent, drop the money-back.</li>
+      <li><strong>Cut roadmap announcements.</strong> Don&rsquo;t promise WhatsApp/iOS/Android publicly. Ship them when they exist. Public roadmaps create expectations you&rsquo;ll fail to meet on a solo timeline.</li>
+    </ul>
+
+    <h4>The 90-day scorecard</h4>
+    <p>If at day 90 you have:</p>
+    <ul>
+      <li>≥ 5,000 organic monthly visitors to the calculator → channel is working, scale content</li>
+      <li>≥ 1,000 LinkedIn followers gained → founder brand forming, keep going</li>
+      <li>≥ 30 paying customers → product-market fit signal, keep building</li>
+      <li>&lt; 10 paying customers → kill or pivot. The product/channel combo is wrong. Don&rsquo;t sunk-cost.</li>
+    </ul>
+
+    <h4>What NOT to do (explicit)</h4>
+    <ul>
+      <li>Do not build the WhatsApp bot before month 4</li>
+      <li>Do not start native app development at all this year</li>
+      <li>Do not buy ads</li>
+      <li>Do not add a free tier (yet — that&rsquo;s a year-2 decision)</li>
+      <li>Do not redesign the dashboard again</li>
+      <li>Do not negotiate with Pluggy for better rates (irrelevant at this scale; need 10× more usage before that conversation matters)</li>
+      <li>Do not hire anyone</li>
+      <li>Do not write a Medium article about your tech stack</li>
+    </ul>
+
+    <hr>
+
+    <h3>The brutal one-line summary</h3>
+    <div class="kicker">
+      You built a R$ 1.5M ARR product. Now you have to <em>become the channel</em> that sells it. Most solo founders fail at the second part — not the first. The next 90 days decide whether this is a business or a beautifully-engineered hobby.
+    </div>
+    <p>The product is good enough. The architecture is good enough. The pricing (after killing lifetime) is good enough. <strong>What&rsquo;s missing is you, publishing, every single day, until people in your ICP can&rsquo;t avoid hearing your name when wealth tracking comes up in a conversation.</strong></p>
+    <p style="color:var(--brand);font-weight:600;">That&rsquo;s the job.</p>
+  </div>
+
+  <!-- ─────────────────────────────  GLOSSARY  ───────────────────────────── -->
+  <h2>📖 Glossário de termos e abreviações</h2>
+  <p style="color: var(--muted); font-size: 14px;">Definições rápidas de cada sigla, jargão e referência usada no documento — em ordem alfabética.</p>
+
+  <h3>Métricas de negócio</h3>
+  <table>
+    <thead><tr><th style="width:18%">Termo</th><th>Definição</th></tr></thead>
+    <tbody>
+      <tr><td><strong>ARPU</strong></td><td>Average Revenue Per User — receita média mensal por cliente pagante. Luxor blended ARPU é ~R$ 15/mês após o mix monthly+annual.</td></tr>
+      <tr><td><strong>ARR</strong></td><td>Annual Recurring Revenue — receita recorrente anualizada (MRR × 12). Métrica de tamanho do negócio.</td></tr>
+      <tr><td><strong>CAC</strong></td><td>Customer Acquisition Cost — quanto custa adquirir um cliente pagante (gasto em marketing ÷ novos clientes). Em fintech BR fica entre R$ 80–150.</td></tr>
+      <tr><td><strong>Cannibalization</strong></td><td>Quando um plano "rouba" receita de outro plano da mesma empresa. Ex.: lifetime a R$ 350 canibaliza assinaturas anuais que somariam R$ 1.400 em 7 anos.</td></tr>
+      <tr><td><strong>Churn (mensal)</strong></td><td>% de clientes pagantes que cancelam por mês. PFM premium tem churn alto: 5–7% no ano 1, cai pra 3–4% no ano 2.</td></tr>
+      <tr><td><strong>CTA</strong></td><td>Call To Action — botão ou frase que pede ação ("Começar grátis", "Ver minha pirâmide"). O elemento mais importante de qualquer página de conversão.</td></tr>
+      <tr><td><strong>Conversion rate (trial→paid)</strong></td><td>% de usuários que pagam após terminar o trial. PFM premium global converge em 4–8%; sem free tier no BR fica mais perto de 3–6%.</td></tr>
+      <tr><td><strong>ICP</strong></td><td>Ideal Customer Profile — descrição precisa do cliente perfeito. Luxor: brasileiro do tier "Independência" (R$ 1–3M) ou aspirante a HNW.</td></tr>
+      <tr><td><strong>LTV</strong></td><td>Lifetime Value — receita total esperada de um cliente ao longo do relacionamento. Plano lifetime <em>limita</em> LTV ao valor único pago.</td></tr>
+      <tr><td><strong>MRR</strong></td><td>Monthly Recurring Revenue — receita recorrente mensal. Métrica-chave do dia-a-dia em SaaS.</td></tr>
+      <tr><td><strong>MVP</strong></td><td>Minimum Viable Product — versão mínima de um produto que entrega valor e permite aprender com usuários reais.</td></tr>
+      <tr><td><strong>Plan mix</strong></td><td>Distribuição da base de clientes entre os planos oferecidos (ex.: 25% monthly, 75% annual). Determina ARPU e churn.</td></tr>
+      <tr><td><strong>SAM</strong></td><td>Serviceable Addressable Market — fatia do mercado que seu produto pode realmente atender. Luxor SAM realista: 100–500k brasileiros premium.</td></tr>
+      <tr><td><strong>TAM / Target market</strong></td><td>Total Addressable Market — universo total de potenciais compradores. Para Luxor: top ~5% da população adulta BR (~8M pessoas).</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Tipos de negócio</h3>
+  <table>
+    <thead><tr><th style="width:18%">Termo</th><th>Definição</th></tr></thead>
+    <tbody>
+      <tr><td><strong>B2C</strong></td><td>Business-to-Consumer — vende direto pro consumidor final (modelo do Luxor).</td></tr>
+      <tr><td><strong>B2B</strong></td><td>Business-to-Business — vende pra empresas.</td></tr>
+      <tr><td><strong>B2B2C</strong></td><td>Business-to-Business-to-Consumer — vende pra uma empresa que repassa pro consumidor final (ex.: Luxor licenciado pela XP pra clientes HNW).</td></tr>
+      <tr><td><strong>Freemium</strong></td><td>Versão gratuita + plano pago. Mobills e Organizze usam; Luxor não usa hoje.</td></tr>
+      <tr><td><strong>HNW / HNWI</strong></td><td>High Net Worth (Individual) — pessoa de alta renda/patrimônio. No BR: tipicamente ≥ R$ 1M em ativos líquidos.</td></tr>
+      <tr><td><strong>PFM</strong></td><td>Personal Finance Management — software de gestão financeira pessoal. Categoria onde Luxor compete.</td></tr>
+      <tr><td><strong>SaaS</strong></td><td>Software as a Service — software vendido por assinatura via web/app (sem instalação local).</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Tecnologia e canais</h3>
+  <table>
+    <thead><tr><th style="width:18%">Termo</th><th>Definição</th></tr></thead>
+    <tbody>
+      <tr><td><strong>IAP</strong></td><td>In-App Purchase — compra dentro de app de loja Apple/Google. Apple cobra 30% (15% no ano 2 de subscription).</td></tr>
+      <tr><td><strong>Open Finance</strong></td><td>Sistema regulatório do Banco Central que permite compartilhar dados bancários entre instituições autorizadas. Luxor usa via Pluggy.</td></tr>
+      <tr><td><strong>Pluggy</strong></td><td>Provedor brasileiro de Open Finance que conecta Luxor aos bancos (Nubank, Itaú, Bradesco, XP etc.) pra puxar transações e investimentos.</td></tr>
+      <tr><td><strong>PWA</strong></td><td>Progressive Web App — site que se comporta como app nativo (instalável, offline, push notifications) sem precisar passar pelas lojas Apple/Google.</td></tr>
+      <tr><td><strong>SEO</strong></td><td>Search Engine Optimization — otimização pra aparecer no Google organicamente. A calculadora pública é a aposta SEO do Luxor.</td></tr>
+      <tr><td><strong>ToS</strong></td><td>Terms of Service — termos de uso. Citado no contexto da Apple/Google permitirem links externos de pagamento no BR (decisão de 2023).</td></tr>
+      <tr><td><strong>TWA</strong></td><td>Trusted Web Activity — wrapper Android que coloca um PWA na Google Play como se fosse app nativo. Caminho rápido pra ter presença na loja.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Fontes de dados brasileiras</h3>
+  <table>
+    <thead><tr><th style="width:18%">Termo</th><th>Definição</th></tr></thead>
+    <tbody>
+      <tr><td><strong>IBGE</strong></td><td>Instituto Brasileiro de Geografia e Estatística — órgão oficial que conduz a PNAD (renda) e POF (consumo familiar).</td></tr>
+      <tr><td><strong>IRPF</strong></td><td>Imposto de Renda Pessoa Física — declaração anual. Os "grandes números" da Receita Federal mostram declarações por faixa de patrimônio.</td></tr>
+      <tr><td><strong>PNAD Contínua</strong></td><td>Pesquisa Nacional por Amostra de Domicílios do IBGE. Anchor do bottom da pirâmide (renda mediana).</td></tr>
+      <tr><td><strong>POF</strong></td><td>Pesquisa de Orçamentos Familiares (IBGE 2017–2018). Mostra composição do patrimônio familiar (imóveis ~50%, financeiro ~22%).</td></tr>
+      <tr><td><strong>WID</strong></td><td>World Inequality Database (wid.world) — base global de desigualdade. Anchor da parte superior da pirâmide (top 1%, top 0,1%).</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Competidores e referências citadas</h3>
+  <table>
+    <thead><tr><th style="width:18%">Nome</th><th>Definição</th></tr></thead>
+    <tbody>
+      <tr><td><strong>a16z</strong></td><td>Andreessen Horowitz — fundo de venture capital americano. Publica benchmarks de SaaS B2C que o Researcher citou.</td></tr>
+      <tr><td><strong>BTG</strong></td><td>BTG Pactual — banco de investimentos BR. Oferece dashboard de patrimônio gratuito pra clientes de custódia.</td></tr>
+      <tr><td><strong>Copilot Money</strong></td><td>PFM premium americano ($95/yr). Comp do Luxor: ~50k usuários pagantes.</td></tr>
+      <tr><td><strong>GuiaBolso</strong></td><td>Antigo PFM brasileiro freemium. Único caso de PFM consumer escalado no BR — vendido pro PicPay. Modelo: dados grátis, monetização via leads de crédito.</td></tr>
+      <tr><td><strong>Inter</strong></td><td>Banco Inter — banco digital BR. Tem dashboard de patrimônio gratuito.</td></tr>
+      <tr><td><strong>InfoMoney / Valor / Exame</strong></td><td>Principais publicações de finanças/economia BR. Receptivas a dados de desigualdade patrimonial bem-empacotados.</td></tr>
+      <tr><td><strong>Mint</strong></td><td>PFM americano (Intuit). Foi descontinuado em 2024, criando o êxodo que beneficiou Monarch/Copilot.</td></tr>
+      <tr><td><strong>Mobills</strong></td><td>Principal PFM brasileiro freemium (~4M usuários, R$ 15–25/mês premium). Mass-market, foco em cashflow.</td></tr>
+      <tr><td><strong>Monarch Money</strong></td><td>PFM premium americano ($99/yr). Comp mais próximo do Luxor: founder-led, atingiu $10M ARR em ~24 meses pós-launch.</td></tr>
+      <tr><td><strong>Nubank</strong></td><td>Maior neobank do BR. Oferece widgets básicos de finanças pra clientes.</td></tr>
+      <tr><td><strong>OpenView</strong></td><td>Fundo de VC especializado em SaaS. Publica benchmarks anuais de churn e conversion citados pelo Researcher.</td></tr>
+      <tr><td><strong>Organizze</strong></td><td>Segundo maior PFM brasileiro (~1M usuários, R$ 13–17/mês). Concorrente direto do Mobills.</td></tr>
+      <tr><td><strong>PicPay</strong></td><td>Carteira digital brasileira. Comprou GuiaBolso e tem widgets de finanças.</td></tr>
+      <tr><td><strong>Thiago Nigro / Bruno Perini / Gustavo Cerbasi</strong></td><td>Principais influenciadores de finanças pessoais no BR. Audiência sobrepõe ao ICP do Luxor.</td></tr>
+      <tr><td><strong>Toshl</strong></td><td>PFM premium global ($40/yr, baseado na Suíça). Referência de scale internacional em PFM pago.</td></tr>
+      <tr><td><strong>XP</strong></td><td>XP Investimentos — maior corretora BR. Oferece dashboard de patrimônio gratuito.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Conceitos financeiros</h3>
+  <table>
+    <thead><tr><th style="width:18%">Termo</th><th>Definição</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Asset allocation</strong></td><td>Distribuição da carteira entre classes de ativo (renda fixa, ações, imóveis, internacional). Tema de conteúdo do Luxor.</td></tr>
+      <tr><td><strong>IR / IR otimização</strong></td><td>Imposto de Renda — estratégias legais pra reduzir IR (LCI/LCA isentos, fundos imobiliários, etc.).</td></tr>
+      <tr><td><strong>IRR</strong></td><td>Internal Rate of Return — taxa interna de retorno. Mede a rentabilidade real de um investimento considerando fluxo de caixa.</td></tr>
+      <tr><td><strong>NPV</strong></td><td>Net Present Value — valor presente líquido. Traz fluxos futuros pra valor de hoje a uma taxa de desconto.</td></tr>
+      <tr><td><strong>Offshore</strong></td><td>Investimentos fora do BR (US Stocks, fundos internacionais, conta na Avenue/Inter, etc.). Categoria que Luxor diferencia de "onshore".</td></tr>
+      <tr><td><strong>Pirâmide patrimonial</strong></td><td>Visualização gamificada dos tiers de riqueza no BR (Base → Topo), baseada em dados IBGE/WID/Credit Suisse. Wedge único do Luxor.</td></tr>
+      <tr><td><strong>Planejamento sucessório</strong></td><td>Estratégias pra transferir patrimônio à próxima geração com menos impostos (holdings, doações em vida, testamento). Tema de conteúdo premium.</td></tr>
+      <tr><td><strong>Suitability</strong></td><td>Perfil de investidor (conservador / moderado / arrojado). Regulado pela CVM no BR. Luxor usa pra projeções e alocação sugerida.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Tiers da pirâmide patrimonial</h3>
+  <table>
+    <thead><tr><th style="width:22%">Tier</th><th style="width:25%">Patrimônio (por adulto)</th><th>% da pop. adulta BR</th></tr></thead>
+    <tbody>
+      <tr><td><strong style="color:var(--gold)">Topo</strong></td><td>R$ 10M+</td><td>0,1%</td></tr>
+      <tr><td><strong>Soberania</strong></td><td>R$ 3M – 10M</td><td>1%</td></tr>
+      <tr><td><strong>Independência</strong></td><td>R$ 1M – 3M</td><td>5% — <em>ICP principal do Luxor</em></td></tr>
+      <tr><td><strong>Conforto</strong></td><td>R$ 300k – 1M</td><td>15% — <em>ICP aspiracional</em></td></tr>
+      <tr><td><strong>Estabilidade</strong></td><td>R$ 50k – 300k</td><td>50%</td></tr>
+      <tr><td><strong>Base</strong></td><td>&lt; R$ 50k</td><td>100% (cumulativo)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="footer">
+    Luxor Pro · The Council of Five · Strategic Deliberation · 2026<br>
+    Generated for internal use. Press <strong>Ctrl/Cmd + P</strong> to export as PDF.
+  </div>
+</div>
+</body>
+</html>
