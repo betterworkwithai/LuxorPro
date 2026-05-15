@@ -286,7 +286,7 @@ const FAQS = [
   },
   {
     q: 'Como funciona o acesso vitalício?',
-    a: 'É um pagamento único de R$ 350 que garante acesso ao Luxor Pro para sempre — incluindo todas as atualizações futuras. Sem mensalidades, sem surpresas. Pague uma vez, use para sempre.',
+    a: 'É um pagamento único de R$ 597 que garante acesso ao Luxor Pro para sempre — incluindo todas as atualizações futuras. Sem mensalidades, sem surpresas. Pague uma vez, use para sempre.',
   },
   {
     q: 'E se eu não ficar satisfeito?',
@@ -841,7 +841,7 @@ export default function Landing() {
             <div className="p-6 rounded-2xl bg-[#0d0d14] border border-[#1e1e2e] card-glow transition-all">
               <p className="text-xs text-[#55556a] uppercase tracking-widest font-bold mb-1">Mensal</p>
               <div className="flex items-end gap-1 mb-1">
-                <span className="text-4xl font-bold text-[#e8e8f0]">R$ 20</span>
+                <span className="text-4xl font-bold text-[#e8e8f0]">R$ 29,90</span>
                 <span className="text-sm text-[#55556a] mb-1.5">/mês</span>
               </div>
               <p className="text-xs text-[#55556a] mb-6">Cobrado mensalmente</p>
@@ -871,20 +871,20 @@ export default function Landing() {
               </div>
               <p className="text-xs text-[#ff7a00] uppercase tracking-widest font-bold mb-1 mt-3">Anual</p>
               <div className="flex items-end gap-1 mb-1">
-                <span className="text-4xl font-bold text-[#e8e8f0]">R$ 16,67</span>
+                <span className="text-4xl font-bold text-[#e8e8f0]">R$ 15</span>
                 <span className="text-sm text-[#55556a] mb-1.5">/mês</span>
               </div>
-              <p className="text-xs text-[#55556a] -mt-0.5 mb-3">Cobrado anualmente — R$ 200/ano</p>
+              <p className="text-xs text-[#55556a] -mt-0.5 mb-3">Cobrado anualmente — R$ 180/ano</p>
               <div className="flex items-center gap-2 mb-6">
-                <span className="text-xs text-[#55556a] line-through">R$ 240/ano</span>
-                <span className="px-2 py-0.5 rounded-md bg-[#00ff88]/15 text-[#00ff88] text-[10px] font-bold">17% OFF</span>
+                <span className="text-xs text-[#55556a] line-through">R$ 358,80/ano</span>
+                <span className="px-2 py-0.5 rounded-md bg-[#00ff88]/15 text-[#00ff88] text-[10px] font-bold">50% OFF</span>
               </div>
               <ul className="space-y-3 mb-8">
                 {[
                   'Tudo do plano mensal',
                   '7 dias de teste grátis',
                   '30 dias de garantia',
-                  'Economia de R$ 40/ano',
+                  'Economia de R$ 178,80/ano',
                   'Suporte prioritário',
                 ].map(f => (
                   <li key={f} className="flex items-start gap-2.5 text-sm text-[#c8c8d8]">
@@ -906,7 +906,7 @@ export default function Landing() {
             <div className="p-6 rounded-2xl bg-[#0d0d14] border border-[#8b5cf6]/40 shadow-[0_0_30px_rgba(139,92,246,0.06)] card-glow transition-all">
               <p className="text-xs text-[#8b5cf6] uppercase tracking-widest font-bold mb-1">Vitalício</p>
               <div className="flex items-end gap-1 mb-1">
-                <span className="text-4xl font-bold text-[#e8e8f0]">R$ 350</span>
+                <span className="text-4xl font-bold text-[#e8e8f0]">R$ 597</span>
               </div>
               <p className="text-xs text-[#55556a] mb-6">Pagamento único · para sempre</p>
               <ul className="space-y-3 mb-8">

@@ -14,10 +14,13 @@
 //   STRIPE_PRICE_ID_ANNUAL, STRIPE_PRICE_ID_LIFETIME
 //   STRIPE_WEBHOOK_SECRET
 
+export const STRIPE_PUBLISHABLE_KEY = 'pk_live_51TGKAW7wlgFuH3drONd49VQtfTjHfw57veFXNRruVDLZD0HTDaREgPPdLoC9mIRzQFzxkQZqf8VG3IAa0CjyElQx00u602fUtw'
+
 export interface StripePlan {
   id: 'monthly' | 'annual' | 'lifetime'
   productId: string
-  paymentLink: string          // ← replace with your buy.stripe.com/xxx URL
+  paymentLink: string
+  buyButtonId: string
   price: number                // BRL
   pricePerMonth?: number       // for display only
   interval: 'month' | 'year' | 'once'
@@ -32,16 +35,18 @@ export const STRIPE_PLANS: StripePlan[] = [
     id: 'monthly',
     productId: 'prod_UO8IIpmtpEJAtL',
     paymentLink: 'https://buy.stripe.com/eVqbIV9EAa91c4navC3wQ03',
-    price: 20,
-    pricePerMonth: 20,
+    buyButtonId: 'buy_btn_1TXRri7wlgFuH3drqZvjwfDy',
+    price: 29.90,
+    pricePerMonth: 29.90,
     interval: 'month',
     label: 'Mensal',
   },
   {
     id: 'lifetime',
     productId: 'prod_UO8KxcmOBy46Xq',
-    paymentLink: 'https://buy.stripe.com/8x23cp6sodld3xR5bi3wQ01',
-    price: 350,
+    paymentLink: 'https://buy.stripe.com/3cIaERcQM4OH6K333a3wQ05',
+    buyButtonId: 'buy_btn_1TXRvk7wlgFuH3drXI2xmTCN',
+    price: 597,
     interval: 'once',
     label: 'Vitalício',
     badge: 'Mais Escolhido',
@@ -50,12 +55,13 @@ export const STRIPE_PLANS: StripePlan[] = [
   {
     id: 'annual',
     productId: 'prod_UO8JoR3CL1boBY',
-    paymentLink: 'https://buy.stripe.com/fZu3cp3gc0yrb0j47e3wQ02',
-    price: 200,
-    pricePerMonth: 16.67,
+    paymentLink: 'https://buy.stripe.com/5kQ4gtdUQdldc4navC3wQ04',
+    buyButtonId: 'buy_btn_1TXRtl7wlgFuH3drLNY55S3c',
+    price: 180,
+    pricePerMonth: 15,
     interval: 'year',
     label: 'Anual',
-    savingsLabel: 'Economia de 17%',
+    savingsLabel: 'Economia de 50%',
   },
 ]
 

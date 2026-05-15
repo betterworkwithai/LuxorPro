@@ -2,15 +2,29 @@ import React, { useState, useEffect } from 'react'
 import { clsx } from 'clsx'
 import {
   Check, X, Zap, Shield, Star, Gift, ChevronDown,
-  Infinity, Calendar, Crown, Lock, Loader2,
+  Infinity, Calendar, Crown, Lock,
 } from 'lucide-react'
 import luxorLogo from '../assets/logo.png'
 import {
-  STRIPE_PLANS, buildCheckoutUrl, createCheckoutSession,
+  STRIPE_PLANS, STRIPE_PUBLISHABLE_KEY,
   setStoredSubscription, clearNewUser,
   type StripePlan,
 } from '../lib/stripe'
 import { SUPABASE_CONFIGURED, supabase } from '../lib/supabase'
+
+// TypeScript declaration for Stripe Buy Button web component
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      'stripe-buy-button': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> & {
+        'buy-button-id': string
+        'publishable-key': string
+        'client-reference-id'?: string
+        'customer-email'?: string
+      }
+    }
+  }
+}
 
 // ─── Color tokens ────────────────────────────────────────────────────────────
 const BRAND  = '#ff7a00'
@@ -51,7 +65,7 @@ const FAQ = [
   },
   {
     q: 'O que é o Acesso Vitalício?',
-    a: 'É um pagamento único de R$350 que garante acesso permanente ao Luxor — todas as funcionalidades atuais e futuras, para sempre, sem mensalidade. O plano se paga em menos de 18 meses comparado ao Anual.',
+    a: 'É um pagamento único de R$597 que garante acesso permanente ao Luxor — todas as funcionalidades atuais e futuras, para sempre, sem mensalidade. O plano se paga em menos de 4 anos comparado ao Anual, e você nunca mais paga nada depois disso.',
   },
   {
     q: 'Tenho um código de amigo. Como uso?',
@@ -97,12 +111,10 @@ function FeatureRow({ text, included }: { text: string; included: boolean }) {
 }
 
 function PricingCard({
-  plan, promoCode, onSubscribe, isLoading,
+  plan, userId,
 }: {
-  plan:        StripePlan
-  promoCode:   string
-  onSubscribe: (plan: StripePlan) => void
-  isLoading:   boolean
+  plan:   StripePlan
+  userId: string | undefined
 }) {
   const meta       = PLAN_META[plan.id] ?? {}
   const isLifetime = plan.id === 'lifetime'
@@ -180,7 +192,7 @@ function PricingCard({
           </p>
         )}
         {plan.id === 'monthly' && (
-          <p className="text-[11px] text-[#3a3a4e] mt-0.5">R$240/ano na mensalidade</p>
+          <p className="text-[11px] text-[#3a3a4e] mt-0.5">R$358,80/ano na mensalidade</p>
         )}
       </div>
 
@@ -225,33 +237,14 @@ function PricingCard({
         {features.map(f => <FeatureRow key={f.text} text={f.text} included={f.included} />)}
       </div>
 
-      {/* CTA */}
-      <button
-        onClick={() => onSubscribe(plan)}
-        disabled={isLoading}
-        className={clsx(
-          'w-full py-3 rounded-2xl text-sm font-bold transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed',
-          isLifetime
-            ? 'text-white shadow-lg hover:opacity-90'
-            : 'border hover:border-[#ff7a00]/50 hover:text-[#ff7a00]',
-        )}
-        style={isLifetime ? {
-          background: GRAD,
-          boxShadow:  '0 8px 24px rgba(255,122,0,0.35)',
-        } : {
-          background:  'transparent',
-          borderColor: '#2a2a3e',
-          color:       '#8888aa',
-        }}
-      >
-        {isLoading
-          ? <Loader2 className="w-4 h-4 animate-spin" />
-          : plan.id === 'lifetime'
-            ? '⚡ Começar 7 dias grátis'
-            : plan.id === 'annual'
-              ? '🚀 Começar 7 dias grátis'
-              : 'Assinar Mensalmente'}
-      </button>
+      {/* CTA — Stripe Buy Button */}
+      <div className="w-full flex justify-center">
+        <stripe-buy-button
+          buy-button-id={plan.buyButtonId}
+          publishable-key={STRIPE_PUBLISHABLE_KEY}
+          client-reference-id={userId ?? ''}
+        />
+      </div>
     </div>
   )
 }
@@ -283,8 +276,6 @@ export default function Subscription({ userId, onComplete }: SubscriptionProps) 
   const [promoApplied, setPromoApplied] = useState(false)
   const [promoError,   setPromoError]   = useState('')
   const [showPromo,    setShowPromo]    = useState(false)
-  const [checkingOut,  setCheckingOut]  = useState<string | null>(null)
-  const [checkoutErr,  setCheckoutErr]  = useState('')
 
   const userName = (() => {
     try { return localStorage.getItem('luxor_signup_name')?.split(' ')[0] || '' } catch { return '' }
@@ -306,34 +297,6 @@ export default function Subscription({ userId, onComplete }: SubscriptionProps) 
       onComplete()
     }
   }, [onComplete])
-
-  const handleSubscribe = async (plan: StripePlan) => {
-    setCheckingOut(plan.id)
-    setCheckoutErr('')
-    try {
-      if (SUPABASE_CONFIGURED) {
-        const result = await createCheckoutSession(plan, promoCode || undefined, userId)
-        if ('url' in result && result.url) {
-          setStoredSubscription(plan.id)
-          clearNewUser()
-          window.location.href = result.url
-          return
-        }
-        if ('error' in result) {
-          console.warn('[Subscription] checkout session error:', result.error)
-          // Fall through to payment link fallback
-        }
-      }
-      // Fallback: payment links
-      const url = buildCheckoutUrl(plan, promoCode || undefined, userId)
-      setStoredSubscription(plan.id)
-      clearNewUser()
-      window.location.href = url
-    } catch {
-      setCheckoutErr('Não foi possível iniciar o checkout. Tente novamente.')
-      setCheckingOut(null)
-    }
-  }
 
   const handleApplyPromo = () => {
     const code = promoInput.trim().toUpperCase()
@@ -424,26 +387,13 @@ export default function Subscription({ userId, onComplete }: SubscriptionProps) 
           </div>
         )}
 
-        {/* Checkout error */}
-        {checkoutErr && (
-          <div
-            className="w-full max-w-3xl mb-6 flex items-center gap-3 p-4 rounded-2xl"
-            style={{ background: 'rgba(255,68,102,0.06)', border: '1px solid rgba(255,68,102,0.2)' }}
-          >
-            <X className="w-5 h-5 text-[#ff4466] flex-shrink-0" />
-            <p className="text-sm text-[#ff4466]">{checkoutErr}</p>
-          </div>
-        )}
-
         {/* Pricing cards */}
         <div className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5 mb-10">
           {orderedPlans.map(plan => (
             <PricingCard
               key={plan.id}
               plan={plan}
-              promoCode={promoCode}
-              onSubscribe={handleSubscribe}
-              isLoading={checkingOut === plan.id}
+              userId={userId}
             />
           ))}
         </div>
@@ -454,9 +404,9 @@ export default function Subscription({ userId, onComplete }: SubscriptionProps) 
           style={{ background: 'rgba(255,122,0,0.04)', border: '1px solid rgba(255,122,0,0.12)' }}
         >
           <p className="text-xs text-[#55556a]">
-            💡 <span className="text-[#8888aa]">O Anual sai R$16,67/mês — 17% de economia.</span>
-            {' '}Mas o <span className="text-[#ff7a00] font-semibold">Vitalício a R$350</span>{' '}
-            se paga em 18 meses e você nunca mais paga nada.
+            💡 <span className="text-[#8888aa]">O Anual sai R$15/mês — 50% de economia vs mensal (R$358,80/ano).</span>
+            {' '}Mas o <span className="text-[#ff7a00] font-semibold">Vitalício a R$597</span>{' '}
+            se paga em 3 anos e você nunca mais paga nada.
           </p>
         </div>
 
