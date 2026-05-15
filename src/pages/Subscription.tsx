@@ -285,7 +285,11 @@ export default function Subscription({ userId, onComplete }: SubscriptionProps) 
   const [showPromo,    setShowPromo]    = useState(false)
 
   const userName = (() => {
-    try { return localStorage.getItem('luxor_signup_name')?.split(' ')[0] || '' } catch { return '' }
+    try {
+      const stored = localStorage.getItem('luxor_signup_name') || ''
+      if (!stored || stored.includes('@')) return ''
+      return stored.split(' ')[0]
+    } catch { return '' }
   })()
 
   // Handle return from Stripe with ?subscription_success=1&plan=XXX
@@ -362,15 +366,15 @@ export default function Subscription({ userId, onComplete }: SubscriptionProps) 
             <Zap className="w-3 h-3" /> Luxor Pro
           </div>
           <h1 className="text-3xl sm:text-4xl font-bold text-[#e8e8f0] leading-tight mb-4">
-            {userName ? `Bem-vindo, ${userName}.` : 'Gerencie seu patrimônio'}
+            {userName ? `${userName}, você está quase lá.` : 'Você está quase lá.'}
             <br />
             <span style={{ background: GOLD, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-              com precisão de nível institucional.
+              Ative seu acesso e coloque seu dinheiro para trabalhar.
             </span>
           </h1>
           <p className="text-[#8888aa] text-sm sm:text-base leading-relaxed">
-            Escolha o plano que faz sentido para você. Dashboard completo, importação de faturas por IA,
-            controle de investimentos em múltiplas moedas e muito mais.
+            Todos os planos incluem acesso completo — dashboard, IA, investimentos e metas.
+            Sem limites escondidos. Cancele quando quiser.
           </p>
         </div>
 
