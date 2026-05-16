@@ -14,7 +14,7 @@ import { findDuplicates } from '../lib/duplicateCheck'
 import { nanoid } from 'nanoid'
 import { clsx } from 'clsx'
 import { useStore } from '../store/useStore'
-import { PageHeader } from '../components/ui/PageHeader'
+import { V2PageHeader, useReveal } from '../components/v2/V2Primitives'
 import { Card, CardHeader, CardTitle } from '../components/ui/Card'
 import { Modal, ModalFooter } from '../components/ui/Modal'
 import { Badge } from '../components/ui/Badge'
@@ -676,6 +676,8 @@ function ProgressBar({ step, pct }: { step: string; pct: number }) {
 export default function DocumentAI() {
   const { attachments, addAttachment, deleteAttachment, addTransaction, addTaxItem } = useStore()
   const allTransactions = useStore(s => s.transactions)
+  const containerRef = useRef<HTMLDivElement>(null)
+  useReveal(containerRef, [])
   const [queue,         setQueue]         = useState<FileEntry[]>([])
   const [previewing,    setPreviewing]    = useState<Attachment | null>(null)
   const [pendingTxs,    setPendingTxs]    = useState<ParsedTransaction[]>([])
@@ -850,8 +852,8 @@ export default function DocumentAI() {
   }
 
   return (
-    <div className="min-h-screen animate-fade-in">
-      <PageHeader
+    <div className="min-h-screen animate-fade-in" ref={containerRef}>
+      <V2PageHeader
         title="IA de Documentos"
         subtitle="Envie faturas, extratos ou planilhas — o Claude AI extrai os lançamentos automaticamente com alta precisão"
       />
@@ -907,7 +909,7 @@ export default function DocumentAI() {
         )}
 
         {/* Paste CSV — local parsing, no AI tokens */}
-        <Card className="overflow-hidden">
+        <div className="v2-card overflow-hidden v2-reveal">
           <button
             onClick={() => setPasteOpen(o => !o)}
             className="w-full flex items-center justify-between px-5 py-4 hover:bg-[#16161f]/40 transition-colors text-left"
@@ -978,7 +980,7 @@ export default function DocumentAI() {
               </div>
             </div>
           )}
-        </Card>
+        </div>
 
         {/* Drop zone */}
         <div
@@ -1030,15 +1032,13 @@ export default function DocumentAI() {
 
         {/* Processing queue */}
         {queue.length > 0 && (
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Processamento</CardTitle>
-                <button onClick={() => setQueue([])} className="text-xs text-[#55556a] hover:text-[#e8e8f0] flex items-center gap-1">
-                  <X className="w-3 h-3" /> Limpar
-                </button>
-              </div>
-            </CardHeader>
+          <div className="v2-card v2-reveal">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#1e1e30]">
+              <p className="v2-caption">Processamento</p>
+              <button onClick={() => setQueue([])} className="text-xs text-[#55556a] hover:text-[#e8e8f0] flex items-center gap-1">
+                <X className="w-3 h-3" /> Limpar
+              </button>
+            </div>
             <div className="divide-y divide-[#1e1e2e]">
               {queue.map(entry => (
                 <div key={entry.id} className="px-5 py-3">
@@ -1085,12 +1085,12 @@ export default function DocumentAI() {
                 </div>
               ))}
             </div>
-          </Card>
+          </div>
         )}
 
         {/* Pipeline overview card */}
-        <Card className="p-5 border-dashed">
-          <p className="text-xs font-semibold text-[#8888aa] mb-3 uppercase tracking-wider">Como funciona</p>
+        <div className="v2-card p-5 border border-dashed border-[#1e1e30] v2-reveal">
+          <p className="v2-caption mb-4">Como funciona</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
               { step: '1', icon: '📄', title: 'Extrai texto', desc: 'PDFs digitais via pdf.js, planilhas (xlsx/csv) lidas direto, imagens via OCR.' },
@@ -1107,16 +1107,14 @@ export default function DocumentAI() {
               </div>
             ))}
           </div>
-        </Card>
+        </div>
 
         {/* Document library */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Biblioteca de Documentos</CardTitle>
-              <span className="text-xs text-[#55556a]">{attachments.length} arquivo{attachments.length !== 1 ? 's' : ''}</span>
-            </div>
-          </CardHeader>
+        <div className="v2-card v2-reveal">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-[#1e1e30]">
+            <p className="v2-caption">Biblioteca de Documentos</p>
+            <span className="text-xs text-[#55556a]">{attachments.length} arquivo{attachments.length !== 1 ? 's' : ''}</span>
+          </div>
           {attachments.length === 0 ? (
             <div className="px-5 py-8 text-center">
               <Paperclip className="w-8 h-8 text-[#2a2a3e] mx-auto mb-3" />
@@ -1147,7 +1145,7 @@ export default function DocumentAI() {
               ))}
             </div>
           )}
-        </Card>
+        </div>
 
       </div>
 

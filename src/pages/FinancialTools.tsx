@@ -1,8 +1,7 @@
-import React, { useState, useMemo, useCallback } from 'react'
+import React, { useState, useMemo, useCallback, useRef } from 'react'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { ChevronDown, ChevronUp, Lock, LockOpen, RotateCcw } from 'lucide-react'
-import { PageHeader } from '../components/ui/PageHeader'
-import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card'
+import { V2PageHeader, useReveal } from '../components/v2/V2Primitives'
 import { formatBRL } from '../lib/formatters'
 import { clsx } from 'clsx'
 
@@ -712,46 +711,37 @@ function SavingsCalc() {
 // ─────────────────────────────────────────────────────────────────────────────
 export default function FinancialTools() {
   const [activeTab, setActiveTab] = useState('tvm')
+  const containerRef = useRef<HTMLDivElement>(null)
+  useReveal(containerRef, [activeTab])
 
   return (
-    <div className="min-h-screen animate-fade-in">
-      <PageHeader
+    <div className="min-h-screen animate-fade-in" ref={containerRef}>
+      <V2PageHeader
         title="Ferramentas Financeiras"
         subtitle="Calculadoras de juros, amortização e simulações"
       />
 
       <div className="p-4 sm:p-6 space-y-6">
         {/* Tab bar */}
-        <div className="flex gap-1 bg-[#16161f] rounded-xl p-1 border border-[#1e1e2e] flex-wrap">
+        <div className="flex items-center gap-1 p-1 rounded-xl bg-[#0f1018] border border-[#1e1e30] flex-wrap v2-reveal">
           {TABS.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={clsx(
-                'flex-1 min-w-[120px] px-3 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap',
-                activeTab === tab.id
-                  ? 'bg-[#ff7a00] text-white shadow-sm'
-                  : 'text-[#55556a] hover:text-[#e8e8f0]',
-              )}>
+              className={clsx('v2-period-tab flex-1 min-w-[120px] whitespace-nowrap', activeTab === tab.id && 'active')}>
               {tab.label}
             </button>
           ))}
         </div>
 
-        {/* Calculator panels */}
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              {TABS.find(t => t.id === activeTab)?.label}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {activeTab === 'tvm'     && <TVMCalc />}
-            {activeTab === 'npv'     && <NPVCalc />}
-            {activeTab === 'loan'    && <LoanCalc />}
-            {activeTab === 'savings' && <SavingsCalc />}
-          </CardContent>
-        </Card>
+        {/* Calculator panel */}
+        <div className="v2-card p-6 v2-reveal">
+          <p className="v2-caption mb-5">{TABS.find(t => t.id === activeTab)?.label}</p>
+          {activeTab === 'tvm'     && <TVMCalc />}
+          {activeTab === 'npv'     && <NPVCalc />}
+          {activeTab === 'loan'    && <LoanCalc />}
+          {activeTab === 'savings' && <SavingsCalc />}
+        </div>
       </div>
     </div>
   )

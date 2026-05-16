@@ -10,8 +10,8 @@ import { nanoid } from 'nanoid'
 import { useStore } from '../store/useStore'
 import { isInvestmentUserEdited } from '../lib/userEditedInvestments'
 import { supabase } from '../lib/supabase'
-import { PageHeader } from '../components/ui/PageHeader'
-import { Card, CardHeader, CardTitle } from '../components/ui/Card'
+import { V2PageHeader, useReveal } from '../components/v2/V2Primitives'
+import { Card } from '../components/ui/Card'
 import { formatBRL, formatDate } from '../lib/formatters'
 import { autoCategorize } from '../lib/invoice/autoCategorize'
 import { loadTombstones } from '../lib/pluggyTombstones'
@@ -501,6 +501,8 @@ type SyncStatus =
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function Connections() {
   const { addTransaction, addInvestment, updateInvestment } = useStore()
+  const containerRef = React.useRef<HTMLDivElement>(null)
+  useReveal(containerRef, [items.length])
 
   const [items,        setItems]        = useState<StoredItem[]>(loadItems)
   const [status,       setStatus]       = useState<SyncStatus>({ type: 'idle' })
@@ -826,8 +828,8 @@ export default function Connections() {
   syncExistingRef.current = syncExisting
 
   return (
-    <div className="min-h-screen animate-fade-in">
-      <PageHeader
+    <div className="min-h-screen animate-fade-in" ref={containerRef}>
+      <V2PageHeader
         title="Open Finance"
         subtitle="Conecte seus bancos e corretoras para importar lançamentos e investimentos automaticamente"
       />
@@ -892,11 +894,11 @@ export default function Connections() {
         <button
           onClick={() => openWidget()}
           disabled={status.type === 'loading-token' || status.type === 'widget-open'}
-          className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-2xl
-                     bg-[#00d4ff]/10 border border-[#00d4ff]/30
-                     hover:bg-[#00d4ff]/15 hover:border-[#00d4ff]/50
+          className="v2-card v2-reveal w-full flex items-center justify-center gap-2.5 py-4 rounded-2xl
+                     border-[#00d4ff]/30 hover:border-[#00d4ff]/60
                      text-[#00d4ff] font-semibold text-sm
                      transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{ background: 'rgba(0,212,255,0.05)' }}
         >
           {status.type === 'loading-token'
             ? <Loader2 className="w-4 h-4 animate-spin" />
@@ -906,10 +908,8 @@ export default function Connections() {
 
         {/* Connected items list */}
         {items.length > 0 && (
-          <div className="space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-[#55556a] px-1">
-              Conexões ativas ({items.length})
-            </p>
+          <div className="space-y-3 v2-reveal">
+            <p className="v2-caption px-1">Conexões ativas ({items.length})</p>
             {items.map(item => (
               <ItemCard
                 key={item.itemId}
@@ -924,7 +924,7 @@ export default function Connections() {
 
         {/* Empty state */}
         {items.length === 0 && (
-          <Card className="p-8 flex flex-col items-center text-center gap-3">
+          <div className="v2-card p-8 flex flex-col items-center text-center gap-3 v2-reveal">
             <div className="w-14 h-14 rounded-2xl bg-[#16161f] flex items-center justify-center">
               <Building2 className="w-6 h-6 text-[#55556a]" />
             </div>
@@ -934,12 +934,12 @@ export default function Connections() {
                 Conecte sua primeira instituição para importar dados automaticamente
               </p>
             </div>
-          </Card>
+          </div>
         )}
 
         {/* How it works */}
-        <Card className="p-5 border-dashed">
-          <p className="text-xs font-semibold text-[#8888aa] mb-3 uppercase tracking-wider">Como funciona</p>
+        <div className="v2-card p-5 border border-dashed border-[#1e1e30] v2-reveal">
+          <p className="v2-caption mb-4">Como funciona</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
               { icon: '🔐', title: 'Autenticação segura',  desc: 'Pluggy usa OAuth — suas credenciais nunca passam pelo Luxor.' },
@@ -956,9 +956,9 @@ export default function Connections() {
               </div>
             ))}
           </div>
-        </Card>
+        </div>
 
-        <p className="text-[11px] text-[#55556a] text-center flex items-center justify-center gap-1.5">
+        <p className="text-[11px] text-[#55556a] text-center flex items-center justify-center gap-1.5 v2-reveal">
           <ShieldCheck className="w-3 h-3 text-[#00d4ff]" />
           Seus dados bancários não são armazenados nos servidores do Luxor — apenas os lançamentos importados ficam salvos localmente.
         </p>

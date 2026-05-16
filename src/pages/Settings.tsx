@@ -4,7 +4,7 @@ import { SharingSettings } from '../components/settings/SharingSettings'
 import { createPortalSession, cancelSubscription } from '../lib/stripe'
 import { useSubscription } from '../hooks/useSubscription'
 import { useStore } from '../store/useStore'
-import { PageHeader } from '../components/ui/PageHeader'
+import { V2PageHeader, useReveal } from '../components/v2/V2Primitives'
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card'
 import { Modal, ModalFooter } from '../components/ui/Modal'
 import { formatBRL } from '../lib/formatters'
@@ -94,6 +94,8 @@ export default function Settings() {
   const allCategories    = useAllCategories()
   const customCategories = settings.customCategories ?? []
 
+  const containerRef = React.useRef<HTMLDivElement>(null)
+  useReveal(containerRef, [activeTab])
   const [form,           setForm]           = useState(settings)
   const [saved,          setSaved]          = useState(false)
   const [showClearModal, setShowClearModal] = useState(false)
@@ -377,11 +379,11 @@ export default function Settings() {
   }
 
   return (
-    <div className="min-h-screen animate-fade-in">
-      <PageHeader
+    <div className="min-h-screen animate-fade-in" ref={containerRef}>
+      <V2PageHeader
         title="Configurações"
         subtitle="Preferências, categorias e gerenciamento de dados"
-        actions={
+        right={
           <button onClick={handleSave} className="btn-primary flex items-center gap-1.5 px-3">
             <Save className="w-4 h-4" />
             <span className="hidden sm:inline">{saved ? 'Salvo ✓' : 'Salvar Alterações'}</span>
@@ -398,7 +400,7 @@ export default function Settings() {
 
         {/* ── Perfil ── */}
         {activeTab === 'perfil' && (
-        <section id="perfil" aria-labelledby="perfil-heading">
+        <section id="perfil" aria-labelledby="perfil-heading" className="v2-reveal">
         <Card>
           <CardHeader><CardTitle>Perfil</CardTitle></CardHeader>
           <CardContent className="space-y-4">
@@ -414,7 +416,7 @@ export default function Settings() {
 
         {/* ── Assinatura ── */}
         {activeTab === 'assinatura' && (
-        <section id="assinatura" aria-labelledby="assinatura-heading">
+        <section id="assinatura" aria-labelledby="assinatura-heading" className="v2-reveal">
         {SUPABASE_CONFIGURED && (
           <Card>
             <CardHeader>
@@ -537,7 +539,7 @@ export default function Settings() {
 
         {/* ── Segurança da Conta ── */}
         {activeTab === 'seguranca' && (
-        <section id="seguranca" aria-labelledby="seguranca-heading">
+        <section id="seguranca" aria-labelledby="seguranca-heading" className="v2-reveal">
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
@@ -672,7 +674,7 @@ export default function Settings() {
 
         {/* ── Perfil de Investidor (Task 16) ── */}
         {activeTab === 'investidor' && (
-        <section id="investidor" aria-labelledby="investidor-heading">
+        <section id="investidor" aria-labelledby="investidor-heading" className="v2-reveal">
         <Card>
           <CardHeader><CardTitle>Perfil de Investidor</CardTitle></CardHeader>
           <CardContent>
@@ -701,7 +703,7 @@ export default function Settings() {
 
         {/* ── Moeda e Câmbio ── */}
         {activeTab === 'moeda' && (
-        <section id="moeda" aria-labelledby="moeda-heading">
+        <section id="moeda" aria-labelledby="moeda-heading" className="v2-reveal">
         <Card>
           <CardHeader><CardTitle>Moeda e Câmbio</CardTitle></CardHeader>
           <CardContent className="space-y-4">
@@ -734,7 +736,7 @@ export default function Settings() {
 
         {/* ── Modo Casal ── */}
         {activeTab === 'compartilhamento' && (
-        <section id="compartilhamento" aria-labelledby="compartilhamento-heading">
+        <section id="compartilhamento" aria-labelledby="compartilhamento-heading" className="v2-reveal">
         <Card>
           <CardHeader>
             <CardTitle>
@@ -754,7 +756,7 @@ export default function Settings() {
 
         {/* ── Instituições (Tasks 17 + 18) ── */}
         {activeTab === 'instituicoes' && (
-        <section id="instituicoes" aria-labelledby="instituicoes-heading">
+        <section id="instituicoes" aria-labelledby="instituicoes-heading" className="v2-reveal">
         <Card>
           <CardHeader><CardTitle>Instituições</CardTitle></CardHeader>
           <CardContent className="space-y-5">
@@ -818,7 +820,7 @@ export default function Settings() {
 
         {/* ── Categorias Personalizadas ── */}
         {activeTab === 'categorias' && (
-        <section id="categorias" aria-labelledby="categorias-heading">
+        <section id="categorias" aria-labelledby="categorias-heading" className="v2-reveal">
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -922,7 +924,7 @@ export default function Settings() {
 
         {/* ── Backup e Restauração ── */}
         {activeTab === 'backup' && (
-        <section id="backup" aria-labelledby="backup-heading">
+        <section id="backup" aria-labelledby="backup-heading" className="v2-reveal">
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
@@ -1060,7 +1062,7 @@ export default function Settings() {
 
         {/* ── Conta (email/senha) — só com Supabase ── */}
         {activeTab === 'conta' && (
-        <section id="conta" aria-labelledby="conta-heading">
+        <section id="conta" aria-labelledby="conta-heading" className="v2-reveal">
         {SUPABASE_CONFIGURED && (
           <Card>
             <CardHeader>
@@ -1158,7 +1160,7 @@ export default function Settings() {
 
         {/* ── Sugerir Funcionalidade (Task 19) ── */}
         {activeTab === 'sugerir' && (
-        <section id="sugerir" aria-labelledby="sugerir-heading">
+        <section id="sugerir" aria-labelledby="sugerir-heading" className="v2-reveal">
         <Card>
           <CardHeader><CardTitle>Sugerir Funcionalidade</CardTitle></CardHeader>
           <CardContent className="space-y-3">
@@ -1200,7 +1202,7 @@ export default function Settings() {
 
         {/* ── Apagar Dados e Conta ── */}
         {activeTab === 'apagar' && (
-        <section id="apagar" aria-labelledby="apagar-heading">
+        <section id="apagar" aria-labelledby="apagar-heading" className="v2-reveal">
         <Card className="border-[#ff4466]/20">
           <CardHeader>
             <div className="flex items-center gap-2">
