@@ -6,7 +6,7 @@
 //  top movers, coming up) + transactions table.
 //  Wired to the real Zustand store.
 // ─────────────────────────────────────────────
-import React, { useMemo, useRef, useState } from 'react'
+import React, { useMemo, useRef, useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowDownUp, ArrowRight, ArrowUpRight, CalendarClock, ChevronDown,
@@ -191,7 +191,7 @@ function AccountDonut({ rows, total }: { rows: AccountRow[]; total: number }) {
 }
 
 export default function CashflowV2() {
-  const { transactions, subscriptions, settings, updateTransaction, deleteTransaction, updateSubscription, deleteSubscription } = useStore()
+  const { transactions, subscriptions, settings, txHistory, updateTransaction, deleteTransaction, batchUpdateTransactions, batchDeleteTransactions, undoTransactions, updateSubscription, deleteSubscription } = useStore()
   const allCategories = useAllCategories()
   const navigate = useNavigate()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -215,6 +215,7 @@ export default function CashflowV2() {
   const [bulkRename, setBulkRename] = useState<string>('')
   const [bulkBusy, setBulkBusy] = useState(false)
   const [bulkConfirmDelete, setBulkConfirmDelete] = useState(false)
+  const [undoToast, setUndoToast] = useState<string | null>(null)
   const toggleSelect = (id: string) => setSelectedIds(prev => {
     const next = new Set(prev)
     if (next.has(id)) next.delete(id); else next.add(id)
@@ -501,6 +502,25 @@ export default function CashflowV2() {
 
   // ── Reveal animations ──────────────────────────
   useReveal(containerRef, [transactions.length, periodMode, selMonth, selYear])
+
+  const handleUndo = useCallback(async () => {
+    if (txHistory.length === 0) return
+    await undoTransactions()
+    const n = txHistory.length - 1
+    setUndoToast(n > 0 ? `Desfeito · ${n} passo${n > 1 ? 's' : ''} restante${n > 1 ? 's' : ''}` : 'Alteração desfeita')
+    setTimeout(() => setUndoToast(null), 2500)
+  }, [txHistory.length, undoTransactions])
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        handleUndo()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [handleUndo])
 
   // ── Period nav ─────────────────────────────────
   const prevMonth = () => {
@@ -1250,10 +1270,11 @@ export default function CashflowV2() {
                       if (!bulkRename.trim()) return
                       setBulkBusy(true)
                       try {
-                        for (const id of selectedIds) {
+                        const updates = [...selectedIds].flatMap(id => {
                           const t = transactions.find(x => x.id === id)
-                          if (t) await updateTransaction({ ...t, description: bulkRename.trim() })
-                        }
+                          return t ? [{ ...t, description: bulkRename.trim() }] : []
+                        })
+                        await batchUpdateTransactions(updates)
                         setBulkRename('')
                         clearSelection()
                       } finally { setBulkBusy(false) }
@@ -1269,10 +1290,11 @@ export default function CashflowV2() {
                       if (!newCat) { setBulkCategory(''); return }
                       setBulkCategory(newCat); setBulkBusy(true)
                       try {
-                        for (const id of selectedIds) {
+                        const updates = [...selectedIds].flatMap(id => {
                           const t = transactions.find(x => x.id === id)
-                          if (t) await updateTransaction({ ...t, category: newCat })
-                        }
+                          return t ? [{ ...t, category: newCat }] : []
+                        })
+                        await batchUpdateTransactions(updates)
                         setBulkCategory(''); clearSelection()
                       } finally { setBulkBusy(false) }
                     }}
@@ -1294,10 +1316,11 @@ export default function CashflowV2() {
                         onClick={async () => {
                           setBulkBusy(true)
                           try {
-                            for (const id of selectedIds) {
+                            const updates = [...selectedIds].flatMap(id => {
                               const t = transactions.find(x => x.id === id)
-                              if (t && t.type === 'expense') await updateTransaction({ ...t, expenseRegime: regime })
-                            }
+                              return (t && t.type === 'expense') ? [{ ...t, expenseRegime: regime }] : []
+                            })
+                            await batchUpdateTransactions(updates)
                           } finally { setBulkBusy(false) }
                         }}
                         className="px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors disabled:opacity-40"
@@ -1315,10 +1338,11 @@ export default function CashflowV2() {
                         onClick={async () => {
                           setBulkBusy(true)
                           try {
-                            for (const id of selectedIds) {
+                            const updates = [...selectedIds].flatMap(id => {
                               const t = transactions.find(x => x.id === id)
-                              if (t && t.type === 'expense') await updateTransaction({ ...t, expenseNature: val })
-                            }
+                              return (t && t.type === 'expense') ? [{ ...t, expenseNature: val }] : []
+                            })
+                            await batchUpdateTransactions(updates)
                           } finally { setBulkBusy(false) }
                         }}
                         className="px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors disabled:opacity-40"
@@ -1338,7 +1362,7 @@ export default function CashflowV2() {
                         onClick={async () => {
                           setBulkBusy(true)
                           try {
-                            for (const id of selectedIds) await deleteTransaction(id)
+                            await batchDeleteTransactions([...selectedIds])
                             clearSelection(); setBulkConfirmDelete(false)
                           } finally { setBulkBusy(false) }
                         }}
@@ -1554,6 +1578,45 @@ export default function CashflowV2() {
       <RecurringModal open={showAddRec} onClose={() => setShowAddRec(false)} />
       <RecurringModal open={!!editingRec} onClose={() => setEditingRec(null)} initial={editingRec ?? undefined} />
       <DeduplicateModal    open={showDedup} onClose={() => setShowDedup(false)} />
+
+      {/* ── Floating Undo Button ─────────────────────────────────────────── */}
+      {txHistory.length > 0 && (
+        <button
+          onClick={handleUndo}
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold shadow-2xl transition-all duration-200 hover:scale-105 active:scale-95"
+          style={{
+            background: 'linear-gradient(135deg, #1e1e30 0%, #16162a 100%)',
+            border: '1px solid rgba(0,212,255,.35)',
+            color: '#00d4ff',
+            boxShadow: '0 8px 32px rgba(0,212,255,.15), 0 2px 8px rgba(0,0,0,.5)',
+          }}
+          title="Desfazer última alteração (Ctrl+Z)"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3 7C3 4.79 4.79 3 7 3C9.21 3 11 4.79 11 7C11 9.21 9.21 11 7 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            <path d="M3 4.5V7H5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          Desfazer
+          <span className="flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold" style={{ background: 'rgba(0,212,255,.2)', color: '#00d4ff' }}>
+            {txHistory.length}
+          </span>
+        </button>
+      )}
+
+      {/* ── Undo Toast ──────────────────────────────────────────────────── */}
+      {undoToast && (
+        <div
+          className="fixed bottom-20 right-6 z-50 px-4 py-2 rounded-xl text-xs font-semibold pointer-events-none"
+          style={{
+            background: 'rgba(0,255,136,.12)',
+            border: '1px solid rgba(0,255,136,.25)',
+            color: '#00ff88',
+            boxShadow: '0 4px 16px rgba(0,0,0,.4)',
+          }}
+        >
+          ✓ {undoToast}
+        </div>
+      )}
     </div>
   )
 }

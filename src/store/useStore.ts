@@ -71,6 +71,8 @@ async function resolveSignupSuitability(): Promise<AppSettings['suitability'] | 
   return null
 }
 
+const TX_HISTORY_MAX = 20
+
 interface AppState {
   // data
   transactions:  Transaction[]
@@ -80,6 +82,9 @@ interface AppState {
   subscriptions: RecurringTransaction[]
   goals:         FinancialGoal[]
   settings:      AppSettings
+
+  // undo history — stack of transaction snapshots taken before each mutation
+  txHistory: Transaction[][]
 
   // couples sharing
   partnership:          Partnership | null
@@ -96,9 +101,12 @@ interface AppState {
   setModal: (id: string | null) => void
 
   // transactions
-  addTransaction:    (t: Omit<Transaction, 'id'>) => Promise<void>
-  updateTransaction: (t: Transaction) => Promise<void>
-  deleteTransaction: (id: string) => Promise<void>
+  addTransaction:             (t: Omit<Transaction, 'id'>) => Promise<void>
+  updateTransaction:          (t: Transaction) => Promise<void>
+  deleteTransaction:          (id: string) => Promise<void>
+  batchUpdateTransactions:    (updates: Transaction[]) => Promise<void>
+  batchDeleteTransactions:    (ids: string[]) => Promise<void>
+  undoTransactions:           () => Promise<void>
 
   // investments
   addInvestment:    (i: Omit<Investment, 'id'>) => Promise<void>
@@ -168,6 +176,7 @@ export const useStore = create<AppState>((set, get) => ({
   settings:      DEFAULT_SETTINGS,
   isLoading:     true,
   activeModal:   null,
+  txHistory:     [],
 
   // couples sharing initial state
   partnership:         null,
@@ -231,10 +240,9 @@ export const useStore = create<AppState>((set, get) => ({
   addTransaction: async (data) => {
     const t: Transaction = { ...data, id: nanoid(), createdAt: new Date().toISOString() }
     const wasEmpty = get().transactions.length === 0
+    set(s => ({ txHistory: [...s.txHistory.slice(-(TX_HISTORY_MAX - 1)), s.transactions] }))
     await db.transactions.upsert(t)
     set(s => ({ transactions: [t, ...s.transactions] }))
-    // Funnel: fire once on the user's first-ever transaction. wasEmpty
-    // catches both manual entries and the first imported batch.
     if (wasEmpty) {
       try {
         const { track } = await import('../lib/analytics')
@@ -243,16 +251,45 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
   updateTransaction: async (t) => {
+    set(s => ({ txHistory: [...s.txHistory.slice(-(TX_HISTORY_MAX - 1)), s.transactions] }))
     await db.transactions.upsert(t)
     set(s => ({ transactions: s.transactions.map(x => x.id === t.id ? t : x) }))
   },
   deleteTransaction: async (id) => {
-    // If this transaction came from Pluggy, tombstone its Pluggy ID so future
-    // syncs (from any device) skip it permanently.
     const tx = get().transactions.find(x => x.id === id)
     if (tx) await tombstoneIfPluggy('transaction', extractPluggyTxId(tx))
+    set(s => ({ txHistory: [...s.txHistory.slice(-(TX_HISTORY_MAX - 1)), s.transactions] }))
     await db.transactions.delete(id)
     set(s => ({ transactions: s.transactions.filter(x => x.id !== id) }))
+  },
+
+  batchUpdateTransactions: async (updates) => {
+    if (updates.length === 0) return
+    set(s => ({ txHistory: [...s.txHistory.slice(-(TX_HISTORY_MAX - 1)), s.transactions] }))
+    const updateMap = new Map(updates.map(u => [u.id, u]))
+    await Promise.all(updates.map(u => db.transactions.upsert(u)))
+    set(s => ({ transactions: s.transactions.map(t => updateMap.has(t.id) ? updateMap.get(t.id)! : t) }))
+  },
+
+  batchDeleteTransactions: async (ids) => {
+    if (ids.length === 0) return
+    set(s => ({ txHistory: [...s.txHistory.slice(-(TX_HISTORY_MAX - 1)), s.transactions] }))
+    const idSet = new Set(ids)
+    await Promise.all(ids.map(id => db.transactions.delete(id)))
+    set(s => ({ transactions: s.transactions.filter(t => !idSet.has(t.id)) }))
+  },
+
+  undoTransactions: async () => {
+    const { txHistory, transactions } = get()
+    if (txHistory.length === 0) return
+    const snapshot = txHistory[txHistory.length - 1]
+    const snapshotIds = new Set(snapshot.map(t => t.id))
+    const toDelete = transactions.filter(t => !snapshotIds.has(t.id))
+    await Promise.all([
+      ...snapshot.map(t => db.transactions.upsert(t)),
+      ...toDelete.map(t => db.transactions.delete(t.id)),
+    ])
+    set(s => ({ transactions: snapshot, txHistory: s.txHistory.slice(0, -1) }))
   },
 
   // ── Investments ────────────────────────────

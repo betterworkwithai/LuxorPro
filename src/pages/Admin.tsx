@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react'
 import {
   Users, TrendingUp, CreditCard, AlertTriangle, RefreshCw,
   CheckCircle, Clock, XCircle, Crown, BarChart2, Activity,
-  ChevronDown, ChevronUp, ExternalLink, Shield,
+  ChevronDown, ChevronUp, ExternalLink, Shield, Settings2, Save, RotateCcw,
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -128,6 +128,42 @@ function PlanBadge({ plan }: { plan: string | null }) {
   )
 }
 
+// ─── Suitability target defaults (mirrors suitability.ts) ───────────────────
+type RawTargets = Record<string, [number, number, number, number]>
+const SUIT_PROFILES = ['Conservador', 'Moderado', 'Arrojado', 'Agressivo'] as const
+const LOCAL_RAW_DEFAULT: RawTargets = {
+  'Pós-Fixado':               [76,   42,    25,   18  ],
+  'Prefixado':                [1,    4,     7,    7.5 ],
+  'IPCA Juro Real (Curto)':   [12,   17,    13,   9.5 ],
+  'IPCA Juro Real (Longo)':   [1,    5,     11,   15  ],
+  'Renda Fixa Ativo':         [3,    3,     0,    0   ],
+  'Multimercados':            [7,    8,     12,   10  ],
+  'RV Ibovespa':              [0,    4,     6,    13  ],
+  'RV S&P (BRL)':             [0,    3,     6,    7   ],
+  'Alt. Crédito Estruturado': [0,    10,    10,   9   ],
+  'Alt. FII (Tijolo)':        [0,    4,     6,    6   ],
+  'Alt. PE/VC/Real Assets':   [0,    0,     4,    5   ],
+}
+const INTL_RAW_DEFAULT: RawTargets = {
+  'Cash/CD':              [10,   5,     4,    3   ],
+  'US Treasury':          [22,   12.5,  6,    2.5 ],
+  'US Investment Grade':  [10,   7.5,   5,    3   ],
+  'Developed Govt/Corp':  [38,   28,    13.5, 5.5 ],
+  'US High Yield':        [8,    2,     2,    2.5 ],
+  'EM Govt/Corp':         [12,   5,     6,    6   ],
+  'RV US':                [0,    6,     12,   18  ],
+  'RV Europe':            [0,    5,     8.5,  10.5],
+  'RV Asia':              [0,    3.5,   5.5,  7   ],
+  'RV Emerging':          [0,    4.5,   8,    10.5],
+  'Commodities':          [0,    1.5,   2,    2   ],
+  'Gold':                 [0,    3,     3,    3   ],
+  'Crypto':               [0,    0,     0,    1.5 ],
+  'Hedge Funds':          [0,    7,     8.5,  6   ],
+  'Private Credit':       [0,    3,     4,    4   ],
+  'Private Real Estate':  [0,    2,     3,    3   ],
+  'Private Equity':       [0,    4.5,   9,    12  ],
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function Admin() {
   const [data,    setData]    = useState<AdminData | null>(null)
@@ -137,6 +173,77 @@ export default function Admin() {
   const [subDir,  setSubDir]  = useState<'asc' | 'desc'>('asc')
   const [subOpen, setSubOpen] = useState(true)
   const [recOpen, setRecOpen] = useState(true)
+
+  // ── Suitability editor ────────────────────────────────────────────────────
+  const [suitOpen,   setSuitOpen]   = useState(false)
+  const [suitTab,    setSuitTab]    = useState<'onshore' | 'offshore'>('onshore')
+  const [localRaw,   setLocalRaw]   = useState<RawTargets>(LOCAL_RAW_DEFAULT)
+  const [intlRaw,    setIntlRaw]    = useState<RawTargets>(INTL_RAW_DEFAULT)
+  const [suitSaving, setSuitSaving] = useState(false)
+  const [suitMsg,    setSuitMsg]    = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+
+  useEffect(() => {
+    async function loadTargets() {
+      try {
+        const { data: row } = await supabase
+          .from('admin_config')
+          .select('value')
+          .eq('key', 'suitability_targets')
+          .single()
+        if (row?.value) {
+          if (row.value.local) setLocalRaw(row.value.local as RawTargets)
+          if (row.value.intl)  setIntlRaw(row.value.intl as RawTargets)
+        }
+      } catch { /* table may not exist yet */ }
+    }
+    loadTargets()
+  }, [])
+
+  const handleSuitSave = async () => {
+    setSuitSaving(true); setSuitMsg(null)
+    try {
+      const { error: err } = await supabase
+        .from('admin_config')
+        .upsert({ key: 'suitability_targets', value: { local: localRaw, intl: intlRaw }, updated_at: new Date().toISOString() })
+      if (err) throw err
+      setSuitMsg({ type: 'ok', text: 'Alvos salvos! Usuários verão as recomendações atualizadas.' })
+    } catch (e) {
+      setSuitMsg({ type: 'err', text: `Erro: ${e instanceof Error ? e.message : String(e)}` })
+    } finally {
+      setSuitSaving(false)
+    }
+  }
+
+  const handleSuitReset = (scope: 'onshore' | 'offshore') => {
+    if (scope === 'onshore') setLocalRaw({ ...LOCAL_RAW_DEFAULT })
+    else setIntlRaw({ ...INTL_RAW_DEFAULT })
+    setSuitMsg(null)
+  }
+
+  const updateCell = (
+    scope: 'onshore' | 'offshore',
+    cls: string,
+    profileIdx: number,
+    val: number,
+  ) => {
+    if (scope === 'onshore') {
+      setLocalRaw(prev => {
+        const row = [...(prev[cls] ?? [0, 0, 0, 0])] as [number, number, number, number]
+        row[profileIdx] = val
+        return { ...prev, [cls]: row }
+      })
+    } else {
+      setIntlRaw(prev => {
+        const row = [...(prev[cls] ?? [0, 0, 0, 0])] as [number, number, number, number]
+        row[profileIdx] = val
+        return { ...prev, [cls]: row }
+      })
+    }
+    setSuitMsg(null)
+  }
+
+  const colSums = (raw: RawTargets) =>
+    SUIT_PROFILES.map((_, i) => Object.values(raw).reduce((s, r) => s + (r[i] ?? 0), 0))
 
   const load = useCallback(async () => {
     setLoading(true); setError(null)
@@ -505,6 +612,124 @@ export default function Admin() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+        </div>
+
+        {/* ── Suitability Targets Editor ─────────────────────────────────── */}
+        <div className="card">
+          <button onClick={() => setSuitOpen(o => !o)}
+            className="w-full flex items-center justify-between px-5 py-4 border-b border-[#1e1e2e]">
+            <div className="flex items-center gap-2">
+              <Settings2 className="w-4 h-4 text-[#8b5cf6]" />
+              <p className="text-sm font-semibold text-[#e8e8f0]">Alocação Recomendada · Suitability</p>
+              <span className="text-[10px] bg-[#8b5cf6]/10 text-[#8b5cf6] border border-[#8b5cf6]/20 px-2 py-0.5 rounded-full font-semibold">
+                Admin
+              </span>
+            </div>
+            {suitOpen ? <ChevronUp className="w-4 h-4 text-[#55556a]" /> : <ChevronDown className="w-4 h-4 text-[#55556a]" />}
+          </button>
+
+          {suitOpen && (
+            <div className="p-5 space-y-4">
+              <p className="text-xs text-[#8888aa] leading-relaxed">
+                Edite os percentuais alvo por classe de ativo e perfil de suitability.
+                Cada coluna deve somar <strong className="text-[#e8e8f0]">100%</strong>.
+                Alterações são salvas na tabela <code className="text-[#00d4ff] text-[10px]">admin_config</code>.
+              </p>
+
+              {/* Tab: Onshore / Offshore */}
+              <div className="flex gap-2">
+                {(['onshore', 'offshore'] as const).map(tab => (
+                  <button
+                    key={tab}
+                    onClick={() => setSuitTab(tab)}
+                    className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      suitTab === tab
+                        ? 'bg-[#8b5cf6] text-white'
+                        : 'bg-[#16161f] text-[#8888aa] border border-[#1e1e2e] hover:border-[#8b5cf6]/40'
+                    }`}
+                  >
+                    {tab === 'onshore' ? 'Onshore (BRL)' : 'Offshore (USD)'}
+                  </button>
+                ))}
+              </div>
+
+              {/* Grid editor */}
+              {(() => {
+                const raw = suitTab === 'onshore' ? localRaw : intlRaw
+                const sums = colSums(raw)
+                return (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs min-w-[560px]">
+                      <thead>
+                        <tr className="border-b border-[#1e1e2e]">
+                          <th className="text-left px-3 py-2 text-[#55556a] font-semibold uppercase tracking-wider text-[10px] w-44">Classe</th>
+                          {SUIT_PROFILES.map(p => (
+                            <th key={p} className="text-center px-2 py-2 text-[#55556a] font-semibold uppercase tracking-wider text-[10px] w-28">{p}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {Object.entries(raw).map(([cls, vals]) => (
+                          <tr key={cls} className="border-b border-[#1e1e2e]/50 hover:bg-[#16161f] transition-colors">
+                            <td className="px-3 py-1.5 text-[#e8e8f0] font-medium">{cls}</td>
+                            {vals.map((v, pi) => (
+                              <td key={pi} className="px-2 py-1.5 text-center">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={100}
+                                  step={0.5}
+                                  value={v}
+                                  onChange={e => updateCell(suitTab, cls, pi, parseFloat(e.target.value) || 0)}
+                                  className="w-20 text-center px-1.5 py-1 rounded-md bg-[#0a0a0f] border border-[#1e1e2e] text-[#e8e8f0] text-xs focus:outline-none focus:border-[#8b5cf6]/60 v2-num"
+                                />
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr className="border-t border-[#1e1e2e]">
+                          <td className="px-3 py-2 text-[#55556a] font-semibold text-[10px] uppercase">Soma</td>
+                          {sums.map((s, i) => (
+                            <td key={i} className="px-2 py-2 text-center">
+                              <span className={`v2-num text-sm font-bold ${Math.abs(s - 100) < 0.1 ? 'text-[#00ff88]' : 'text-[#f59e0b]'}`}>
+                                {s.toFixed(1)}%
+                              </span>
+                            </td>
+                          ))}
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                )
+              })()}
+
+              {/* Actions */}
+              <div className="flex items-center gap-3 flex-wrap">
+                <button
+                  onClick={handleSuitSave}
+                  disabled={suitSaving}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-[#8b5cf6] text-white hover:bg-[#7c3aed] disabled:opacity-50 transition-colors"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  {suitSaving ? 'Salvando…' : 'Salvar alvos'}
+                </button>
+                <button
+                  onClick={() => handleSuitReset(suitTab)}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-[#1e1e2e] bg-[#0a0a0f] text-[#8888aa] hover:border-[#55556a] transition-colors"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  Resetar {suitTab === 'onshore' ? 'Onshore' : 'Offshore'}
+                </button>
+                {suitMsg && (
+                  <span className={`text-xs font-medium ${suitMsg.type === 'ok' ? 'text-[#00ff88]' : 'text-[#ff4466]'}`}>
+                    {suitMsg.text}
+                  </span>
+                )}
+              </div>
             </div>
           )}
         </div>

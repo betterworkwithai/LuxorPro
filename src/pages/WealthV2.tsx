@@ -230,6 +230,46 @@ export default function WealthV2() {
   }, [investments, usdToBrl, eurToBrl])
   const allocation = useMemo(() => allAllocation.slice(0, 8), [allAllocation])
 
+  // ── Suitability gap map: canonical class → { gapPct, gapValue, targetPct } ──
+  const suitabilityGapMap = useMemo(() => {
+    const profile = (settings.suitability ?? 'Moderado') as SuitabilityProfile
+    const localTargets = LOCAL_TARGETS[profile]
+    const intlTargets  = INTL_TARGETS[profile]
+    let onshoreTotal = 0, offshoreTotal = 0
+    const localActuals = new Map<string, number>()
+    const intlActuals  = new Map<string, number>()
+    investments.forEach(i => {
+      if (i.location === 'physical-re') return
+      const v = convert(i.quantity * i.currentPrice, i.currency, 'BRL', usdToBrl, eurToBrl)
+      if (v <= 0) return
+      if (i.location === 'offshore') {
+        const k = canonicalIntlClass(i.assetClass)
+        intlActuals.set(k, (intlActuals.get(k) ?? 0) + v)
+        offshoreTotal += v
+      } else {
+        const k = canonicalLocalClass(i.assetClass)
+        localActuals.set(k, (localActuals.get(k) ?? 0) + v)
+        onshoreTotal += v
+      }
+    })
+    const gaps = new Map<string, { gapPct: number; gapValue: number; targetPct: number; actualPct: number }>()
+    LOCAL_CLASSES.forEach(cls => {
+      const actualVal = localActuals.get(cls) ?? 0
+      const actualPct = onshoreTotal > 0 ? (actualVal / onshoreTotal) * 100 : 0
+      const targetPct = localTargets[cls] ?? 0
+      const gapPct    = actualPct - targetPct
+      gaps.set(cls, { gapPct, gapValue: (gapPct / 100) * onshoreTotal, targetPct, actualPct })
+    })
+    INTL_CLASSES.forEach(cls => {
+      const actualVal = intlActuals.get(cls) ?? 0
+      const actualPct = offshoreTotal > 0 ? (actualVal / offshoreTotal) * 100 : 0
+      const targetPct = intlTargets[cls] ?? 0
+      const gapPct    = actualPct - targetPct
+      gaps.set(cls, { gapPct, gapValue: (gapPct / 100) * offshoreTotal, targetPct, actualPct })
+    })
+    return gaps
+  }, [investments, usdToBrl, eurToBrl, settings.suitability])
+
   // ── Generic breakdown helper: aggregates BRL value by some key ──
   // Returns rows with `items` — the list of investments in each bucket —
   // so the breakdown modals can expand a category to show the underlying
@@ -1140,20 +1180,38 @@ export default function WealthV2() {
             <div className="mt-4 space-y-3">
               {allocation.length === 0 ? (
                 <p className="text-xs text-[#55556a] text-center py-6">Adicione investimentos para ver a alocação.</p>
-              ) : allocation.map(a => (
-                <div key={a.name}>
-                  <div className="flex items-center justify-between text-xs mb-1.5">
-                    <span className="flex items-center gap-2 min-w-0">
-                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: a.color }}/>
-                      <span className="font-medium truncate">{a.name}</span>
-                    </span>
-                    <span className="v2-num font-semibold flex-shrink-0">{a.pct.toFixed(0)}%</span>
+              ) : allocation.map(a => {
+                const gap = suitabilityGapMap.get(a.name)
+                const showGap = gap && gap.targetPct > 0 && Math.abs(gap.gapPct) >= 0.5
+                return (
+                  <div key={a.name}>
+                    <div className="flex items-center justify-between text-xs mb-1.5">
+                      <span className="flex items-center gap-2 min-w-0">
+                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: a.color }}/>
+                        <span className="font-medium truncate">{a.name}</span>
+                      </span>
+                      <span className="flex items-center gap-1.5 flex-shrink-0">
+                        <span className="v2-num font-semibold">{a.pct.toFixed(0)}%</span>
+                        {showGap && (
+                          <span
+                            className="text-[9px] font-bold px-1 py-0.5 rounded"
+                            style={{
+                              background: gap.gapPct > 0 ? 'rgba(245,158,11,.15)' : 'rgba(0,212,255,.15)',
+                              color: gap.gapPct > 0 ? '#f59e0b' : '#00d4ff',
+                            }}
+                            title={`Alvo: ${gap.targetPct.toFixed(1)}% · ${gap.gapPct > 0 ? 'Reduzir' : 'Aumentar'} ${fmt(toBase(Math.abs(gap.gapValue)), true)}`}
+                          >
+                            {gap.gapPct > 0 ? '▼' : '▲'} {Math.abs(gap.gapPct).toFixed(0)}pp
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                    <div className="w-full h-2 rounded-full bg-[#1e1e30] overflow-hidden">
+                      <div className="v2-cat-bar h-full rounded-full" style={{ width: `${Math.max(a.pct, 1)}%`, background: a.color }}/>
+                    </div>
                   </div>
-                  <div className="w-full h-2 rounded-full bg-[#1e1e30] overflow-hidden">
-                    <div className="v2-cat-bar h-full rounded-full" style={{ width: `${Math.max(a.pct, 1)}%`, background: a.color }}/>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </ExpandableCard>
 
@@ -1553,12 +1611,29 @@ export default function WealthV2() {
             }
           >
             <p className="v2-caption pr-9">Liquidez</p>
-            <p className="text-sm text-[#8888aa] mt-0.5">Prazo de resgate</p>
-            <div className="mt-4 flex justify-center"><Donut data={liquidityBreakdown.slices} size={150}/></div>
-            <div className="mt-4 pt-3 border-t border-[#1e1e30]">
-              <DonutLegend data={liquidityBreakdown.slices.slice(0, 4)} total={liquidityBreakdown.total}/>
-              {liquidityBreakdown.slices.length > 4 && (
-                <p className="text-[10px] text-[#55556a] mt-2">+ {liquidityBreakdown.slices.length - 4} mais</p>
+            <p className="text-sm text-[#8888aa] mt-0.5">D+0 → Vencimento</p>
+            <div className="mt-4">
+              {liquidityBreakdown.rows.filter(r => r.value > 0).length === 0 ? (
+                <p className="text-xs text-[#55556a] text-center py-6">Sem liquidez informada.</p>
+              ) : (
+                <>
+                  <div className="h-5 rounded-lg overflow-hidden flex gap-px">
+                    {liquidityBreakdown.rows.filter(r => r.value > 0).map(r => (
+                      <div key={r.key} style={{ width: `${Math.max(r.pct, 1)}%`, background: r.color, flexShrink: 0 }} title={`${r.key}: ${r.pct.toFixed(1)}%`}/>
+                    ))}
+                  </div>
+                  <div className="mt-3 space-y-1.5 max-h-[160px] overflow-y-auto">
+                    {liquidityBreakdown.rows.filter(r => r.value > 0).map(r => (
+                      <div key={r.key} className="flex items-center justify-between text-[11px]">
+                        <span className="flex items-center gap-1.5 min-w-0">
+                          <span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: r.color }}/>
+                          <span className="truncate">{r.key}</span>
+                        </span>
+                        <span className="v2-num font-semibold flex-shrink-0 ml-2">{r.pct.toFixed(0)}%</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
               )}
             </div>
           </ExpandableCard>
@@ -1601,9 +1676,16 @@ export default function WealthV2() {
           >
             <p className="v2-caption pr-9">Tributação</p>
             <p className="text-sm text-[#8888aa] mt-0.5">Regime fiscal</p>
-            <div className="mt-4 flex justify-center"><Donut data={taxBreakdown.slices} size={150}/></div>
-            <div className="mt-4 pt-3 border-t border-[#1e1e30]">
-              <DonutLegend data={taxBreakdown.slices} total={taxBreakdown.total}/>
+            <div className="mt-4 space-y-2">
+              {taxBreakdown.rows.length === 0 ? (
+                <p className="text-xs text-[#55556a] text-center py-6">Sem tributação informada.</p>
+              ) : taxBreakdown.rows.map(r => (
+                <div key={r.key} className="relative rounded-lg overflow-hidden px-3 py-2.5 flex items-center justify-between" style={{ background: `${r.color}12`, border: `1px solid ${r.color}28` }}>
+                  <div className="absolute left-0 top-0 bottom-0 rounded-l-lg opacity-25" style={{ width: `${Math.max(r.pct, 2)}%`, background: r.color }}/>
+                  <span className="relative text-xs font-medium truncate">{taxLabel[r.key] ?? r.key}</span>
+                  <span className="relative v2-num text-sm font-bold flex-shrink-0 ml-2" style={{ color: r.color }}>{r.pct.toFixed(0)}%</span>
+                </div>
+              ))}
             </div>
           </ExpandableCard>
 
@@ -1638,11 +1720,20 @@ export default function WealthV2() {
           >
             <p className="v2-caption pr-9">Instituição</p>
             <p className="text-sm text-[#8888aa] mt-0.5">Corretora / Banco</p>
-            <div className="mt-4 flex justify-center"><Donut data={institutionBreakdown.slices} size={150}/></div>
-            <div className="mt-4 pt-3 border-t border-[#1e1e30]">
-              <DonutLegend data={institutionBreakdown.slices.slice(0, 4)} total={institutionBreakdown.total}/>
-              {institutionBreakdown.slices.length > 4 && (
-                <p className="text-[10px] text-[#55556a] mt-2">+ {institutionBreakdown.slices.length - 4} mais</p>
+            <div className="mt-4 space-y-2.5">
+              {institutionBreakdown.rows.length === 0 ? (
+                <p className="text-xs text-[#55556a] text-center py-6">Sem instituições.</p>
+              ) : institutionBreakdown.rows.slice(0, 6).map(r => (
+                <div key={r.key} className="flex items-center gap-2 text-[11px]">
+                  <span className="w-14 text-[#8888aa] truncate text-right flex-shrink-0">{r.key}</span>
+                  <div className="flex-1 h-2 rounded-full bg-[#1e1e30] overflow-hidden">
+                    <div className="v2-cat-bar h-full rounded-full" style={{ width: `${Math.max(r.pct, 1)}%`, background: r.color }}/>
+                  </div>
+                  <span className="v2-num font-semibold w-8 flex-shrink-0">{r.pct.toFixed(0)}%</span>
+                </div>
+              ))}
+              {institutionBreakdown.rows.length > 6 && (
+                <p className="text-[10px] text-[#55556a]">+ {institutionBreakdown.rows.length - 6} mais</p>
               )}
             </div>
           </ExpandableCard>
@@ -1677,10 +1768,35 @@ export default function WealthV2() {
             }
           >
             <p className="v2-caption pr-9">Risco</p>
-            <p className="text-sm text-[#8888aa] mt-0.5">Baixo → Alto</p>
-            <div className="mt-4 flex justify-center"><Donut data={riskBreakdown.slices} size={150}/></div>
-            <div className="mt-4 pt-3 border-t border-[#1e1e30]">
-              <DonutLegend data={riskBreakdown.slices} total={riskBreakdown.total}/>
+            <p className="text-sm text-[#8888aa] mt-0.5">1 Muito baixo → 5 Muito alto</p>
+            <div className="mt-4">
+              <div className="h-2.5 rounded-full" style={{ background: 'linear-gradient(to right, #00ff88, #84cc16, #f59e0b, #ff7a00, #ff4466)' }}/>
+              <div className="mt-3 grid grid-cols-5 gap-1">
+                {(['1','2','3','4','5'] as const).map(lvl => {
+                  const row = riskBreakdown.rows.find(r => r.key === lvl)
+                  const cols: Record<string, string> = { '1': '#00ff88', '2': '#84cc16', '3': '#f59e0b', '4': '#ff7a00', '5': '#ff4466' }
+                  const col = cols[lvl]
+                  const labels = ['MB','B','M','A','MA']
+                  return (
+                    <div key={lvl} className="text-center space-y-1">
+                      <div className="h-10 rounded-md flex items-end justify-center pb-1.5" style={{
+                        background: row ? `${col}18` : '#0f1018',
+                        border: `1px solid ${row ? col + '30' : '#1e1e30'}`,
+                      }}>
+                        <span className="v2-num text-[11px] font-bold" style={{ color: row ? col : '#2a2a40' }}>
+                          {row ? `${row.pct.toFixed(0)}%` : '—'}
+                        </span>
+                      </div>
+                      <p className="text-[9px] text-[#55556a]">{labels[parseInt(lvl)-1]}</p>
+                    </div>
+                  )
+                })}
+              </div>
+              {riskBreakdown.rows.some(r => r.key === 'unset') && (
+                <p className="mt-2 text-[10px] text-[#55556a]">
+                  {riskBreakdown.rows.find(r => r.key === 'unset')?.pct.toFixed(0)}% sem classificação
+                </p>
+              )}
             </div>
           </ExpandableCard>
 
@@ -1720,11 +1836,20 @@ export default function WealthV2() {
           >
             <p className="v2-caption pr-9">Emissor</p>
             <p className="text-sm text-[#8888aa] mt-0.5">Por emissor do ativo</p>
-            <div className="mt-4 flex justify-center"><Donut data={emisssorBreakdown.slices} size={150}/></div>
-            <div className="mt-4 pt-3 border-t border-[#1e1e30]">
-              <DonutLegend data={emisssorBreakdown.slices.slice(0, 4)} total={emisssorBreakdown.total}/>
-              {emisssorBreakdown.slices.length > 4 && (
-                <p className="text-[10px] text-[#55556a] mt-2">+ {emisssorBreakdown.slices.length - 4} mais</p>
+            <div className="mt-4 space-y-2">
+              {emisssorBreakdown.rows.filter(r => r.value > 0).length === 0 ? (
+                <p className="text-xs text-[#55556a] text-center py-6">Sem emissores cadastrados.</p>
+              ) : emisssorBreakdown.rows.filter(r => r.value > 0).slice(0, 6).map(r => (
+                <div key={r.key} className="flex items-center gap-2 text-[11px]">
+                  <span className="w-16 text-[#8888aa] truncate text-right flex-shrink-0">{r.key}</span>
+                  <div className="flex-1 h-1.5 rounded-full bg-[#1e1e30] overflow-hidden">
+                    <div className="v2-cat-bar h-full rounded-full" style={{ width: `${Math.max(r.pct, 1)}%`, background: r.color }}/>
+                  </div>
+                  <span className="v2-num font-semibold w-8 flex-shrink-0">{r.pct.toFixed(0)}%</span>
+                </div>
+              ))}
+              {emisssorBreakdown.rows.filter(r => r.value > 0).length > 6 && (
+                <p className="text-[10px] text-[#55556a]">+ {emisssorBreakdown.rows.filter(r => r.value > 0).length - 6} mais</p>
               )}
             </div>
           </ExpandableCard>
@@ -1760,11 +1885,20 @@ export default function WealthV2() {
           >
             <p className="v2-caption pr-9">Holding</p>
             <p className="text-sm text-[#8888aa] mt-0.5">Grupo econômico</p>
-            <div className="mt-4 flex justify-center"><Donut data={holdingBreakdown.slices} size={150}/></div>
-            <div className="mt-4 pt-3 border-t border-[#1e1e30]">
-              <DonutLegend data={holdingBreakdown.slices.slice(0, 4)} total={holdingBreakdown.total}/>
-              {holdingBreakdown.slices.length > 4 && (
-                <p className="text-[10px] text-[#55556a] mt-2">+ {holdingBreakdown.slices.length - 4} mais</p>
+            <div className="mt-4 space-y-2">
+              {holdingBreakdown.rows.filter(r => r.value > 0).length === 0 ? (
+                <p className="text-xs text-[#55556a] text-center py-6">Sem holdings cadastradas.</p>
+              ) : holdingBreakdown.rows.filter(r => r.value > 0).slice(0, 6).map(r => (
+                <div key={r.key} className="flex items-center gap-2 text-[11px]">
+                  <span className="w-16 text-[#8888aa] truncate text-right flex-shrink-0">{r.key}</span>
+                  <div className="flex-1 h-1.5 rounded-full bg-[#1e1e30] overflow-hidden">
+                    <div className="v2-cat-bar h-full rounded-full" style={{ width: `${Math.max(r.pct, 1)}%`, background: r.color }}/>
+                  </div>
+                  <span className="v2-num font-semibold w-8 flex-shrink-0">{r.pct.toFixed(0)}%</span>
+                </div>
+              ))}
+              {holdingBreakdown.rows.filter(r => r.value > 0).length > 6 && (
+                <p className="text-[10px] text-[#55556a]">+ {holdingBreakdown.rows.filter(r => r.value > 0).length - 6} mais</p>
               )}
             </div>
           </ExpandableCard>
@@ -1799,10 +1933,30 @@ export default function WealthV2() {
             }
           >
             <p className="v2-caption pr-9">Vencimento</p>
-            <p className="text-sm text-[#8888aa] mt-0.5">Prazo dos ativos</p>
-            <div className="mt-4 flex justify-center"><Donut data={maturityBreakdown.slices} size={150}/></div>
-            <div className="mt-4 pt-3 border-t border-[#1e1e30]">
-              <DonutLegend data={maturityBreakdown.slices} total={maturityBreakdown.total}/>
+            <p className="text-sm text-[#8888aa] mt-0.5">Curto → Longo prazo</p>
+            <div className="mt-4">
+              {maturityBreakdown.rows.filter(r => r.value > 0).length === 0 ? (
+                <p className="text-xs text-[#55556a] text-center py-6">Sem vencimentos informados.</p>
+              ) : (
+                <>
+                  <div className="h-5 rounded-lg overflow-hidden flex gap-px">
+                    {maturityBreakdown.rows.filter(r => r.value > 0).map(r => (
+                      <div key={r.key} style={{ width: `${Math.max(r.pct, 1)}%`, background: r.color, flexShrink: 0 }} title={`${r.key}: ${r.pct.toFixed(1)}%`}/>
+                    ))}
+                  </div>
+                  <div className="mt-3 space-y-1.5">
+                    {maturityBreakdown.rows.filter(r => r.value > 0).map(r => (
+                      <div key={r.key} className="flex items-center justify-between text-[11px]">
+                        <span className="flex items-center gap-1.5 min-w-0">
+                          <span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: r.color }}/>
+                          <span className="truncate">{r.key}</span>
+                        </span>
+                        <span className="v2-num font-semibold flex-shrink-0 ml-2">{r.pct.toFixed(0)}%</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           </ExpandableCard>
 
@@ -1837,12 +1991,16 @@ export default function WealthV2() {
           >
             <p className="v2-caption pr-9">Freq. de Juros</p>
             <p className="text-sm text-[#8888aa] mt-0.5">Pagamento de cupons</p>
-            <div className="mt-4 flex justify-center"><Donut data={paymentFreqBreakdown.slices} size={150}/></div>
-            <div className="mt-4 pt-3 border-t border-[#1e1e30]">
-              <DonutLegend data={paymentFreqBreakdown.slices.slice(0, 4)} total={paymentFreqBreakdown.total}/>
-              {paymentFreqBreakdown.slices.length > 4 && (
-                <p className="text-[10px] text-[#55556a] mt-2">+ {paymentFreqBreakdown.slices.length - 4} mais</p>
-              )}
+            <div className="mt-4 space-y-2">
+              {paymentFreqBreakdown.rows.filter(r => r.value > 0).length === 0 ? (
+                <p className="text-xs text-[#55556a] text-center py-6">Sem freq. informada.</p>
+              ) : paymentFreqBreakdown.rows.filter(r => r.value > 0).map(r => (
+                <div key={r.key} className="relative rounded-lg overflow-hidden px-3 py-2.5 flex items-center justify-between" style={{ background: `${r.color}12`, border: `1px solid ${r.color}28` }}>
+                  <div className="absolute left-0 top-0 bottom-0 rounded-l-lg opacity-25" style={{ width: `${Math.max(r.pct, 2)}%`, background: r.color }}/>
+                  <span className="relative text-xs font-medium truncate">{r.key}</span>
+                  <span className="relative v2-num text-sm font-bold flex-shrink-0 ml-2" style={{ color: r.color }}>{r.pct.toFixed(0)}%</span>
+                </div>
+              ))}
             </div>
           </ExpandableCard>
 
@@ -1877,11 +2035,20 @@ export default function WealthV2() {
           >
             <p className="v2-caption pr-9">Setor</p>
             <p className="text-sm text-[#8888aa] mt-0.5">Exposição setorial</p>
-            <div className="mt-4 flex justify-center"><Donut data={sectorBreakdown.slices} size={150}/></div>
-            <div className="mt-4 pt-3 border-t border-[#1e1e30]">
-              <DonutLegend data={sectorBreakdown.slices.slice(0, 4)} total={sectorBreakdown.total}/>
-              {sectorBreakdown.slices.length > 4 && (
-                <p className="text-[10px] text-[#55556a] mt-2">+ {sectorBreakdown.slices.length - 4} mais</p>
+            <div className="mt-4 space-y-2">
+              {sectorBreakdown.rows.filter(r => r.value > 0).length === 0 ? (
+                <p className="text-xs text-[#55556a] text-center py-6">Sem setores cadastrados.</p>
+              ) : sectorBreakdown.rows.filter(r => r.value > 0).slice(0, 6).map(r => (
+                <div key={r.key} className="flex items-center gap-2 text-[11px]">
+                  <span className="w-16 text-[#8888aa] truncate text-right flex-shrink-0">{r.key}</span>
+                  <div className="flex-1 h-1.5 rounded-full bg-[#1e1e30] overflow-hidden">
+                    <div className="v2-cat-bar h-full rounded-full" style={{ width: `${Math.max(r.pct, 1)}%`, background: r.color }}/>
+                  </div>
+                  <span className="v2-num font-semibold w-8 flex-shrink-0">{r.pct.toFixed(0)}%</span>
+                </div>
+              ))}
+              {sectorBreakdown.rows.filter(r => r.value > 0).length > 6 && (
+                <p className="text-[10px] text-[#55556a]">+ {sectorBreakdown.rows.filter(r => r.value > 0).length - 6} mais</p>
               )}
             </div>
           </ExpandableCard>
@@ -1917,11 +2084,20 @@ export default function WealthV2() {
           >
             <p className="v2-caption pr-9">Benchmark</p>
             <p className="text-sm text-[#8888aa] mt-0.5">Índice de referência</p>
-            <div className="mt-4 flex justify-center"><Donut data={benchmarkBreakdown.slices} size={150}/></div>
-            <div className="mt-4 pt-3 border-t border-[#1e1e30]">
-              <DonutLegend data={benchmarkBreakdown.slices.slice(0, 4)} total={benchmarkBreakdown.total}/>
-              {benchmarkBreakdown.slices.length > 4 && (
-                <p className="text-[10px] text-[#55556a] mt-2">+ {benchmarkBreakdown.slices.length - 4} mais</p>
+            <div className="mt-4 space-y-2">
+              {benchmarkBreakdown.rows.filter(r => r.value > 0).length === 0 ? (
+                <p className="text-xs text-[#55556a] text-center py-6">Sem benchmark informado.</p>
+              ) : benchmarkBreakdown.rows.filter(r => r.value > 0).slice(0, 6).map(r => (
+                <div key={r.key} className="flex items-center gap-2 text-[11px]">
+                  <span className="w-16 text-[#8888aa] truncate text-right flex-shrink-0">{r.key}</span>
+                  <div className="flex-1 h-1.5 rounded-full bg-[#1e1e30] overflow-hidden">
+                    <div className="v2-cat-bar h-full rounded-full" style={{ width: `${Math.max(r.pct, 1)}%`, background: r.color }}/>
+                  </div>
+                  <span className="v2-num font-semibold w-8 flex-shrink-0">{r.pct.toFixed(0)}%</span>
+                </div>
+              ))}
+              {benchmarkBreakdown.rows.filter(r => r.value > 0).length > 6 && (
+                <p className="text-[10px] text-[#55556a]">+ {benchmarkBreakdown.rows.filter(r => r.value > 0).length - 6} mais</p>
               )}
             </div>
           </ExpandableCard>
