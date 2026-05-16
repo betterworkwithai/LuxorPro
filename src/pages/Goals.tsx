@@ -630,23 +630,25 @@ export default function Goals() {
     buildProjection(goalsWithDrafts, currentNetWorth, totalMonthlyContrib, growthRate, monthlyExpenses, horizonYears, hiddenGoalIds),
     [goalsWithDrafts, currentNetWorth, totalMonthlyContrib, growthRate, monthlyExpenses, horizonYears, hiddenGoalIds])
 
-  // Pyramid tier crossings — tiers above current net worth that the projection will reach
+  // Pyramid tier crossings — ALL unreached tiers, with optional chart visibility flag
   const tierCrossings = useMemo(() => {
     const chartMax = projectionData.reduce((m, p) => Math.max(m, p.withGoals as number), 0)
     return PYRAMID_TIERS
       .filter(t => t.min > 0 && t.min > currentNetWorth)
       .map(tier => {
         const idx = projectionData.findIndex(p => (p.withGoals as number) >= tier.min)
-        if (idx === -1 || tier.min > chartMax * 1.15) return null
-        const monthsAhead = idx * 3
-        const years = Math.floor(monthsAhead / 12)
-        const months = monthsAhead % 12
-        const timeLabel = years > 0
-          ? months > 0 ? `${years}a ${months}m` : `${years}a`
-          : `${months}m`
-        return { tier, idx, timeLabel, label: projectionData[idx]?.label ?? '' }
+        const withinChart = tier.min <= chartMax
+        let timeLabel: string
+        if (idx === -1) {
+          timeLabel = 'além do horizonte'
+        } else {
+          const monthsAhead = idx * 3
+          const years = Math.floor(monthsAhead / 12)
+          const months = monthsAhead % 12
+          timeLabel = years > 0 ? (months > 0 ? `${years}a ${months}m` : `${years}a`) : `${months}m`
+        }
+        return { tier, idx, timeLabel, withinChart, label: idx >= 0 ? projectionData[idx]?.label ?? '' : '' }
       })
-      .filter(Boolean) as { tier: typeof PYRAMID_TIERS[0]; idx: number; timeLabel: string; label: string }[]
   }, [projectionData, currentNetWorth])
 
   // Filtered goals
@@ -849,8 +851,8 @@ export default function Goals() {
                          tickFormatter={v => formatBRL(v, true)} width={YAXIS_WIDTH} />
                   <Tooltip content={<ProjectionTooltip />} />
 
-                  {/* Pyramid tier threshold lines — gold/orange horizontal markers */}
-                  {tierCrossings.map(({ tier }) => (
+                  {/* Pyramid tier threshold lines — only for tiers within chart range */}
+                  {tierCrossings.filter(c => c.withinChart).map(({ tier }) => (
                     <ReferenceLine
                       key={`tier-${tier.key}`}
                       y={tier.min}
@@ -949,21 +951,27 @@ export default function Goals() {
               </div>
             )}
 
-            {/* Pyramid tier crossing legend */}
+            {/* Pyramid tier legend — always shown for all unreached tiers */}
             {tierCrossings.length > 0 && (
               <div className="mt-4 px-3">
-                <p className="text-[10px] text-[#55556a] uppercase tracking-wider mb-2">Próximas camadas da pirâmide</p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                  {tierCrossings.map(({ tier, timeLabel }) => (
+                <p className="text-[10px] text-[#55556a] uppercase tracking-wider mb-2">Camadas da pirâmide restantes</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                  {tierCrossings.map(({ tier, timeLabel, withinChart }) => (
                     <div
                       key={tier.key}
                       className="flex items-center gap-2 px-2.5 py-2 rounded-xl border text-xs"
                       style={{ borderColor: tier.color + '40', background: tier.color + '0a' }}
                     >
-                      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: tier.color }} />
+                      <div
+                        className="w-2 h-2 rounded-full flex-shrink-0"
+                        style={{ background: withinChart ? tier.color : 'transparent', border: `1.5px solid ${tier.color}` }}
+                      />
                       <div className="min-w-0 flex-1">
                         <p className="font-semibold truncate" style={{ color: tier.color }}>{tier.name}</p>
-                        <p className="text-[10px] text-[#55556a]">{formatBRL(tier.min, true)} · em {timeLabel}</p>
+                        <p className="text-[10px] text-[#55556a] truncate">{formatBRL(tier.min, true)}</p>
+                        <p className="text-[10px] truncate" style={{ color: withinChart ? tier.color : '#55556a' }}>
+                          {timeLabel}
+                        </p>
                       </div>
                     </div>
                   ))}
