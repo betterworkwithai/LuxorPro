@@ -269,6 +269,20 @@ export default function CashflowV2() {
 
   const income     = useMemo(() => periodTx.filter(t => t.type === 'income').reduce((a, t) => a + txBrl(t), 0), [periodTx])
   const expenses   = useMemo(() => periodTx.filter(t => t.type === 'expense').reduce((a, t) => a + txBrl(t), 0), [periodTx])
+
+  const expenseBreakdown = useMemo(() => {
+    const exps = periodTx.filter(t => t.type === 'expense')
+    let fixed = 0, variable = 0, investment = 0, other = 0
+    for (const t of exps) {
+      const v = txBrl(t)
+      if (t.category === 'investimento') { investment += v; continue }
+      if (t.expenseNature === 'fixed')      fixed      += v
+      else if (t.expenseNature === 'variable') variable += v
+      else if (t.expenseNature === 'investment') investment += v
+      else other += v
+    }
+    return { fixed, variable, investment, other, total: fixed + variable + investment + other }
+  }, [periodTx])
   const aportes    = useMemo(() => periodTx.filter(t => t.type === 'expense' && t.category === 'investimento').reduce((a, t) => a + txBrl(t), 0), [periodTx])
   const resgates   = useMemo(() => periodTx.filter(t => t.type === 'income' && t.category === 'investimento').reduce((a, t) => a + txBrl(t), 0), [periodTx])
   const netFlow    = income - expenses
@@ -681,6 +695,59 @@ export default function CashflowV2() {
             pillColor={savingsRate >= (settings.savingsRateGoal ?? 30) ? 'green' : 'amber'}
           />
         </section>
+
+        {/* EXPENSE BREAKDOWN */}
+        {periodTx.length > 0 && (() => {
+          const { fixed, variable, investment, other, total } = expenseBreakdown
+          const allCats = [
+            { label: 'Fixas',        value: fixed,      color: '#3b82f6' },
+            { label: 'Variáveis',    value: variable,   color: '#f59e0b' },
+            { label: 'Aportes',      value: investment, color: '#00d4ff' },
+            { label: 'Não classif.', value: other,      color: '#55556a' },
+          ]
+          const cats = allCats.filter(c => c.value > 0).map(c => ({ ...c, pct: (c.value / total) * 100 }))
+          return (
+            <section className="v2-card p-4 v2-reveal">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <p className="v2-caption">Composição de despesas</p>
+                  <p className="text-sm text-[#8888aa] mt-0.5">
+                    {periodMode === 'monthly' ? `${monthName(selMonth)} ${selYear}` : periodMode === 'ytd' ? `YTD ${todayYear}` : selYear}
+                    {total > 0 ? ` · total ${formatBRL(total, true)}` : ' · sem despesas registradas'}
+                  </p>
+                </div>
+              </div>
+              {total === 0 ? (
+                <p className="text-xs text-[#55556a] text-center py-3">Nenhuma despesa classificada no período.</p>
+              ) : (
+                <>
+                  <div className="flex h-2.5 rounded-full overflow-hidden gap-px mb-3">
+                    {cats.map(c => (
+                      <div key={c.label} className="h-full transition-all duration-500"
+                        style={{ width: `${c.pct}%`, background: c.color, minWidth: '2px' }} />
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {allCats.map(c => (
+                      <div key={c.label} className="flex items-center gap-2 min-w-0">
+                        <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: c.color }} />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[10px] text-[#8888aa] truncate">{c.label}</p>
+                          <p className="text-xs font-semibold v2-num truncate">{formatBRL(c.value, true)}</p>
+                        </div>
+                        {c.value > 0 && (
+                          <span className="text-[10px] font-bold flex-shrink-0" style={{ color: c.color }}>
+                            {((c.value / total) * 100).toFixed(0)}%
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </section>
+          )
+        })()}
 
         {/* BENTO GRID */}
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-4 v2-reveal">
