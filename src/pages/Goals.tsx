@@ -145,6 +145,19 @@ function buildProjection(
   return points
 }
 
+// ─── Emoji picker data ───────────────────────
+const EMOJI_GROUPS = [
+  { label: 'Finanças',      emojis: ['💰','💵','💸','💳','🏦','📈','💎','🪙','🤑','💲','🏧','📊'] },
+  { label: 'Casa & Imóvel', emojis: ['🏠','🏡','🏢','🏗️','🔑','🛋️','🛏️','🚿','🪟','🌳','🏘️','🏰'] },
+  { label: 'Transporte',    emojis: ['🚗','🏎️','🚙','🚕','✈️','🛥️','🏍️','🚲','🛵','🚁','🚢','🛸'] },
+  { label: 'Viagem',        emojis: ['🌍','🗺️','🏖️','🗼','🌴','⛵','🏕️','🧳','🌅','🗽','🏔️','🌊'] },
+  { label: 'Educação',      emojis: ['📚','🎓','📖','✏️','🔬','🧪','💻','🎒','📝','🖊️','🏫','🔭'] },
+  { label: 'Negócio',       emojis: ['🚀','💼','📊','🏆','🎯','🔥','⚡','🌟','💡','⭐','🤝','📱'] },
+  { label: 'Saúde & Lazer', emojis: ['🏥','❤️','🏋️','🧘','🏊','⚽','🎾','🏄','🚴','🎮','🎵','🎨'] },
+  { label: 'Família',       emojis: ['👨‍👩‍👧','💑','👶','🎂','🎉','🎊','💝','🌹','👫','🤱','🐾','🌸'] },
+  { label: 'Símbolos',      emojis: ['✨','💫','🌈','🔮','🍀','🎁','🌙','🌺','🦋','🦄','🎯','🏅'] },
+]
+
 // ─── Goal form ──────────────────────────────
 const EMPTY_FORM = {
   name: '', description: '',
@@ -153,12 +166,15 @@ const EMPTY_FORM = {
   monthlyContribution: '',
   recurringEveryYears: '0',
   recurringRepetitions: '1',
+  emoji: '',
 }
 
 function GoalModal({ open, onClose, initial }: {
   open: boolean; onClose: () => void; initial?: FinancialGoal
 }) {
   const { addGoal, updateGoal } = useStore()
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [emojiSearch, setEmojiSearch] = useState('')
   const [form, setForm] = useState(() =>
     initial
       ? { name: initial.name, description: initial.description ?? '',
@@ -166,34 +182,39 @@ function GoalModal({ open, onClose, initial }: {
           targetDate: initial.targetDate, category: initial.category,
           impactType: initial.impactType, monthlyContribution: String(initial.monthlyContribution),
           recurringEveryYears: String(initial.recurringEveryYears ?? '0'),
-          recurringRepetitions: String(initial.recurringRepetitions ?? '1') }
+          recurringRepetitions: String(initial.recurringRepetitions ?? '1'),
+          emoji: initial.emoji ?? '' }
       : { ...EMPTY_FORM },
   )
 
   useEffect(() => {
     if (!open) return
+    setShowEmojiPicker(false)
+    setEmojiSearch('')
     setForm(initial
       ? { name: initial.name, description: initial.description ?? '',
           targetAmount: String(initial.targetAmount), currentAmount: String(initial.currentAmount),
           targetDate: initial.targetDate, category: initial.category,
           impactType: initial.impactType, monthlyContribution: String(initial.monthlyContribution),
           recurringEveryYears: String(initial.recurringEveryYears ?? '0'),
-          recurringRepetitions: String(initial.recurringRepetitions ?? '1') }
+          recurringRepetitions: String(initial.recurringRepetitions ?? '1'),
+          emoji: initial.emoji ?? '' }
       : { ...EMPTY_FORM })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initial?.id])
 
   const upd = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
 
-  // Emoji and color always come from the selected category
   const catInfo = GOAL_CATEGORIES.find(c => c.value === form.category) ?? GOAL_CATEGORIES[GOAL_CATEGORIES.length - 1]
+  // Emoji: manual override wins; otherwise fall back to category default
+  const displayEmoji = form.emoji || catInfo.emoji
 
   const handleSave = async () => {
     const everyYears = parseInt(form.recurringEveryYears) || 0
     const reps = parseInt(form.recurringRepetitions) || 1
     const payload = {
       name:                form.name.trim(),
-      emoji:               catInfo.emoji,   // auto from category
+      emoji:               displayEmoji,
       description:         form.description,
       targetAmount:        parseFloat(form.targetAmount) || 0,
       currentAmount:       parseFloat(form.currentAmount) || 0,
@@ -219,12 +240,13 @@ function GoalModal({ open, onClose, initial }: {
     <Modal open={open} onClose={onClose} title={initial ? 'Editar Meta' : 'Nova Meta Financeira'} size="lg">
       <div className="px-6 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
 
-        {/* Category — emoji is derived from this */}
+        {/* Category — changes the default emoji; manual emoji override is separate */}
         <div>
           <label className="text-xs text-[#8888aa] mb-1.5 block">Categoria</label>
           <div className="grid grid-cols-4 gap-2">
             {GOAL_CATEGORIES.map(c => (
-              <button key={c.value} onClick={() => upd('category', c.value)}
+              <button key={c.value}
+                onClick={() => { upd('category', c.value); upd('emoji', '') }}
                 className={clsx(
                   'flex flex-col items-center gap-1 p-2 rounded-xl border text-xs transition-all',
                   form.category === c.value
@@ -238,13 +260,73 @@ function GoalModal({ open, onClose, initial }: {
           </div>
         </div>
 
-        {/* Name — shows preview with auto emoji */}
+        {/* Name — emoji button opens picker */}
         <div>
           <label className="text-xs text-[#8888aa] mb-1.5 block">Nome da Meta</label>
           <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
-              style={{ background: catInfo.color + '18', border: `1px solid ${catInfo.color}30` }}>
-              {catInfo.emoji}
+            <div className="relative flex-shrink-0">
+              <button
+                type="button"
+                title="Escolher emoji"
+                onClick={() => setShowEmojiPicker(p => !p)}
+                className="w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-transform hover:scale-110 active:scale-95"
+                style={{ background: catInfo.color + '18', border: `1px solid ${catInfo.color}30` }}
+              >
+                {displayEmoji}
+              </button>
+
+              {showEmojiPicker && (
+                <div className="absolute left-0 top-12 z-50 w-72 bg-[#0d0d15] border border-[#2a2a3e] rounded-2xl shadow-2xl p-3 space-y-2">
+                  {/* Search */}
+                  <input
+                    autoFocus
+                    type="text"
+                    placeholder="Buscar emoji…"
+                    value={emojiSearch}
+                    onChange={e => setEmojiSearch(e.target.value)}
+                    className="w-full px-3 py-1.5 text-xs rounded-lg bg-[#16161f] border border-[#1e1e2e] text-[#e8e8f0] placeholder:text-[#55556a] focus:outline-none focus:border-[#ff7a00]/40"
+                  />
+                  <div className="max-h-56 overflow-y-auto space-y-2 pr-0.5">
+                    {emojiSearch.trim()
+                      ? (() => {
+                          const q = emojiSearch.toLowerCase()
+                          const all = EMOJI_GROUPS.flatMap(g =>
+                            g.emojis.filter(e => g.label.toLowerCase().includes(q) || e.includes(q))
+                          )
+                          return all.length === 0
+                            ? <p className="text-xs text-[#55556a] text-center py-3">Nenhum resultado</p>
+                            : <div className="flex flex-wrap gap-1">{all.map(e => (
+                                <button key={e} type="button"
+                                  onClick={() => { upd('emoji', e); setShowEmojiPicker(false); setEmojiSearch('') }}
+                                  className="w-8 h-8 text-lg rounded-lg hover:bg-[#ff7a00]/15 flex items-center justify-center transition-colors"
+                                >{e}</button>
+                              ))}</div>
+                        })()
+                      : EMOJI_GROUPS.map(g => (
+                          <div key={g.label}>
+                            <p className="text-[9px] uppercase tracking-wider text-[#55556a] mb-1 px-1">{g.label}</p>
+                            <div className="flex flex-wrap gap-1">
+                              {g.emojis.map(e => (
+                                <button key={e} type="button"
+                                  onClick={() => { upd('emoji', e); setShowEmojiPicker(false); setEmojiSearch('') }}
+                                  className="w-8 h-8 text-lg rounded-lg hover:bg-[#ff7a00]/15 flex items-center justify-center transition-colors"
+                                  style={displayEmoji === e ? { background: 'rgba(255,122,0,.2)' } : undefined}
+                                >{e}</button>
+                              ))}
+                            </div>
+                          </div>
+                        ))
+                    }
+                  </div>
+                  {form.emoji && (
+                    <button
+                      type="button"
+                      onClick={() => { upd('emoji', ''); setShowEmojiPicker(false) }}
+                      className="w-full text-[10px] text-[#55556a] hover:text-[#ff4466] py-1 transition-colors"
+                    >Restaurar padrão da categoria</button>
+                  )}
+                </div>
+              )}
             </div>
             <input className="input-dark flex-1" placeholder="Ex: Comprar apartamento"
               value={form.name} onChange={e => upd('name', e.target.value)} />
@@ -852,7 +934,7 @@ export default function Goals() {
                   <Tooltip content={<ProjectionTooltip />} />
 
                   {/* Pyramid tier threshold lines — only for tiers within chart range */}
-                  {tierCrossings.filter(c => c.withinChart).map(({ tier }) => (
+                  {tierCrossings.filter(c => c.withinChart).map(({ tier, timeLabel }) => (
                     <ReferenceLine
                       key={`tier-${tier.key}`}
                       y={tier.min}
@@ -860,7 +942,7 @@ export default function Goals() {
                       strokeDasharray="6 3"
                       strokeWidth={1.5}
                       label={{
-                        value: `${tier.name} · ${formatBRL(tier.min, true)}`,
+                        value: `${tier.name} · ${formatBRL(tier.min, true)} · em ${timeLabel}`,
                         position: 'insideTopRight',
                         fill: tier.color,
                         fontSize: 9,
@@ -932,52 +1014,33 @@ export default function Goals() {
               }
             </div>
 
-            {/* Legend for goal events */}
-            {goalEvents.length > 0 && (
-              <div className="flex flex-wrap gap-3 mt-3 px-3">
-                {goalEvents.map(({ goal, date, occurrenceIndex, total }) => (
-                  <div key={`${goal.id}-${occurrenceIndex}`} className="flex items-center gap-1.5 text-xs text-[#8888aa]">
-                    <span>{goal.emoji}</span>
-                    <span>
-                      {goal.name}
-                      {total > 1 && <span className="text-[#55556a] ml-1">({occurrenceIndex + 1}/{total})</span>}
-                    </span>
-                    <span className="text-[#55556a]">({formatDate(date.toISOString().split('T')[0])})</span>
-                    <span style={{ color: goal.impactType === 'expense' ? '#ff4466' : '#00ff88' }}>
-                      {goal.impactType === 'expense' ? `−${formatBRL(goal.targetAmount, true)}` : `+${formatBRL(goal.targetAmount, true)}`}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Pyramid tier legend — always shown for all unreached tiers */}
-            {tierCrossings.length > 0 && (
-              <div className="mt-4 px-3">
-                <p className="text-[10px] text-[#55556a] uppercase tracking-wider mb-2">Camadas da pirâmide restantes</p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-                  {tierCrossings.map(({ tier, timeLabel, withinChart }) => (
-                    <div
-                      key={tier.key}
-                      className="flex items-center gap-2 px-2.5 py-2 rounded-xl border text-xs"
-                      style={{ borderColor: tier.color + '40', background: tier.color + '0a' }}
-                    >
-                      <div
-                        className="w-2 h-2 rounded-full flex-shrink-0"
-                        style={{ background: withinChart ? tier.color : 'transparent', border: `1.5px solid ${tier.color}` }}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="font-semibold truncate" style={{ color: tier.color }}>{tier.name}</p>
-                        <p className="text-[10px] text-[#55556a] truncate">{formatBRL(tier.min, true)}</p>
-                        <p className="text-[10px] truncate" style={{ color: withinChart ? tier.color : '#55556a' }}>
-                          {timeLabel}
-                        </p>
-                      </div>
+            {/* Legend for goal events — one row per goal, collapsing recurrences */}
+            {goalEvents.length > 0 && (() => {
+              const seen = new Map<string, { goal: FinancialGoal; date: Date; total: number }>()
+              for (const { goal, date, total } of goalEvents) {
+                if (!seen.has(goal.id)) seen.set(goal.id, { goal, date, total })
+              }
+              return (
+                <div className="flex flex-wrap gap-3 mt-3 px-3">
+                  {[...seen.values()].map(({ goal, date, total }) => (
+                    <div key={goal.id} className="flex items-center gap-1.5 text-xs text-[#8888aa]">
+                      <span>{goal.emoji}</span>
+                      <span className="text-[#e8e8f0]">{goal.name}</span>
+                      <span className="text-[#55556a]">({formatDate(date.toISOString().split('T')[0])})</span>
+                      {total > 1 && (
+                        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold" style={{ background: 'rgba(255,122,0,.12)', color: '#ff7a00' }}>
+                          ×{total} recorrências
+                        </span>
+                      )}
+                      <span style={{ color: goal.impactType === 'expense' ? '#ff4466' : '#00ff88' }}>
+                        {goal.impactType === 'expense' ? `−${formatBRL(goal.targetAmount, true)}` : `+${formatBRL(goal.targetAmount, true)}`}
+                      </span>
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
+              )
+            })()}
+
           </CardContent>
         </Card>
 
