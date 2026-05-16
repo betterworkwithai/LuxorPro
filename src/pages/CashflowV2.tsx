@@ -1196,6 +1196,48 @@ export default function CashflowV2() {
                       <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
                     ))}
                   </select>
+                  {/* Regime fiscal em massa */}
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] text-[#55556a] uppercase tracking-wider mr-0.5">Regime:</span>
+                    {(['caixa', 'competencia'] as const).map(regime => (
+                      <button
+                        key={regime}
+                        disabled={bulkBusy}
+                        onClick={async () => {
+                          setBulkBusy(true)
+                          try {
+                            for (const id of selectedIds) {
+                              const t = transactions.find(x => x.id === id)
+                              if (t && t.type === 'expense') await updateTransaction({ ...t, expenseRegime: regime })
+                            }
+                          } finally { setBulkBusy(false) }
+                        }}
+                        className="px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors disabled:opacity-40"
+                        style={{ borderColor: '#8b5cf6', color: '#8b5cf6', background: 'rgba(139,92,246,.08)' }}
+                      >{regime === 'caixa' ? 'Caixa' : 'Competência'}</button>
+                    ))}
+                  </div>
+                  {/* Natureza em massa */}
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] text-[#55556a] uppercase tracking-wider mr-0.5">Natureza:</span>
+                    {([['fixed', 'Fixa', '#f59e0b'], ['variable', 'Variável', '#00d4ff'], ['investment', 'Investimento', '#00ff88']] as const).map(([val, label, color]) => (
+                      <button
+                        key={val}
+                        disabled={bulkBusy}
+                        onClick={async () => {
+                          setBulkBusy(true)
+                          try {
+                            for (const id of selectedIds) {
+                              const t = transactions.find(x => x.id === id)
+                              if (t && t.type === 'expense') await updateTransaction({ ...t, expenseNature: val })
+                            }
+                          } finally { setBulkBusy(false) }
+                        }}
+                        className="px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors disabled:opacity-40"
+                        style={{ borderColor: color, color, background: `${color}14` }}
+                      >{label}</button>
+                    ))}
+                  </div>
                   {/* Delete em massa */}
                   {!bulkConfirmDelete ? (
                     <button
@@ -1277,7 +1319,22 @@ export default function CashflowV2() {
                           title="Clique para editar"
                         >
                           <span className="v2-num text-[#8888aa]">{formatDate(t.date).slice(0, 5)}</span>
-                          <span className="font-medium truncate">{t.description}</span>
+                          <span className="font-medium truncate flex items-center gap-1.5">
+                            {t.description}
+                            {t.type === 'expense' && t.expenseRegime && (
+                              <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(139,92,246,.15)', color: '#8b5cf6' }}>
+                                {t.expenseRegime === 'caixa' ? 'Cx' : 'Cp'}
+                              </span>
+                            )}
+                            {t.type === 'expense' && t.expenseNature && (
+                              <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{
+                                background: t.expenseNature === 'fixed' ? 'rgba(245,158,11,.15)' : t.expenseNature === 'variable' ? 'rgba(0,212,255,.12)' : 'rgba(0,255,136,.1)',
+                                color: t.expenseNature === 'fixed' ? '#f59e0b' : t.expenseNature === 'variable' ? '#00d4ff' : '#00ff88',
+                              }}>
+                                {t.expenseNature === 'fixed' ? 'Fx' : t.expenseNature === 'variable' ? 'Vr' : 'Inv'}
+                              </span>
+                            )}
+                          </span>
                           <span className="text-[#8888aa] truncate">{cat?.icon ?? '📦'} {cat?.name ?? t.category}</span>
                           <span className="v2-num font-semibold text-right" style={{ color: t.type === 'expense' ? '#ff4466' : '#00ff88' }}>
                             {t.type === 'expense' ? '−' : '+'}{formatBRL(v, true)}
