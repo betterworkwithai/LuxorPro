@@ -2,9 +2,9 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { Modal, ModalFooter } from '../ui/Modal'
 import { useStore } from '../../store/useStore'
 import { PAYMENT_METHODS, SUGGESTED_CATEGORIES } from '../../lib/types'
-import { Plus, X, Scissors, ChevronDown, ChevronUp, Info } from 'lucide-react'
+import { Plus, X, Scissors, ChevronDown, ChevronUp, Info, Link2 } from 'lucide-react'
 import { AccountSelect } from '../ui/AccountSelect'
-import type { Transaction } from '../../lib/types'
+import type { Transaction, CashflowEventType } from '../../lib/types'
 import { useCategoriesForType, useAllCategories } from '../../lib/useCategories'
 import { todayISO, formatBRL } from '../../lib/formatters'
 import { FormulaInput } from '../ui/FormulaInput'
@@ -42,7 +42,9 @@ const emptyForm = (prefill?: Props['prefill'], defaultAccount = '') => ({
   expenseRegime: 'caixa' as 'caixa' | 'competencia',
   paymentDate:   '',
   isWanted:      false,
-  expenseNature: '' as '' | 'fixed' | 'variable' | 'investment',
+  expenseNature:       '' as '' | 'fixed' | 'variable' | 'investment',
+  linkedInvestmentId:  '',
+  cashflowEventType:   'dividend' as CashflowEventType,
 })
 
 const emptyRecForm = (defaultAccount = '') => ({
@@ -135,6 +137,8 @@ export function AddTransactionModal({ open, onClose, prefill, initial }: Props) 
 
   // Advanced section toggle
   const [showAdvanced, setShowAdvanced] = useState(false)
+  // Investment link section toggle
+  const [showLink, setShowLink] = useState(false)
 
   // Re-initialise whenever the modal opens
   useEffect(() => {
@@ -152,6 +156,7 @@ export function AddTransactionModal({ open, onClose, prefill, initial }: Props) 
     ])
     setSmartCatSuggestion(null)
     setShowAdvanced(false)
+    setShowLink(!!initial?.linkedInvestmentId)
     if (initial) {
       setForm({
         type:          initial.type,
@@ -165,8 +170,10 @@ export function AddTransactionModal({ open, onClose, prefill, initial }: Props) 
         currency:      initial.currency ?? 'BRL',
         expenseRegime: initial.expenseRegime ?? 'caixa',
         paymentDate:   initial.paymentDate ?? '',
-        isWanted:      initial.isWanted ?? false,
-        expenseNature: initial.expenseNature ?? '',
+        isWanted:           initial.isWanted ?? false,
+        expenseNature:      initial.expenseNature ?? '',
+        linkedInvestmentId: initial.linkedInvestmentId ?? '',
+        cashflowEventType:  (initial.cashflowEventType ?? 'dividend') as CashflowEventType,
       })
     } else {
       setForm(emptyForm(prefill, defaultAccount))
@@ -326,6 +333,9 @@ export function AddTransactionModal({ open, onClose, prefill, initial }: Props) 
       } else {
         const amount = parseFloat(form.amount.replace(',', '.'))
         if (!form.description || isNaN(amount) || amount <= 0) return
+        const linkFields = form.linkedInvestmentId
+          ? { linkedInvestmentId: form.linkedInvestmentId, cashflowEventType: form.cashflowEventType }
+          : { linkedInvestmentId: undefined, cashflowEventType: undefined }
         if (isEdit && initial) {
           await updateTransaction({
             ...initial,
@@ -342,6 +352,7 @@ export function AddTransactionModal({ open, onClose, prefill, initial }: Props) 
             paymentDate:   (form.type === 'expense' && form.expenseRegime === 'competencia') ? form.paymentDate || undefined : undefined,
             isWanted:      form.type === 'expense' ? form.isWanted : undefined,
             expenseNature: (form.type === 'expense' && form.expenseNature) ? form.expenseNature : undefined,
+            ...linkFields,
           })
         } else {
           await addTransaction({
@@ -359,6 +370,7 @@ export function AddTransactionModal({ open, onClose, prefill, initial }: Props) 
             paymentDate:   (form.type === 'expense' && form.expenseRegime === 'competencia') ? form.paymentDate || undefined : undefined,
             isWanted:      form.type === 'expense' ? form.isWanted : undefined,
             expenseNature: (form.type === 'expense' && form.expenseNature) ? form.expenseNature : undefined,
+            ...linkFields,
           })
         }
       }
@@ -871,6 +883,74 @@ export function AddTransactionModal({ open, onClose, prefill, initial }: Props) 
                 )}
               </div>
             )}
+
+            {/* ── Vincular a Investimento ── */}
+            <div className="rounded-xl border border-[#1e1e2e] overflow-hidden">
+              <button
+                type="button"
+                onClick={() => { setShowLink(v => !v); if (showLink) upd('linkedInvestmentId', '') }}
+                className="w-full flex items-center justify-between px-3 py-2.5 bg-[#16161f] text-xs font-semibold text-[#8888aa] hover:text-[#e8e8f0] transition-all"
+              >
+                <span className="flex items-center gap-2">
+                  <Link2 className="w-3.5 h-3.5" style={{ color: form.linkedInvestmentId ? '#00d4ff' : undefined }} />
+                  {form.linkedInvestmentId
+                    ? `Vinculado: ${investments.find(i => i.id === form.linkedInvestmentId)?.name ?? '…'}`
+                    : 'Vincular a Investimento'}
+                </span>
+                {showLink ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              </button>
+
+              {showLink && (
+                <div className="px-3 py-3 space-y-3 bg-[#0e0e18] border-t border-[#1e1e2e]">
+                  <p className="text-[11px] text-[#8888aa]">
+                    Associa esta entrada bancária ao histórico de rendimentos de um investimento, para calcular o retorno total corretamente.
+                  </p>
+
+                  {/* Investment selector */}
+                  <div>
+                    <label className="text-xs text-[#8888aa] mb-1.5 block">Investimento</label>
+                    <select
+                      className="input-dark text-xs"
+                      value={form.linkedInvestmentId}
+                      onChange={e => upd('linkedInvestmentId', e.target.value)}
+                    >
+                      <option value="">— Selecionar —</option>
+                      {[...investments].sort((a, b) => a.name.localeCompare(b.name)).map(i => (
+                        <option key={i.id} value={i.id}>{i.name}{i.ticker ? ` (${i.ticker})` : ''}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Event type */}
+                  {form.linkedInvestmentId && (
+                    <div>
+                      <label className="text-xs text-[#8888aa] mb-1.5 block">Tipo de Rendimento</label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {([
+                          { value: 'dividend',     label: 'Dividendo',    color: '#00ff88' },
+                          { value: 'coupon',       label: 'Cupom/Juros',  color: '#00d4ff' },
+                          { value: 'amortization', label: 'Amortização',  color: '#f59e0b' },
+                          { value: 'jcp',          label: 'JCP',          color: '#8b5cf6' },
+                          { value: 'other',        label: 'Outro',        color: '#55556a' },
+                        ] as { value: CashflowEventType; label: string; color: string }[]).map(et => (
+                          <button
+                            key={et.value}
+                            type="button"
+                            onClick={() => upd('cashflowEventType', et.value)}
+                            className="px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-all"
+                            style={form.cashflowEventType === et.value
+                              ? { background: et.color + '18', borderColor: et.color + '55', color: et.color }
+                              : { background: '#16161f', borderColor: '#1e1e2e', color: '#55556a' }}
+                          >
+                            {et.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
 
             {/* Notes */}
             <div>

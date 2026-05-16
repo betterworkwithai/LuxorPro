@@ -150,6 +150,8 @@ interface Props {
   open: boolean
   onClose: () => void
   initial?: Investment
+  /** Bank-statement transactions linked to this investment (set by WealthV2). */
+  linkedTransactions?: import('../../lib/types').Transaction[]
   /** Pre-fill the form from an existing transaction (e.g. user is converting
    *  a Pluggy-imported "expense" that was actually a transfer to a broker
    *  into a real Investment record). Quantity defaults to 1, currentPrice
@@ -232,7 +234,7 @@ function InstitutionField({ sel, custom, allInstitutions, onSel, onCustom }: {
   )
 }
 
-export function InvestmentModal({ open, onClose, initial, seedFromTransaction, onSeedSaved }: Props) {
+export function InvestmentModal({ open, onClose, initial, linkedTransactions, seedFromTransaction, onSeedSaved }: Props) {
   const { addInvestment, updateInvestment, deleteInvestment, investments, settings, saveCustomInstitution } = useStore()
 
   // Only show institutions already in use + any the user has manually saved
@@ -1024,6 +1026,42 @@ export function InvestmentModal({ open, onClose, initial, seedFromTransaction, o
                       </div>
                     </div>
                   </>
+                )}
+
+                {/* ── Linked bank-statement transactions ── */}
+                {linkedTransactions && linkedTransactions.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className="h-px flex-1 bg-[#1e1e2e]" />
+                      <span className="text-[10px] uppercase tracking-wider text-[#55556a]">Extrato Bancário Vinculado</span>
+                      <div className="h-px flex-1 bg-[#1e1e2e]" />
+                    </div>
+                    <p className="text-[11px] text-[#8888aa]">
+                      Transações do extrato marcadas como rendimento deste investimento. Já incluídas no cálculo de retorno.
+                    </p>
+                    <div className="border border-[#00d4ff]/20 rounded-xl overflow-hidden">
+                      <div className="max-h-48 overflow-y-auto">
+                        {[...linkedTransactions].sort((a, b) => b.date.localeCompare(a.date)).map(t => {
+                          const et = CASHFLOW_EVENT_TYPES.find(e => e.value === t.cashflowEventType)
+                          return (
+                            <div key={t.id} className="flex items-center gap-2 px-3 py-2 border-b border-[#1e1e2e] last:border-0 text-xs">
+                              <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: et?.color ?? '#00d4ff' }} />
+                              <span className="text-[#8888aa] w-20 flex-shrink-0">{formatDate(t.date)}</span>
+                              <span className="text-[10px] flex-shrink-0" style={{ color: et?.color ?? '#00d4ff' }}>{et?.label ?? 'Rendimento'}</span>
+                              <span className="flex-1 text-[#55556a] truncate">{t.description}</span>
+                              <span className="font-mono font-semibold text-[#00d4ff] flex-shrink-0">
+                                + {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} {t.currency ?? 'BRL'}
+                              </span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-[#55556a]">
+                      Total: {linkedTransactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} {f.currency}
+                      · Para desvincular, edite a transação no Fluxo de Caixa.
+                    </p>
+                  </div>
                 )}
               </>
             )}

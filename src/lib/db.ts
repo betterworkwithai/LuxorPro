@@ -12,6 +12,7 @@ import type {
   Attachment, RecurringTransaction, AppSettings, FinancialGoal,
 } from './types'
 import { DEFAULT_SETTINGS } from './types'
+import { deepFixMojibake } from './encoding'
 
 export interface LuxorBackup {
   version: number
@@ -71,7 +72,7 @@ async function cloudGetAll<T>(table: LuxorTable): Promise<T[]> {
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
   if (error) throw error
-  return ((data ?? []) as Array<{ data: T }>).map(r => r.data)
+  return ((data ?? []) as Array<{ data: T }>).map(r => deepFixMojibake(r.data))
 }
 
 async function cloudUpsert<T extends { id: string }>(table: LuxorTable, item: T): Promise<T> {
@@ -159,7 +160,7 @@ export const db = {
         .eq('user_id', userId)
         .maybeSingle()
       if (error) throw error
-      return (data?.data as AppSettings | undefined) ?? DEFAULT_SETTINGS
+      return deepFixMojibake((data?.data as AppSettings | undefined) ?? DEFAULT_SETTINGS)
     },
     /** Returns true if a settings row already exists for this user. */
     exists: async (): Promise<boolean> => {
@@ -206,15 +207,16 @@ export const db = {
 
   /** Wipe everything for the current user and restore from a backup object. */
   importData: async (backup: LuxorBackup): Promise<void> => {
-    await db.clearAll(backup.settings)
+    const clean = deepFixMojibake(backup)
+    await db.clearAll(clean.settings)
     const writes: Promise<unknown>[] = []
-    for (const t of backup.transactions)  writes.push(cloudUpsert('luxor_transactions', t))
-    for (const i of backup.investments)   writes.push(cloudUpsert('luxor_investments', i))
-    for (const t of backup.taxItems)      writes.push(cloudUpsert('luxor_tax_items', t))
-    for (const a of backup.attachments)   writes.push(attachmentStore.setItem(a.id, a))
-    for (const s of backup.subscriptions) writes.push(cloudUpsert('luxor_subscriptions', s))
-    for (const g of backup.goals)         writes.push(cloudUpsert('luxor_goals', g))
-    writes.push(db.settings.save(backup.settings))
+    for (const t of clean.transactions)  writes.push(cloudUpsert('luxor_transactions', t))
+    for (const i of clean.investments)   writes.push(cloudUpsert('luxor_investments', i))
+    for (const t of clean.taxItems)      writes.push(cloudUpsert('luxor_tax_items', t))
+    for (const a of clean.attachments)   writes.push(attachmentStore.setItem(a.id, a))
+    for (const s of clean.subscriptions) writes.push(cloudUpsert('luxor_subscriptions', s))
+    for (const g of clean.goals)         writes.push(cloudUpsert('luxor_goals', g))
+    writes.push(db.settings.save(clean.settings))
     await Promise.all(writes)
   },
 

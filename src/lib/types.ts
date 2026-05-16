@@ -33,6 +33,9 @@ export interface Transaction {
   // Couples sharing
   visibility?: 'private' | 'shared'
   sharedWithPartnershipId?: string
+  // Investment cashflow link — ties this bank-statement entry to an investment
+  linkedInvestmentId?: string
+  cashflowEventType?: CashflowEventType  // dividend | coupon | jcp | amortization | other
 }
 
 // ─── Couples sharing partnership ──────────────

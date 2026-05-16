@@ -92,17 +92,21 @@ export default function WealthV2() {
   }, [period])
 
   // ── Per-investment start-of-period price ──────
-  // Looks up the latest priceHistory entry on or before the cutoff.
-  // If the asset wasn't held yet (purchaseDate after cutoff) OR has no
-  // history before cutoff, we fall back to its avgCost — that way the
-  // "period gain" naturally collapses to the lifetime gain for the
-  // portion of the asset bought during the period.
+  // Returns the best estimate of this asset's per-unit price at `cutoffISO`:
+  //   1. Exact match from priceHistory (most accurate)
+  //   2. Geometric interpolation between avgCost and currentPrice when the
+  //      investment predates the cutoff but has no historical price point —
+  //      assumes constant compounding rate over the holding period.
+  //   3. avgCost when the investment was purchased AFTER the cutoff (its cost
+  //      is the correct start-of-period price; full gain is within the period).
+  // Also sets the `interpolatedBRL` accumulator in the totals loop so the UI
+  // can flag estimated numbers distinctly from exact price-history numbers.
   function startPriceFor(inv: Investment, cutoffISO: string): number {
-    const fallback = Number.isFinite(inv.avgCost) ? inv.avgCost : 0
-    if (period === 'ALL') return fallback
+    const cost = Number.isFinite(inv.avgCost) ? inv.avgCost : 0
+    if (period === 'ALL') return cost
+
+    // 1. Exact price from history at or before cutoff
     if (Array.isArray(inv.priceHistory) && inv.priceHistory.length > 0) {
-      // Be defensive: priceHistory may carry malformed entries (missing date
-      // or non-string date) from old imports — filter before sort/compare.
       const valid = inv.priceHistory.filter(
         p => p && typeof p.date === 'string' && p.date.length > 0 && Number.isFinite(p.price),
       )
@@ -113,8 +117,27 @@ export default function WealthV2() {
         if (Number.isFinite(px)) return px as number
       }
     }
-    if (inv.purchaseDate && typeof inv.purchaseDate === 'string' && inv.purchaseDate > cutoffISO) return fallback
-    return fallback
+
+    // 2. Investment bought after the cutoff — avgCost IS the start-of-period price
+    if (!inv.purchaseDate || typeof inv.purchaseDate !== 'string' || inv.purchaseDate > cutoffISO) {
+      return cost
+    }
+
+    // 3. Investment predates cutoff, no price history — geometric interpolation.
+    //    price(t) = cost × (currentPrice/cost)^t   where t = fraction of holding at cutoff
+    const cur = Number.isFinite(inv.currentPrice) ? inv.currentPrice : cost
+    if (cost > 0 && cur > 0) {
+      const purchaseMs = new Date(inv.purchaseDate + 'T00:00:00').getTime()
+      const cutoffMs   = new Date(cutoffISO   + 'T00:00:00').getTime()
+      const nowMs      = Date.now()
+      const totalMs    = nowMs - purchaseMs
+      if (totalMs > 0 && cutoffMs > purchaseMs) {
+        const t = (cutoffMs - purchaseMs) / totalMs
+        return cost * Math.pow(cur / cost, Math.min(1, t))
+      }
+    }
+
+    return cost
   }
 
   // ── Period-aware totals ───────────────────────
@@ -128,7 +151,7 @@ export default function WealthV2() {
     const all = investments
     let totalValueBRL = 0, totalCostBRL = 0, startValueBRL = 0
     let dividendsBRL = 0, interestBRL = 0
-    let valueWithHistoryBRL = 0
+    let valueWithHistoryBRL = 0, valueInterpolatedBRL = 0
     liquidInv.forEach(i => {
       const cur  = convert(i.quantity * i.currentPrice, i.currency, 'BRL', usdToBrl, eurToBrl)
       const cost = convert(i.quantity * i.avgCost,      i.currency, 'BRL', usdToBrl, eurToBrl)
@@ -138,24 +161,33 @@ export default function WealthV2() {
       startValueBRL += convert(i.quantity * sp, i.currency, 'BRL', usdToBrl, eurToBrl)
       dividendsBRL  += convert(i.dividendsReceived ?? 0, i.currency, 'BRL', usdToBrl, eurToBrl)
       interestBRL   += convert(i.interestReceived ?? 0,  i.currency, 'BRL', usdToBrl, eurToBrl)
-      // Does this asset have a priceHistory point at or before the cutoff?
-      // For ALL period everything counts as "with history" (we use cost basis).
-      const hasReliableStart =
+      // Coverage: exact priceHistory point = best; geometric interpolation = acceptable estimate;
+      // purchased-within-period = exact (cost IS the start price). ALL period always covered.
+      const hasExactHistory =
         period === 'ALL'
         || (Array.isArray(i.priceHistory) && i.priceHistory.some(p => p?.date && p.date <= periodCutoff))
-      if (hasReliableStart) valueWithHistoryBRL += cur
+      const hasInterpolation =
+        !hasExactHistory
+        && !!i.purchaseDate
+        && typeof i.purchaseDate === 'string'
+        && i.purchaseDate <= periodCutoff
+      if (hasExactHistory)    valueWithHistoryBRL  += cur
+      if (hasInterpolation)   valueInterpolatedBRL += cur
     })
     const physicalBRL = all.filter(i => i.location === 'physical-re').reduce((s, i) =>
       s + convert(i.quantity * i.currentPrice, i.currency, 'BRL', usdToBrl, eurToBrl), 0)
-    // Lifetime gain (vs avg cost) — always available, used as fallback
     const lifetimeGainBRL = totalValueBRL - totalCostBRL
     const lifetimeGainPct = totalCostBRL > 0 ? (lifetimeGainBRL / totalCostBRL) * 100 : 0
-    const historyCoverage = totalValueBRL > 0 ? valueWithHistoryBRL / totalValueBRL : 1
+    // exactCoverage: fraction backed by real priceHistory points
+    // estimatedCoverage: fraction using geometric interpolation (still period-accurate)
+    const exactCoverage      = totalValueBRL > 0 ? valueWithHistoryBRL  / totalValueBRL : 1
+    const estimatedCoverage  = totalValueBRL > 0 ? valueInterpolatedBRL / totalValueBRL : 0
+    const hasInterpolation   = valueInterpolatedBRL > 0
     return {
       totalValueBRL, totalCostBRL, startValueBRL,
       lifetimeGainBRL, lifetimeGainPct,
       dividendsBRL, interestBRL, physicalBRL,
-      historyCoverage,
+      exactCoverage, estimatedCoverage, hasInterpolation,
       totalNetWorthBRL: totalValueBRL + physicalBRL,
     }
   }, [investments, usdToBrl, eurToBrl, periodCutoff, period])
@@ -173,29 +205,62 @@ export default function WealthV2() {
       .reduce((s, t) => s + convert(t.amount, (t.currency ?? 'BRL') as 'BRL' | 'USD' | 'EUR', 'BRL', usdToBrl, eurToBrl), 0)
   }, [transactions, periodCutoff, usdToBrl, eurToBrl])
 
-  // ── Period gain (capital + cash flow) ─────────
-  // periodGain = end - start - (aportes − resgates)
-  // When priceHistory coverage is too sparse to trust (<50% of portfolio
-  // value), the math degenerates because `startValue` collapses to cost
-  // basis. We auto-fall back to lifetime gain (current − cost) and flag
-  // the metric as "vs custo" instead of "no período" so users aren't shown
-  // fabricated numbers.
-  const HISTORY_COVERAGE_THRESHOLD = 0.5
-  const useLifetimeFallback = period !== 'ALL' && totals.historyCoverage < HISTORY_COVERAGE_THRESHOLD
+  // ── Bank-statement transactions linked to investments ──
+  // Groups transactions that have `linkedInvestmentId` set by investment ID.
+  // Used both for per-asset cashflow display and for total-return calculations.
+  const linkedTxByInvestment = useMemo(() => {
+    const m = new Map<string, typeof transactions>()
+    for (const t of transactions) {
+      if (!t.linkedInvestmentId) continue
+      const arr = m.get(t.linkedInvestmentId) ?? []
+      arr.push(t)
+      m.set(t.linkedInvestmentId, arr)
+    }
+    return m
+  }, [transactions])
+
+  // Period-level income from linked bank transactions (dividends, coupons, etc.)
+  const periodLinkedIncomeBRL = useMemo(() => {
+    let total = 0
+    for (const txs of linkedTxByInvestment.values()) {
+      for (const t of txs) {
+        if (t.date >= periodCutoff && t.type === 'income') {
+          total += convert(t.amount, (t.currency ?? 'BRL') as 'BRL' | 'USD' | 'EUR', 'BRL', usdToBrl, eurToBrl)
+        }
+      }
+    }
+    return total
+  }, [linkedTxByInvestment, periodCutoff, usdToBrl, eurToBrl])
+
+  // Total linked income all-time (for ALL period)
+  const allTimeLinkedIncomeBRL = useMemo(() => {
+    let total = 0
+    for (const txs of linkedTxByInvestment.values()) {
+      for (const t of txs) {
+        if (t.type === 'income') {
+          total += convert(t.amount, (t.currency ?? 'BRL') as 'BRL' | 'USD' | 'EUR', 'BRL', usdToBrl, eurToBrl)
+        }
+      }
+    }
+    return total
+  }, [linkedTxByInvestment, usdToBrl, eurToBrl])
+
+  // ── Period gain (capital + linked cashflow income) ──────────────────────
+  // Total return = capital gain + income received in bank account linked to this investment.
+  // periodGain = (V_end − V_start) + linked_income_period − (aportes − resgates)
   const periodGainBRL =
-    period === 'ALL' || useLifetimeFallback
-      ? totals.lifetimeGainBRL
-      : totals.totalValueBRL - totals.startValueBRL - (periodAportes - periodResgates)
+    period === 'ALL'
+      ? totals.lifetimeGainBRL + allTimeLinkedIncomeBRL
+      : totals.totalValueBRL - totals.startValueBRL + periodLinkedIncomeBRL - (periodAportes - periodResgates)
   const periodGainBase =
-    period === 'ALL' || useLifetimeFallback
+    period === 'ALL'
       ? totals.totalCostBRL
       : Math.max(totals.startValueBRL + (periodAportes - periodResgates) / 2, 1)
   const periodGainPct = periodGainBase > 0 ? (periodGainBRL / periodGainBase) * 100 : 0
-  // Label nuances: when falling back, tell the user what they're seeing
   const gainSuffix = period === 'ALL'
     ? 'vs custo médio'
-    : useLifetimeFallback
-      ? 'vs custo (histórico de preços insuficiente)'
+    : totals.hasInterpolation && totals.exactCoverage < 0.5
+      ? 'no período (estimado)'
       : 'no período'
 
   const monthsElapsed = useMemo(() => {
@@ -687,14 +752,16 @@ export default function WealthV2() {
         const cost = convert(i.quantity * i.avgCost,      i.currency, 'BRL', usdToBrl, eurToBrl)
         const startPrice = startPriceFor(i, periodCutoff)
         const startVal = convert(i.quantity * startPrice, i.currency, 'BRL', usdToBrl, eurToBrl)
-        // Per-asset period gain = current - start (no aporte-level data per asset,
-        // so we use the asset's full quantity at start price as approximation).
-        const periodGain = period === 'ALL' ? (cur - cost) : (cur - startVal)
+        const linked = linkedTxByInvestment.get(i.id) ?? []
+        const linkedIncomePer = linked.filter(t => t.date >= periodCutoff && t.type === 'income')
+          .reduce((s, t) => s + convert(t.amount, (t.currency ?? 'BRL') as 'BRL'|'USD'|'EUR', 'BRL', usdToBrl, eurToBrl), 0)
+        const linkedIncomeAll = linked.filter(t => t.type === 'income')
+          .reduce((s, t) => s + convert(t.amount, (t.currency ?? 'BRL') as 'BRL'|'USD'|'EUR', 'BRL', usdToBrl, eurToBrl), 0)
+        const periodGain = period === 'ALL' ? (cur - cost + linkedIncomeAll) : (cur - startVal + linkedIncomePer)
         const periodPct  = period === 'ALL'
           ? (cost > 0 ? (periodGain / cost) * 100 : 0)
           : (startVal > 0 ? (periodGain / startVal) * 100 : 0)
-        // Lifetime metrics still available as fallback
-        const lifeGain = cur - cost
+        const lifeGain = cur - cost + linkedIncomeAll
         const lifePct  = cost > 0 ? (lifeGain / cost) * 100 : 0
         return {
           inv: i,
@@ -703,7 +770,7 @@ export default function WealthV2() {
           lifeGain, lifePct,
         }
       })
-  }, [investments, usdToBrl, eurToBrl, periodCutoff, period])
+  }, [investments, usdToBrl, eurToBrl, periodCutoff, period, linkedTxByInvestment])
 
   const topGainers = useMemo(() => [...movers].filter(m => m.gain > 0).sort((a, b) => b.gain - a.gain).slice(0, 3), [movers])
   const topLosers  = useMemo(() => [...movers].filter(m => m.gain < 0).sort((a, b) => a.gain - b.gain).slice(0, 3), [movers])
@@ -787,14 +854,27 @@ export default function WealthV2() {
       const cur  = convert(i.quantity * i.currentPrice, i.currency, 'BRL', usdToBrl, eurToBrl)
       const cost = convert(i.quantity * i.avgCost,      i.currency, 'BRL', usdToBrl, eurToBrl)
       const sp   = startPriceFor(i, periodCutoff)
-      const startVal = convert(i.quantity * sp,         i.currency, 'BRL', usdToBrl, eurToBrl)
-      const gainLife  = cur - cost
+      const startVal = convert(i.quantity * sp, i.currency, 'BRL', usdToBrl, eurToBrl)
+      // Linked cashflow income for this specific investment
+      const linked = linkedTxByInvestment.get(i.id) ?? []
+      const linkedIncomePer  = linked.filter(t => t.date >= periodCutoff && t.type === 'income')
+        .reduce((s, t) => s + convert(t.amount, (t.currency ?? 'BRL') as 'BRL'|'USD'|'EUR', 'BRL', usdToBrl, eurToBrl), 0)
+      const linkedIncomeAll  = linked.filter(t => t.type === 'income')
+        .reduce((s, t) => s + convert(t.amount, (t.currency ?? 'BRL') as 'BRL'|'USD'|'EUR', 'BRL', usdToBrl, eurToBrl), 0)
+      const gainLife  = cur - cost + linkedIncomeAll
       const pctLife   = cost > 0 ? (gainLife / cost) * 100 : 0
-      const gainPer   = period === 'ALL' ? gainLife : (cur - startVal)
+      const gainPer   = period === 'ALL'
+        ? gainLife
+        : (cur - startVal + linkedIncomePer)
       const pctPer    = period === 'ALL'
         ? pctLife
         : (startVal > 0 ? (gainPer / startVal) * 100 : 0)
-      return { ...i, currentBRL: cur, costBRL: cost, startBRL: startVal, gain: gainPer, pct: pctPer, gainLife, pctLife }
+      return {
+        ...i, currentBRL: cur, costBRL: cost, startBRL: startVal,
+        gain: gainPer, pct: pctPer, gainLife, pctLife,
+        linkedIncomePer, linkedIncomeAll, linkedCount: linked.length,
+        linkedTxs: linked,
+      }
     })
     if (filterClass !== 'all') out = out.filter(i => i.assetClass === filterClass)
     if (filterInstitution !== 'all') out = out.filter(i => (i.institution || '') === filterInstitution)
@@ -822,7 +902,7 @@ export default function WealthV2() {
         default:             return dir * (a.currentBRL - b.currentBRL)
       }
     })
-  }, [investments, search, filterClass, filterInstitution, filterTax, usdToBrl, eurToBrl, periodCutoff, period, sortKey, sortDir])
+  }, [investments, search, filterClass, filterInstitution, filterTax, usdToBrl, eurToBrl, periodCutoff, period, sortKey, sortDir, linkedTxByInvestment])
 
   const visiblePos = showAllPos ? positions : positions.slice(0, 8)
 
@@ -2283,7 +2363,18 @@ export default function WealthV2() {
                         <span className="v2-num text-right text-[#8888aa]">{p.quantity.toLocaleString('pt-BR', { maximumFractionDigits: 4 })}</span>
                         <span className="v2-num text-right text-[#8888aa]">{p.avgCost.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} / {p.currentPrice.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}</span>
                         <span className="v2-num text-right font-semibold">{fmt(toBase(p.currentBRL), true)}</span>
-                        <span className="v2-num text-right font-semibold" style={{ color: p.pct >= 0 ? '#00ff88' : '#ff4466' }}>{p.pct >= 0 ? '+' : ''}{p.pct.toFixed(1)}%</span>
+                        <span className="v2-num text-right font-semibold flex flex-col items-end gap-0.5" style={{ color: p.pct >= 0 ? '#00ff88' : '#ff4466' }}>
+                          <span>{p.pct >= 0 ? '+' : ''}{p.pct.toFixed(1)}%</span>
+                          {p.linkedIncomeAll > 0 && (
+                            <span
+                              className="text-[9px] font-semibold px-1 py-0.5 rounded"
+                              style={{ background: 'rgba(0,212,255,.12)', color: '#00d4ff' }}
+                              title={`Rendimentos vinculados do extrato: ${fmt(toBase(p.linkedIncomeAll), true)}`}
+                            >
+                              +{fmt(toBase(p.linkedIncomeAll), true)} rend.
+                            </span>
+                          )}
+                        </span>
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
@@ -2320,7 +2411,12 @@ export default function WealthV2() {
 
 
       <InvestmentModal open={showAddInv} onClose={() => setShowAddInv(false)} />
-      <InvestmentModal open={!!editing} onClose={() => setEditing(null)} initial={editing ?? undefined} />
+      <InvestmentModal
+        open={!!editing}
+        onClose={() => setEditing(null)}
+        initial={editing ?? undefined}
+        linkedTransactions={editing ? (linkedTxByInvestment.get(editing.id) ?? []) : []}
+      />
     </div>
   )
 }
