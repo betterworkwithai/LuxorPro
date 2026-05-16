@@ -262,6 +262,7 @@ export default function WealthV2() {
     : totals.hasInterpolation && totals.exactCoverage < 0.5
       ? 'no período (estimado)'
       : 'no período'
+  const useLifetimeFallback = period !== 'ALL' && totals.hasInterpolation && totals.exactCoverage < 0.5
 
   const monthsElapsed = useMemo(() => {
     const ms = Date.now() - new Date(periodCutoff + 'T00:00:00').getTime()
