@@ -220,7 +220,7 @@ export default function CashflowV2() {
     if (next.has(id)) next.delete(id); else next.add(id)
     return next
   })
-  const clearSelection = () => setSelectedIds(new Set())
+  const clearSelection = () => { setSelectedIds(new Set()); setBulkConfirmDelete(false) }
   type TxSortKey = 'date' | 'description' | 'category' | 'value'
   const [txSortKey, setTxSortKey] = useState<TxSortKey>('date')
   const [txSortDir, setTxSortDir] = useState<'asc' | 'desc'>('desc')
@@ -870,8 +870,9 @@ export default function CashflowV2() {
             </div>
           </ExpandableCard>
 
-          {/* Aportes vs Resgates */}
+          {/* Aportes vs Resgates — double width */}
           <ExpandableCard
+            gridClass="lg:col-span-2"
             title="Aportes vs Resgates"
             subtitle={`${formatBRL(aportes, true)} aportados · ${formatBRL(resgates, true)} resgatados no período`}
             modalSize="lg"
@@ -916,28 +917,42 @@ export default function CashflowV2() {
           >
             <p className="v2-caption pr-9">Aportes vs Resgates</p>
             <p className="text-sm text-[#8888aa] mt-0.5">{periodMode === 'monthly' ? `${monthName(selMonth)} ${selYear}` : ''}</p>
-            <svg viewBox="0 0 280 130" className="w-full mt-3" preserveAspectRatio="none">
-              <line x1="0" y1="65" x2="280" y2="65" stroke="#1e1e30" strokeWidth="1.5"/>
-              {weekly.map((w, i) => {
-                const groupW = 280 / weekly.length
-                const cx = i * groupW + groupW / 2
-                const apMax = Math.max(...weekly.map(x => x.aportes), 1)
-                const reMax = Math.max(...weekly.map(x => x.resgates), 1)
-                const scale = Math.max(apMax, reMax)
-                const apH = scale > 0 ? (w.aportes / scale) * 50 : 0
-                const reH = scale > 0 ? (w.resgates / scale) * 50 : 0
-                const netH = scale > 0 ? (Math.abs(w.aportes - w.resgates) / scale) * 50 : 0
-                return (
-                  <g key={i}>
-                    <rect x={cx - 24} y={65 - apH} width="14" height={apH} fill="#00d4ff" rx="2"/>
-                    <rect x={cx - 7}  y="65"      width="14" height={reH} fill="#ff7a00" rx="2"/>
-                    <rect x={cx + 10} y={(w.aportes - w.resgates) >= 0 ? 65 - netH : 65} width="14" height={netH} fill="#8888aa" rx="2"/>
-                    <text x={cx} y="125" textAnchor="middle" fill="#55556a" fontSize="9" fontFamily="Inter">{w.label}</text>
-                  </g>
-                )
-              })}
-            </svg>
-            <div className="mt-3 pt-3 border-t border-[#1e1e30] flex items-center justify-around text-xs">
+            {/* SVG chart: aportes above zero, resgates mirrored below zero */}
+            {(() => {
+              const ZERO = 70   // px y-coordinate of the baseline
+              const MAX_H = 55  // max bar height in px above/below baseline
+              const scale = Math.max(...weekly.map(x => Math.max(x.aportes, x.resgates)), 1)
+              const totalW = 560
+              const groupW = totalW / Math.max(weekly.length, 1)
+              const barW = Math.max(6, Math.min(18, groupW * 0.35))
+              return (
+                <svg viewBox={`0 0 ${totalW} 160`} className="w-full mt-3" preserveAspectRatio="none">
+                  {/* Grid lines */}
+                  <line x1="0" y1={ZERO} x2={totalW} y2={ZERO} stroke="#2a2a3e" strokeWidth="1.5"/>
+                  <line x1="0" y1={ZERO - MAX_H * 0.5} x2={totalW} y2={ZERO - MAX_H * 0.5} stroke="#1e1e30" strokeWidth="0.5" strokeDasharray="3 3"/>
+                  <line x1="0" y1={ZERO + MAX_H * 0.5} x2={totalW} y2={ZERO + MAX_H * 0.5} stroke="#1e1e30" strokeWidth="0.5" strokeDasharray="3 3"/>
+                  {weekly.map((w, i) => {
+                    const cx = i * groupW + groupW / 2
+                    const apH = (w.aportes / scale) * MAX_H
+                    const reH = (w.resgates / scale) * MAX_H
+                    return (
+                      <g key={i}>
+                        {/* Aportes: above baseline */}
+                        {apH > 0 && <rect x={cx - barW - 2} y={ZERO - apH} width={barW} height={apH} fill="#00d4ff" rx="2" opacity="0.9"/>}
+                        {/* Resgates: below baseline (mirrored) */}
+                        {reH > 0 && <rect x={cx + 2} y={ZERO} width={barW} height={reH} fill="#ff7a00" rx="2" opacity="0.9"/>}
+                        {/* Label */}
+                        <text x={cx} y="150" textAnchor="middle" fill="#55556a" fontSize="9" fontFamily="Inter">{w.label}</text>
+                      </g>
+                    )
+                  })}
+                  {/* Axis labels */}
+                  <text x="4" y={ZERO - MAX_H + 8} fill="#55556a" fontSize="8" fontFamily="Inter">Aportes</text>
+                  <text x="4" y={ZERO + MAX_H - 2} fill="#55556a" fontSize="8" fontFamily="Inter">Resgates</text>
+                </svg>
+              )
+            })()}
+            <div className="mt-3 pt-3 border-t border-[#1e1e30] flex items-center gap-6 text-xs">
               <div className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-sm" style={{ background: '#00d4ff' }}/>
                 <span className="text-[#8888aa]">Aportes</span>
@@ -947,6 +962,12 @@ export default function CashflowV2() {
                 <span className="w-2.5 h-2.5 rounded-sm" style={{ background: '#ff7a00' }}/>
                 <span className="text-[#8888aa]">Resgates</span>
                 <span className="v2-num font-semibold" style={{ color: '#ff7a00' }}>{formatBRL(resgates, true)}</span>
+              </div>
+              <div className="ml-auto flex items-center gap-1.5">
+                <span className="text-[#8888aa]">Net</span>
+                <span className="v2-num font-semibold" style={{ color: aportes - resgates >= 0 ? '#00ff88' : '#ff4466' }}>
+                  {aportes - resgates >= 0 ? '+' : ''}{formatBRL(aportes - resgates, true)}
+                </span>
               </div>
             </div>
           </ExpandableCard>

@@ -70,10 +70,17 @@ const emptyInvForm = () => ({
 
 export function AddTransactionModal({ open, onClose, prefill, initial }: Props) {
   const {
-    addTransaction, updateTransaction, addSubscription, updateInvestment,
+    addTransaction, updateTransaction, addSubscription, updateInvestment, deleteTransaction,
     settings, addCustomCategory, transactions, investments, saveCustomPaymentMethod,
   } = useStore()
   const isEdit = !!initial
+
+  const handleDelete = async () => {
+    if (!initial) return
+    if (!confirm('Excluir esta transação?')) return
+    await deleteTransaction(initial.id)
+    onClose()
+  }
 
   const defaultAccount = useMemo(() => {
     const counts = new Map<string, number>()
@@ -1137,6 +1144,11 @@ export function AddTransactionModal({ open, onClose, prefill, initial }: Props) 
         </div>
       )}
       <ModalFooter>
+        {isEdit && (
+          <button className="btn-danger mr-auto" onClick={handleDelete}>
+            Excluir
+          </button>
+        )}
         <button className="btn-ghost" onClick={onClose}>Cancelar</button>
         {(isEdit || mode === 'one-time') ? (
           <button className="btn-primary" onClick={() => handleSave()} disabled={saving}>
