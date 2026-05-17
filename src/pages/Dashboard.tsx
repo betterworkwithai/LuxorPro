@@ -231,8 +231,8 @@ export default function Dashboard() {
   const cleanExpenses  = expenses - investAportes
   const taxExpenses    = useMemo(() => periodTx.filter(t => t.type === 'expense' && t.category === 'imposto').reduce((a, t) => a + txToBRL(t), 0), [periodTx, settings.usdToBrl, settings.eurToBrl])
   const nonTaxExpenses = cleanExpenses - taxExpenses
-  const netFlow     = income - expenses
-  const savingsRate = income > 0 ? ((income - expenses) / income) * 100 : 0
+  const netFlow     = cleanIncome - cleanExpenses
+  const savingsRate = cleanIncome > 0 ? ((cleanIncome - cleanExpenses) / cleanIncome) * 100 : 0
 
   // ── KPI labels & secondary metric ────────────────────────────
   const kpiLabel = periodMode === 'monthly' ? 'do Mês' : periodMode === 'ytd' ? 'YTD' : 'do Ano'

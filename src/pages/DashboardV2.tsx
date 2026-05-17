@@ -110,8 +110,8 @@ export default function DashboardV2() {
   // ── KPIs ──────────────────────────────────────
   const txBrl = (t: typeof periodTx[number]) =>
     convert(t.amount, (t.currency ?? 'BRL') as 'BRL' | 'USD' | 'EUR', 'BRL', usdToBrl, eurToBrl)
-  const income = useMemo(() => periodTx.filter(t => t.type === 'income').reduce((a, t) => a + txBrl(t), 0), [periodTx])
-  const expenses = useMemo(() => periodTx.filter(t => t.type === 'expense').reduce((a, t) => a + txBrl(t), 0), [periodTx])
+  const income = useMemo(() => periodTx.filter(t => t.type === 'income' && t.category !== 'investimento').reduce((a, t) => a + txBrl(t), 0), [periodTx])
+  const expenses = useMemo(() => periodTx.filter(t => t.type === 'expense' && t.category !== 'investimento').reduce((a, t) => a + txBrl(t), 0), [periodTx])
   const aportes = useMemo(() => periodTx.filter(t => t.type === 'expense' && t.category === 'investimento').reduce((a, t) => a + txBrl(t), 0), [periodTx])
   const netFlow = income - expenses
   const savingsRate = income > 0 ? ((income - expenses) / income) * 100 : 0

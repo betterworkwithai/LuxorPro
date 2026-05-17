@@ -268,17 +268,16 @@ export default function CashflowV2() {
     return transactions.filter(t => t.date.startsWith(`${selYear - 1}-`))
   }, [transactions, periodMode, selMonth, selYear, todayMonth, todayYear])
 
-  const income     = useMemo(() => periodTx.filter(t => t.type === 'income').reduce((a, t) => a + txBrl(t), 0), [periodTx])
-  const expenses   = useMemo(() => periodTx.filter(t => t.type === 'expense').reduce((a, t) => a + txBrl(t), 0), [periodTx])
+  const income     = useMemo(() => periodTx.filter(t => t.type === 'income'  && t.category !== 'investimento').reduce((a, t) => a + txBrl(t), 0), [periodTx])
+  const expenses   = useMemo(() => periodTx.filter(t => t.type === 'expense' && t.category !== 'investimento').reduce((a, t) => a + txBrl(t), 0), [periodTx])
 
   const expenseBreakdown = useMemo(() => {
-    const exps = periodTx.filter(t => t.type === 'expense')
+    const exps = periodTx.filter(t => t.type === 'expense' && t.category !== 'investimento')
     let fixed = 0, variable = 0, investment = 0, other = 0
     for (const t of exps) {
       const v = txBrl(t)
-      if (t.category === 'investimento') { investment += v; continue }
-      if (t.expenseNature === 'fixed')      fixed      += v
-      else if (t.expenseNature === 'variable') variable += v
+      if (t.expenseNature === 'fixed')        fixed      += v
+      else if (t.expenseNature === 'variable') variable   += v
       else if (t.expenseNature === 'investment') investment += v
       else other += v
     }
@@ -289,8 +288,8 @@ export default function CashflowV2() {
   const netFlow    = income - expenses
   const savingsRate = income > 0 ? ((income - expenses) / income) * 100 : 0
 
-  const lastIncome = useMemo(() => lastPeriodTx.filter(t => t.type === 'income').reduce((a, t) => a + txBrl(t), 0), [lastPeriodTx])
-  const lastExpenses = useMemo(() => lastPeriodTx.filter(t => t.type === 'expense').reduce((a, t) => a + txBrl(t), 0), [lastPeriodTx])
+  const lastIncome = useMemo(() => lastPeriodTx.filter(t => t.type === 'income'  && t.category !== 'investimento').reduce((a, t) => a + txBrl(t), 0), [lastPeriodTx])
+  const lastExpenses = useMemo(() => lastPeriodTx.filter(t => t.type === 'expense' && t.category !== 'investimento').reduce((a, t) => a + txBrl(t), 0), [lastPeriodTx])
   const lastNet = lastIncome - lastExpenses
 
   // ── Period days for daily burn ─────────────────
@@ -313,7 +312,7 @@ export default function CashflowV2() {
   const todayBurn = useMemo(() => {
     if (periodMode !== 'monthly' || selYear !== todayYear || selMonth !== todayMonth) return 0
     const todayStr = today.toISOString().split('T')[0]
-    return transactions.filter(t => t.date === todayStr && t.type === 'expense').reduce((a, t) => a + txBrl(t), 0)
+    return transactions.filter(t => t.date === todayStr && t.type === 'expense' && t.category !== 'investimento').reduce((a, t) => a + txBrl(t), 0)
   }, [transactions, periodMode, selMonth, selYear, todayMonth, todayYear, today])
 
   // ── Daily flow for sparkline ───────────────────
@@ -326,8 +325,8 @@ export default function CashflowV2() {
     for (let d = 1; d <= lastDay; d++) {
       const dStr = `${prefix}${String(d).padStart(2, '0')}`
       const dayTxs = monthTxs.filter(t => t.date === dStr)
-      const inc = dayTxs.filter(t => t.type === 'income').reduce((a, t) => a + txBrl(t), 0)
-      const exp = dayTxs.filter(t => t.type === 'expense').reduce((a, t) => a + txBrl(t), 0)
+      const inc = dayTxs.filter(t => t.type === 'income'  && t.category !== 'investimento').reduce((a, t) => a + txBrl(t), 0)
+      const exp = dayTxs.filter(t => t.type === 'expense' && t.category !== 'investimento').reduce((a, t) => a + txBrl(t), 0)
       out.push({ day: d, net: inc - exp, income: inc, expense: exp })
     }
     return out
@@ -351,8 +350,8 @@ export default function CashflowV2() {
         })
         return {
           label: w.label,
-          income: txs.filter(t => t.type === 'income').reduce((a, t) => a + txBrl(t), 0),
-          expense: txs.filter(t => t.type === 'expense').reduce((a, t) => a + txBrl(t), 0),
+          income: txs.filter(t => t.type === 'income'  && t.category !== 'investimento').reduce((a, t) => a + txBrl(t), 0),
+          expense: txs.filter(t => t.type === 'expense' && t.category !== 'investimento').reduce((a, t) => a + txBrl(t), 0),
           aportes: txs.filter(t => t.type === 'expense' && t.category === 'investimento').reduce((a, t) => a + txBrl(t), 0),
           resgates: txs.filter(t => t.type === 'income' && t.category === 'investimento').reduce((a, t) => a + txBrl(t), 0),
         }
@@ -366,8 +365,8 @@ export default function CashflowV2() {
       const txs = transactions.filter(t => t.date.startsWith(prefix))
       return {
         label: monthName(m).slice(0, 3),
-        income: txs.filter(t => t.type === 'income').reduce((a, t) => a + txBrl(t), 0),
-        expense: txs.filter(t => t.type === 'expense').reduce((a, t) => a + txBrl(t), 0),
+        income: txs.filter(t => t.type === 'income'  && t.category !== 'investimento').reduce((a, t) => a + txBrl(t), 0),
+        expense: txs.filter(t => t.type === 'expense' && t.category !== 'investimento').reduce((a, t) => a + txBrl(t), 0),
         aportes: txs.filter(t => t.type === 'expense' && t.category === 'investimento').reduce((a, t) => a + txBrl(t), 0),
         resgates: txs.filter(t => t.type === 'income' && t.category === 'investimento').reduce((a, t) => a + txBrl(t), 0),
       }
