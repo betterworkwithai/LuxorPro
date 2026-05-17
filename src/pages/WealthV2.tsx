@@ -93,7 +93,7 @@ export default function WealthV2() {
   const [filterClass, setFilterClass] = useState<string>('all')
   const [filterInstitution, setFilterInstitution] = useState<string>('all')
   const [filterTax, setFilterTax] = useState<string>('all')
-  const [filterLocation, setFilterLocation] = useState<'all'|'onshore'|'offshore'>('all')
+  const [globalLocation, setGlobalLocation] = useState<'all'|'onshore'|'offshore'>('all')
   const [visibleCols, setVisibleCols] = useState<ColId[]>(() => {
     try { const s = localStorage.getItem('luxor-pos-cols'); if (s) return JSON.parse(s) as ColId[] } catch {}
     return DEFAULT_COL_IDS
@@ -107,7 +107,6 @@ export default function WealthV2() {
   type SortKey = ColSortKey
   const [sortKey, setSortKey] = useState<SortKey>('position')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
-  const [breakdownLocation, setBreakdownLocation] = useState<'all' | 'onshore' | 'offshore'>('all')
   const toggleSort = (k: SortKey) => {
     if (sortKey === k) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
     else { setSortKey(k); setSortDir('desc') }
@@ -218,8 +217,12 @@ export default function WealthV2() {
   // avgCost when history is missing) is unreliable, so the UI falls back
   // to showing lifetime gain instead of a fabricated period number.
   const totals = useMemo(() => {
-    const liquidInv = investments.filter(i => i.location !== 'physical-re')
-    const all = investments
+    const liquidInv = investments.filter(i =>
+      i.location !== 'physical-re' && (globalLocation === 'all' || i.location === globalLocation),
+    )
+    const all = investments.filter(i =>
+      globalLocation === 'all' || i.location === globalLocation || i.location === 'physical-re',
+    )
     let totalValueBRL = 0, totalCostBRL = 0, startValueBRL = 0
     let dividendsBRL = 0, interestBRL = 0
     let valueWithHistoryBRL = 0, valueInterpolatedBRL = 0
@@ -261,7 +264,7 @@ export default function WealthV2() {
       exactCoverage, estimatedCoverage, hasInterpolation,
       totalNetWorthBRL: totalValueBRL + physicalBRL,
     }
-  }, [investments, usdToBrl, eurToBrl, periodCutoff, period])
+  }, [investments, usdToBrl, eurToBrl, periodCutoff, period, globalLocation])
 
   // ── Aportes / resgates within the selected window ──
   const periodAportes = useMemo(() => {
@@ -346,6 +349,7 @@ export default function WealthV2() {
     const byClass = new Map<string, { inv: Investment; valueBRL: number }[]>()
     investments.forEach(i => {
       if (i.location === 'physical-re') return
+      if (globalLocation !== 'all' && i.location !== globalLocation) return
       const v = convert(i.quantity * i.currentPrice, i.currency, 'BRL', usdToBrl, eurToBrl)
       if (v <= 0) return
       const canon = i.location === 'offshore' ? canonicalIntlClass(i.assetClass) : canonicalLocalClass(i.assetClass)
@@ -364,7 +368,7 @@ export default function WealthV2() {
         color: palette[i % palette.length],
         items: (byClass.get(name) ?? []).sort((a, b) => b.valueBRL - a.valueBRL),
       }))
-  }, [investments, usdToBrl, eurToBrl])
+  }, [investments, usdToBrl, eurToBrl, globalLocation])
   const allocation = useMemo(() => allAllocation.slice(0, 8), [allAllocation])
 
   // ── Suitability gap map: canonical class → { gapPct, gapValue, targetPct } ──
@@ -377,6 +381,7 @@ export default function WealthV2() {
     const intlActuals  = new Map<string, number>()
     investments.forEach(i => {
       if (i.location === 'physical-re') return
+      if (globalLocation !== 'all' && i.location !== globalLocation) return
       const v = convert(i.quantity * i.currentPrice, i.currency, 'BRL', usdToBrl, eurToBrl)
       if (v <= 0) return
       if (i.location === 'offshore') {
@@ -405,7 +410,7 @@ export default function WealthV2() {
       gaps.set(cls, { gapPct, gapValue: (gapPct / 100) * offshoreTotal, targetPct, actualPct })
     })
     return gaps
-  }, [investments, usdToBrl, eurToBrl, settings.suitability])
+  }, [investments, usdToBrl, eurToBrl, settings.suitability, globalLocation])
 
   // ── Generic breakdown helper: aggregates BRL value by some key ──
   // Returns rows with `items` — the list of investments in each bucket —
@@ -424,7 +429,7 @@ export default function WealthV2() {
     let total = 0
     investments.forEach(i => {
       if (i.location === 'physical-re') return
-      if (breakdownLocation !== 'all' && i.location !== breakdownLocation) return
+      if (globalLocation !== 'all' && i.location !== globalLocation) return
       const v = convert(i.quantity * i.currentPrice, i.currency, 'BRL', usdToBrl, eurToBrl)
       if (v <= 0) return
       const k = keyFn(i)
@@ -461,7 +466,7 @@ export default function WealthV2() {
       palette,
       LIQ_ORDER,
     )
-  }, [investments, usdToBrl, eurToBrl, breakdownLocation])
+  }, [investments, usdToBrl, eurToBrl, globalLocation])
 
   // ── Tax treatment breakdown ────────────────────
   const taxLabel: Record<string, string> = {
@@ -477,7 +482,7 @@ export default function WealthV2() {
     let total = 0
     investments.forEach(i => {
       if (i.location === 'physical-re') return
-      if (breakdownLocation !== 'all' && i.location !== breakdownLocation) return
+      if (globalLocation !== 'all' && i.location !== globalLocation) return
       const v = convert(i.quantity * i.currentPrice, i.currency, 'BRL', usdToBrl, eurToBrl)
       if (v <= 0) return
       const k = i.taxTreatment ?? 'unset'
@@ -496,7 +501,7 @@ export default function WealthV2() {
     }))
     const slices: DonutSlice[] = rows.map(r => ({ label: taxLabel[r.key] ?? r.key, value: r.value, color: r.color }))
     return { slices, total, rows }
-  }, [investments, usdToBrl, eurToBrl, breakdownLocation])
+  }, [investments, usdToBrl, eurToBrl, globalLocation])
 
   // ── Institution / broker breakdown ─────────────
   const institutionBreakdown = useMemo(() => {
@@ -505,7 +510,7 @@ export default function WealthV2() {
       i => (i.institution && i.institution.trim().length > 0 ? i.institution : 'Sem instituição'),
       palette,
     )
-  }, [investments, usdToBrl, eurToBrl, breakdownLocation])
+  }, [investments, usdToBrl, eurToBrl, globalLocation])
 
   // ── Risk level breakdown ───────────────────────
   const riskLabel: Record<string, string> = {
@@ -558,7 +563,7 @@ export default function WealthV2() {
     return m[canon] ?? null
   }
   const onshoreClassBreakdown = useMemo(() => {
-    if (breakdownLocation === 'onshore') {
+    if (globalLocation === 'onshore') {
       // Canonical 9-class mapping for onshore
       const m = new Map<string, number>()
       const byLabel = new Map<string, { inv: Investment; valueBRL: number }[]>()
@@ -596,7 +601,7 @@ export default function WealthV2() {
     let total = 0
     investments.forEach(i => {
       if (i.location === 'physical-re') return
-      if (breakdownLocation !== 'all' && i.location !== breakdownLocation) return
+      if (globalLocation !== 'all' && i.location !== globalLocation) return
       const v = convert(i.quantity * i.currentPrice, i.currency, 'BRL', usdToBrl, eurToBrl)
       if (v <= 0) return
       const label = i.assetClass || 'Não classificado'
@@ -615,7 +620,7 @@ export default function WealthV2() {
         items: (byLabel.get(label) ?? []).sort((a, b) => b.valueBRL - a.valueBRL),
       }))
     return { rows, total, unmapped: 0 }
-  }, [investments, usdToBrl, eurToBrl, breakdownLocation])
+  }, [investments, usdToBrl, eurToBrl, globalLocation])
 
   // ── Onshore product type breakdown (alphabetical) ──
   const ONSHORE_PRODUCT_TYPES = [
@@ -680,7 +685,7 @@ export default function WealthV2() {
     let total = 0
     investments.forEach(i => {
       if (i.location === 'physical-re') return
-      if (breakdownLocation !== 'all' && i.location !== breakdownLocation) return
+      if (globalLocation !== 'all' && i.location !== globalLocation) return
       const v = convert(i.quantity * i.currentPrice, i.currency, 'BRL', usdToBrl, eurToBrl)
       if (v <= 0) return
       const t = inferProductType(i)
@@ -720,7 +725,7 @@ export default function WealthV2() {
       })
     })
     return { rows, total }
-  }, [investments, usdToBrl, eurToBrl, breakdownLocation])
+  }, [investments, usdToBrl, eurToBrl, globalLocation])
 
   const riskBreakdown = useMemo(() => {
     // Green → yellow → red gradient
@@ -730,7 +735,7 @@ export default function WealthV2() {
     let total = 0
     investments.forEach(i => {
       if (i.location === 'physical-re') return
-      if (breakdownLocation !== 'all' && i.location !== breakdownLocation) return
+      if (globalLocation !== 'all' && i.location !== globalLocation) return
       const v = convert(i.quantity * i.currentPrice, i.currency, 'BRL', usdToBrl, eurToBrl)
       if (v <= 0) return
       const k = i.riskLevel ? String(i.riskLevel) : 'unset'
@@ -749,7 +754,7 @@ export default function WealthV2() {
     }))
     const slices: DonutSlice[] = rows.map(r => ({ label: riskLabel[r.key] ?? r.key, value: r.value, color: r.color }))
     return { slices, total, rows }
-  }, [investments, usdToBrl, eurToBrl, breakdownLocation])
+  }, [investments, usdToBrl, eurToBrl, globalLocation])
 
   // ── Emissor breakdown ──────────────────────────
   const emisssorBreakdown = useMemo(() => {
@@ -758,7 +763,7 @@ export default function WealthV2() {
       i => (i.issuer && i.issuer.trim().length > 0 ? i.issuer.trim() : 'Não informado'),
       palette,
     )
-  }, [investments, usdToBrl, eurToBrl, breakdownLocation])
+  }, [investments, usdToBrl, eurToBrl, globalLocation])
 
   // ── Holding breakdown ──────────────────────────
   const holdingBreakdown = useMemo(() => {
@@ -767,7 +772,7 @@ export default function WealthV2() {
       i => (i.holding && i.holding.trim().length > 0 ? i.holding.trim() : 'Não informado'),
       palette,
     )
-  }, [investments, usdToBrl, eurToBrl, breakdownLocation])
+  }, [investments, usdToBrl, eurToBrl, globalLocation])
 
   // ── Vencimento (maturity bucket) breakdown ─────
   const maturityBreakdown = useMemo(() => {
@@ -786,7 +791,7 @@ export default function WealthV2() {
     }
     const BUCKET_ORDER = ['< 1 ano', '1–2 anos', '2–3 anos', '3–5 anos', '5–10 anos', '+ 10 anos', 'Vencido', 'Sem vencimento']
     return breakdownBy(bucket, palette, BUCKET_ORDER)
-  }, [investments, usdToBrl, eurToBrl, breakdownLocation])
+  }, [investments, usdToBrl, eurToBrl, globalLocation])
 
   // ── Payment frequency breakdown ────────────────
   const paymentFreqBreakdown = useMemo(() => {
@@ -795,7 +800,7 @@ export default function WealthV2() {
       i => (i.paymentFrequency && i.paymentFrequency.trim().length > 0 ? i.paymentFrequency.trim() : 'Não informado'),
       palette,
     )
-  }, [investments, usdToBrl, eurToBrl, breakdownLocation])
+  }, [investments, usdToBrl, eurToBrl, globalLocation])
 
   // ── Sector breakdown ────────────────────────────
   const sectorBreakdown = useMemo(() => {
@@ -804,7 +809,7 @@ export default function WealthV2() {
       i => (i.sector && i.sector.trim().length > 0 ? i.sector.trim() : 'Não informado'),
       palette,
     )
-  }, [investments, usdToBrl, eurToBrl, breakdownLocation])
+  }, [investments, usdToBrl, eurToBrl, globalLocation])
 
   // ── Benchmark breakdown ─────────────────────────
   const benchmarkBreakdown = useMemo(() => {
@@ -813,12 +818,12 @@ export default function WealthV2() {
       i => (i.benchmark && i.benchmark.trim().length > 0 ? i.benchmark.trim() : 'Sem benchmark'),
       palette,
     )
-  }, [investments, usdToBrl, eurToBrl, breakdownLocation])
+  }, [investments, usdToBrl, eurToBrl, globalLocation])
 
   // ── Per-investment period metrics (used by movers + posições) ──
   const movers = useMemo(() => {
     return investments
-      .filter(i => i.location !== 'physical-re')
+      .filter(i => i.location !== 'physical-re' && (globalLocation === 'all' || i.location === globalLocation))
       .map(i => {
         const cur  = convert(i.quantity * i.currentPrice, i.currency, 'BRL', usdToBrl, eurToBrl)
         const cost = convert(i.quantity * i.avgCost,      i.currency, 'BRL', usdToBrl, eurToBrl)
@@ -842,7 +847,7 @@ export default function WealthV2() {
           lifeGain, lifePct,
         }
       })
-  }, [investments, usdToBrl, eurToBrl, periodCutoff, period, linkedTxByInvestment])
+  }, [investments, usdToBrl, eurToBrl, periodCutoff, period, linkedTxByInvestment, globalLocation])
 
   const topGainers = useMemo(() => [...movers].filter(m => m.gain > 0).sort((a, b) => b.gain - a.gain).slice(0, 3), [movers])
   const topLosers  = useMemo(() => [...movers].filter(m => m.gain < 0).sort((a, b) => a.gain - b.gain).slice(0, 3), [movers])
@@ -959,7 +964,7 @@ export default function WealthV2() {
         allocPct: 0,
       }
     })
-    if (filterLocation !== 'all') out = out.filter(i => i.location === filterLocation)
+    if (globalLocation !== 'all') out = out.filter(i => i.location === globalLocation)
     if (filterClass !== 'all') out = out.filter(i => i.assetClass === filterClass)
     if (filterInstitution !== 'all') out = out.filter(i => (i.institution || '') === filterInstitution)
     if (filterTax !== 'all') out = out.filter(i => (i.taxTreatment ?? 'unset') === filterTax)
@@ -994,7 +999,7 @@ export default function WealthV2() {
         default:             return dir * (a.currentBRL - b.currentBRL)
       }
     })
-  }, [investments, search, filterClass, filterInstitution, filterTax, filterLocation, usdToBrl, eurToBrl, periodCutoff, period, sortKey, sortDir, linkedTxByInvestment, perfCutoffs])
+  }, [investments, search, filterClass, filterInstitution, filterTax, globalLocation, usdToBrl, eurToBrl, periodCutoff, period, sortKey, sortDir, linkedTxByInvestment, perfCutoffs])
 
   const positionsWithAlloc = useMemo(() => {
     const total = positions.reduce((s, p) => s + p.currentBRL, 0)
@@ -1074,6 +1079,15 @@ export default function WealthV2() {
                 { value: 'BRL', label: 'BRL' },
                 { value: 'USD', label: 'USD' },
                 { value: 'EUR', label: 'EUR' },
+              ]}
+            />
+            <PeriodTabs
+              value={globalLocation}
+              onChange={setGlobalLocation}
+              options={[
+                { value: 'all',      label: 'Global' },
+                { value: 'onshore',  label: 'Brasil' },
+                { value: 'offshore', label: 'Exterior' },
               ]}
             />
             <button
@@ -1657,30 +1671,12 @@ export default function WealthV2() {
 
         </section>
 
-        {/* ─── Breakdown location toggle ─────────────────────────── */}
-        <div className="flex items-center gap-3 v2-reveal">
-          <span className="text-xs text-[#55556a] font-medium">Visão:</span>
-          {(['all', 'onshore', 'offshore'] as const).map(loc => (
-            <button
-              key={loc}
-              onClick={() => setBreakdownLocation(loc)}
-              className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${
-                breakdownLocation === loc
-                  ? 'bg-[#00d4ff] text-black'
-                  : 'bg-[#1e1e30] text-[#8888aa] hover:bg-[#2a2a3f] hover:text-white'
-              }`}
-            >
-              {loc === 'all' ? 'Global' : loc === 'onshore' ? 'Onshore' : 'Offshore'}
-            </button>
-          ))}
-        </div>
-
         {/* ─── TAXONOMIES · CLASS + PRODUCT TYPE ──────── */}
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-4 v2-reveal">
 
           {/* Class breakdown */}
           <ExpandableCard
-            title={`Carteira ${breakdownLocation === 'all' ? 'Global' : breakdownLocation === 'onshore' ? 'Onshore' : 'Offshore'} · por classe`}
+            title={`Carteira ${globalLocation === 'all' ? 'Global' : globalLocation === 'onshore' ? 'Onshore' : 'Offshore'} · por classe`}
             subtitle={`${onshoreClassBreakdown.rows.filter(r => r.value > 0).length} classes · ${fmt(toBase(onshoreClassBreakdown.total), true)} totais`}
             modalSize="lg"
             detail={
@@ -1705,9 +1701,9 @@ export default function WealthV2() {
             }
           >
             <div className="flex items-center justify-between mb-1 pr-9">
-              <p className="v2-caption">{breakdownLocation === 'all' ? 'Global' : breakdownLocation === 'onshore' ? 'Onshore' : 'Offshore'} · por classe</p>
+              <p className="v2-caption">{globalLocation === 'all' ? 'Global' : globalLocation === 'onshore' ? 'Onshore' : 'Offshore'} · por classe</p>
             </div>
-            <p className="text-sm text-[#8888aa] mt-0.5">{onshoreClassBreakdown.rows.filter(r => r.value > 0).length} classes · {breakdownLocation === 'onshore' ? 'ordem fixa' : 'por valor'}</p>
+            <p className="text-sm text-[#8888aa] mt-0.5">{onshoreClassBreakdown.rows.filter(r => r.value > 0).length} classes · {globalLocation === 'onshore' ? 'ordem fixa' : 'por valor'}</p>
             <div className="mt-4 space-y-2.5">
               {onshoreClassBreakdown.total <= 0 ? (
                 <p className="text-xs text-[#55556a] text-center py-6">Sem ativos.</p>
@@ -1730,7 +1726,7 @@ export default function WealthV2() {
 
           {/* Product type breakdown */}
           <ExpandableCard
-            title={`Carteira ${breakdownLocation === 'all' ? 'Global' : breakdownLocation === 'onshore' ? 'Onshore' : 'Offshore'} · por tipo de produto`}
+            title={`Carteira ${globalLocation === 'all' ? 'Global' : globalLocation === 'onshore' ? 'Onshore' : 'Offshore'} · por tipo de produto`}
             subtitle={`${onshoreProductBreakdown.rows.filter(r => r.value > 0).length} tipos com posição · ${fmt(toBase(onshoreProductBreakdown.total), true)} totais`}
             modalSize="xl"
             detail={
@@ -1755,7 +1751,7 @@ export default function WealthV2() {
             }
           >
             <div className="flex items-center justify-between mb-1 pr-9">
-              <p className="v2-caption">{breakdownLocation === 'all' ? 'Global' : breakdownLocation === 'onshore' ? 'Onshore' : 'Offshore'} · por produto</p>
+              <p className="v2-caption">{globalLocation === 'all' ? 'Global' : globalLocation === 'onshore' ? 'Onshore' : 'Offshore'} · por produto</p>
             </div>
             <p className="text-sm text-[#8888aa] mt-0.5">{onshoreProductBreakdown.rows.filter(r => r.value > 0).length} tipos com posição · alfabético</p>
             <div className="mt-4 space-y-1.5 max-h-[280px] overflow-y-auto pr-1">
@@ -2422,18 +2418,6 @@ export default function WealthV2() {
                     className="w-full pl-9 pr-3 py-2 text-xs rounded-lg bg-[#0a0a0f] border border-[#1e1e30] text-[#e8e8f0] placeholder:text-[#55556a] focus:outline-none focus:border-[#00d4ff]/40"
                   />
                 </div>
-                {/* Location toggle */}
-                <div className="flex items-center gap-0.5 p-0.5 rounded-lg bg-[#0a0a0f] border border-[#1e1e30] flex-shrink-0">
-                  {(['all', 'onshore', 'offshore'] as const).map(loc => (
-                    <button
-                      key={loc}
-                      onClick={() => setFilterLocation(loc)}
-                      className={`px-2.5 py-1.5 rounded-md text-[10px] font-semibold transition-colors ${filterLocation === loc ? 'bg-[#00d4ff]/15 text-[#00d4ff]' : 'text-[#55556a] hover:text-[#8888aa]'}`}
-                    >
-                      {loc === 'all' ? 'Todos' : loc === 'onshore' ? 'Brasil' : 'Exterior'}
-                    </button>
-                  ))}
-                </div>
                 <select value={filterClass} onChange={e => setFilterClass(e.target.value)} className="px-3 py-2 rounded-lg text-xs font-medium border border-[#1e1e30] bg-[#0a0a0f] text-[#8888aa] max-w-[180px]">
                   <option value="all">Classe: todas</option>
                   {allClassesForFilter.map(c => <option key={c} value={c}>{c}</option>)}
@@ -2449,9 +2433,9 @@ export default function WealthV2() {
                   <option value="tax-exempt">Isento</option>
                   <option value="unset">Não classif.</option>
                 </select>
-                {(filterClass !== 'all' || filterInstitution !== 'all' || filterTax !== 'all' || filterLocation !== 'all' || search) && (
+                {(filterClass !== 'all' || filterInstitution !== 'all' || filterTax !== 'all' || search) && (
                   <button
-                    onClick={() => { setFilterClass('all'); setFilterInstitution('all'); setFilterTax('all'); setFilterLocation('all'); setSearch('') }}
+                    onClick={() => { setFilterClass('all'); setFilterInstitution('all'); setFilterTax('all'); setSearch('') }}
                     className="px-3 py-2 rounded-lg text-xs font-medium border border-[#1e1e30] bg-[#0a0a0f] text-[#ff7a00] hover:border-[#ff7a00]/40"
                   >Limpar filtros</button>
                 )}
