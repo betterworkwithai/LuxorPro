@@ -83,62 +83,129 @@ const SUITABILITY_SCORE: Record<string, number> = {
 
 // Monthly benchmark returns (%) — last trading day of each month.
 // Rows marked [exact] were provided directly; others are close approximations.
-const BENCHMARK_MONTHLY: { date: string; cdi: number; dolar: number; ibov: number; ipca: number }[] = [
-  // ── 2023 (Apr–Dec) ─────────────────────────
-  { date: '2023-04-28', cdi: 1.02, dolar: -1.80, ibov:  2.50, ipca: 0.61 },
-  { date: '2023-05-31', cdi: 1.06, dolar: -1.00, ibov:  3.74, ipca: 0.23 },
-  { date: '2023-06-30', cdi: 1.02, dolar:  0.50, ibov:  9.00, ipca: 0.08 },
-  { date: '2023-07-31', cdi: 1.06, dolar: -1.50, ibov:  3.27, ipca: 0.12 },
-  { date: '2023-08-31', cdi: 0.97, dolar:  4.00, ibov: -5.09, ipca: 0.23 },
-  { date: '2023-09-29', cdi: 1.01, dolar:  2.00, ibov:  0.71, ipca: 0.26 },
-  { date: '2023-10-31', cdi: 0.95, dolar:  2.50, ibov: -2.94, ipca: 0.24 },
-  { date: '2023-11-30', cdi: 0.92, dolar: -3.00, ibov: 12.54, ipca: 0.28 },
-  { date: '2023-12-29', cdi: 0.97, dolar: -0.50, ibov:  5.40, ipca: 0.62 },
-  // ── 2024 (Jan–Dec) ─────────────────────────
-  { date: '2024-01-31', cdi: 0.97, dolar:  1.50, ibov: -4.79, ipca: 0.42 },
-  { date: '2024-02-29', cdi: 0.80, dolar:  0.80, ibov:  0.99, ipca: 0.83 },
-  { date: '2024-03-28', cdi: 0.83, dolar:  0.30, ibov: -0.71, ipca: 0.16 },
-  { date: '2024-04-30', cdi: 0.83, dolar:  5.00, ibov: -1.70, ipca: 0.38 },
-  { date: '2024-05-31', cdi: 0.83, dolar:  4.50, ibov: -3.04, ipca: 0.46 },
-  { date: '2024-06-28', cdi: 0.79, dolar:  0.80, ibov:  1.48, ipca: 0.20 },
-  { date: '2024-07-31', cdi: 0.89, dolar: -1.50, ibov:  4.69, ipca: 0.38 },
-  { date: '2024-08-30', cdi: 0.87, dolar:  3.00, ibov:  6.54, ipca: 0.44 },
-  { date: '2024-09-30', cdi: 0.90, dolar:  6.70, ibov:  0.19, ipca: 0.44 },
-  { date: '2024-10-31', cdi: 0.97, dolar:  5.60, ibov: -1.61, ipca: 0.56 },
-  { date: '2024-11-29', cdi: 1.00, dolar:  2.80, ibov: -3.12, ipca: 0.39 },
-  { date: '2024-12-31', cdi: 0.96, dolar:  4.00, ibov: -4.79, ipca: 0.52 },
-  // ── 2025 (Jan–Dec) ─────────────────────────
-  { date: '2025-01-31', cdi: 1.02, dolar: -2.50, ibov: -0.92, ipca: 0.16 },
-  { date: '2025-02-28', cdi: 1.04, dolar: -1.20, ibov: -1.02, ipca: 1.31 },
-  { date: '2025-03-31', cdi: 1.07, dolar:  0.80, ibov: -2.53, ipca: 0.56 },
-  { date: '2025-04-30', cdi: 1.00, dolar:  2.00, ibov: -3.98, ipca: 0.43 },
-  { date: '2025-05-30', cdi: 1.05, dolar: -1.50, ibov:  3.47, ipca: 0.50 },
-  { date: '2025-06-30', cdi: 1.08, dolar:  0.50, ibov:  2.01, ipca: 0.24 },
-  { date: '2025-07-31', cdi: 1.07, dolar: -0.80, ibov:  5.02, ipca: 0.38 },
-  { date: '2025-08-29', cdi: 1.10, dolar: -2.00, ibov: -3.01, ipca: 0.44 },
-  { date: '2025-09-30', cdi: 1.10, dolar:  1.50, ibov:  1.48, ipca: 0.44 },
-  { date: '2025-10-31', cdi: 1.13, dolar:  0.50, ibov:  2.01, ipca: 0.45 },
-  { date: '2025-11-28', cdi: 1.20, dolar: -1.00, ibov:  3.02, ipca: 0.39 },
-  { date: '2025-12-31', cdi: 1.18, dolar:  0.80, ibov: -1.49, ipca: 0.40 },
-  // ── 2026 (Jan–Mar) — exact values as provided ──────────────────
-  { date: '2026-01-30', cdi: 1.1641575006506, dolar: -4.9487496365222, ibov: 12.5607345385770, ipca: 0.33 },
-  { date: '2026-02-27', cdi: 0.9970231905116, dolar: -1.5410795204680, ibov:  4.0929203661809, ipca: 0.70 },
-  { date: '2026-03-31', cdi: 1.2129314202351, dolar:  1.3574133411009, ibov: -0.7019234050947, ipca: 0.88 },
+interface BenchmarkMonthly {
+  date: string
+  cdi: number; dolar: number; euro: number; ibov: number
+  idkaPre3: number; ifix: number; igpm: number; ihfa: number
+  imaB: number; imaB5: number; imaBPlus: number; ipca: number
+  irfm: number; msciEm: number; msciEu: number; msciWorld: number
+  sp500: number; sp500br: number; usTsy10y: number
+}
+
+const ALL_BENCHMARKS: { key: keyof Omit<BenchmarkMonthly,'date'>; label: string; color: string }[] = [
+  { key: 'cdi',      label: 'CDI',             color: '#00d4ff' },
+  { key: 'ipca',     label: 'IPCA',            color: '#34d399' },
+  { key: 'ibov',     label: 'Ibovespa',        color: '#a78bfa' },
+  { key: 'dolar',    label: 'Dólar',           color: '#ff7a00' },
+  { key: 'euro',     label: 'Euro',            color: '#60a5fa' },
+  { key: 'idkaPre3', label: 'IDkA Pré 3 Anos', color: '#f472b6' },
+  { key: 'ifix',     label: 'IFIX',            color: '#fb923c' },
+  { key: 'igpm',     label: 'IGP-M',           color: '#facc15' },
+  { key: 'ihfa',     label: 'IHFA',            color: '#e879f9' },
+  { key: 'imaB',     label: 'IMA-B',           color: '#2dd4bf' },
+  { key: 'imaB5',    label: 'IMA-B 5',         color: '#4ade80' },
+  { key: 'imaBPlus', label: 'IMA-B 5+',        color: '#86efac' },
+  { key: 'irfm',     label: 'IRF-M',           color: '#93c5fd' },
+  { key: 'msciEm',   label: 'MSCI EM',         color: '#c084fc' },
+  { key: 'msciEu',   label: 'MSCI Europe',     color: '#818cf8' },
+  { key: 'msciWorld',label: 'MSCI World',      color: '#38bdf8' },
+  { key: 'sp500',    label: 'S&P 500',         color: '#f9a8d4' },
+  { key: 'sp500br',  label: 'S&P 500 (BRL)',   color: '#fcd34d' },
+  { key: 'usTsy10y', label: 'US Treasury 10Y', color: '#6ee7b7' },
 ]
 
-type BenchmarkMonthly = typeof BENCHMARK_MONTHLY[number]
+const DEFAULT_BENCHMARKS: Array<keyof Omit<BenchmarkMonthly,'date'>> = ['cdi','ipca','ibov','dolar']
 
-function compoundBench(data: BenchmarkMonthly[], from: string, to: string): { cdi: number; dolar: number; ibov: number; ipca: number } | null {
+const BENCHMARK_MONTHLY: BenchmarkMonthly[] = [
+  { date:'2020-01-31', cdi:0.3766, dolar:5.9245, euro:4.4366, ibov:-1.6298, idkaPre3:1.2639, ifix:-3.7622, igpm:0.477,  ihfa:0.5583, imaB:0.2614,  imaB5:0.5565,  imaBPlus:0.0347, ipca:0.21,  irfm:0.8771, msciEm:0.9529, msciEu:3.21,   msciWorld:5.2035, sp500:5.7521,  sp500br:0.4701,  usTsy10y:3.8867  },
+  { date:'2020-02-29', cdi:0.2918, dolar:6.5065, euro:4.4574, ibov:-8.4297, idkaPre3:0.7703, ifix:-6.1573, igpm:0.2878, ihfa:0.1059, imaB:-1.7395, imaB5:-0.7702, imaBPlus:-2.449, ipca:0.25,  irfm:-0.2099,msciEm:-5.4107,msciEu:-8.5618,msciWorld:-8.0119,sp500:-8.2316, sp500br:-2.3754, usTsy10y:5.7491  },
+  { date:'2020-03-31', cdi:0.3437, dolar:15.9762,euro:10.3289,ibov:-29.9003,idkaPre3:-0.5378,ifix:-16.0924,igpm:0.9905, ihfa:-2.2421,imaB:-9.4434, imaB5:-5.2621, imaBPlus:-12.6944,ipca:0.07, irfm:-1.8888,msciEm:-23.9056,msciEu:-22.3273,msciWorld:-13.3746,sp500:-12.3504,sp500br:1.5252,  usTsy10y:5.4478  },
+  { date:'2020-04-30', cdi:0.2767, dolar:-5.4558,euro:-2.0565,ibov:10.2491, idkaPre3:3.2659, ifix:5.6454,  igpm:0.8396, ihfa:2.7419, imaB:5.9697,  imaB5:3.5984,  imaBPlus:7.8327, ipca:-0.31, irfm:3.4174, msciEm:9.0054, msciEu:7.2875, msciWorld:11.0424,sp500:12.6816, sp500br:7.7879,  usTsy10y:0.8406  },
+  { date:'2020-05-31', cdi:0.2372, dolar:1.3823, euro:-0.5127,ibov:8.5698,  idkaPre3:2.3706, ifix:5.2892,  igpm:0.3459, ihfa:1.7065, imaB:3.9012,  imaB5:2.3396,  imaBPlus:5.1532, ipca:-0.38, irfm:2.0827, msciEm:0.7448, msciEu:-1.2386,msciWorld:4.6117, sp500:4.5329,  sp500br:3.1157,  usTsy10y:0.1478  },
+  { date:'2020-06-30', cdi:0.1942, dolar:-1.4441,euro:0.9012, ibov:8.7611,  idkaPre3:1.1765, ifix:3.0887,  igpm:0.9527, ihfa:1.5299, imaB:2.7888,  imaB5:1.624,   imaBPlus:3.7238, ipca:0.26,  irfm:1.3437, msciEm:7.3554, msciEu:3.1979, msciWorld:2.7564, sp500:1.9842,  sp500br:3.4781,  usTsy10y:-0.7003 },
+  { date:'2020-07-31', cdi:0.1929, dolar:-0.2562,euro:4.9265, ibov:8.2729,  idkaPre3:0.9956, ifix:3.0893,  igpm:2.2357, ihfa:1.3866, imaB:3.0199,  imaB5:1.7218,  imaBPlus:4.0339, ipca:0.36,  irfm:1.4534, msciEm:8.9082, msciEu:3.8068, msciWorld:4.8117, sp500:5.5105,  sp500br:5.2414,  usTsy10y:2.5454  },
+  { date:'2020-08-31', cdi:0.1626, dolar:4.0977, euro:1.9882, ibov:-3.4378, idkaPre3:0.2879, ifix:-2.4079, igpm:2.7424, ihfa:0.5217, imaB:0.7455,  imaB5:0.5154,  imaBPlus:0.9329, ipca:0.24,  irfm:0.5019, msciEm:2.2234, msciEu:3.2069, msciWorld:6.7061, sp500:7.0098,  sp500br:2.6413,  usTsy10y:0.0718  },
+  { date:'2020-09-30', cdi:0.1636, dolar:3.8649, euro:0.4039, ibov:-4.8045, idkaPre3:0.2268, ifix:-3.6131, igpm:4.3499, ihfa:0.0626, imaB:-1.2748, imaB5:-0.4867, imaBPlus:-1.9226,ipca:0.64,  irfm:-0.3285,msciEm:-1.6229,msciEu:-2.1388,msciWorld:-3.4332, sp500:-3.8042, sp500br:-7.3761, usTsy10y:-0.3843 },
+  { date:'2020-10-31', cdi:0.1576, dolar:4.0736, euro:1.9225, ibov:-0.6934, idkaPre3:0.1665, ifix:-1.7049, igpm:3.2369, ihfa:0.3237, imaB:-1.1218, imaB5:-0.5497, imaBPlus:-1.5548,ipca:0.86,  irfm:-0.4074,msciEm:2.0969, msciEu:-4.5126,msciWorld:-2.6616, sp500:-2.7663, sp500br:-6.571,  usTsy10y:-0.1044 },
+  { date:'2020-11-30', cdi:0.1538, dolar:-5.7087,euro:-3.8782,ibov:15.9015, idkaPre3:1.0012, ifix:6.4684,  igpm:3.2846, ihfa:1.7009, imaB:3.4218,  imaB5:2.0441,  imaBPlus:4.5284, ipca:0.89,  irfm:1.6048, msciEm:9.2568, msciEu:17.5178,msciWorld:13.0327, sp500:10.7499, sp500br:17.3534, usTsy10y:-0.3785 },
+  { date:'2020-12-31', cdi:0.1577, dolar:-1.2853,euro:0.9748, ibov:9.3025,  idkaPre3:1.0985, ifix:5.4905,  igpm:3.5219, ihfa:1.2628, imaB:2.6697,  imaB5:1.7061,  imaBPlus:3.4321, ipca:1.35,  irfm:1.3618, msciEm:7.3557, msciEu:2.0817, msciWorld:4.5038, sp500:3.7101,  sp500br:5.0484,  usTsy10y:-0.0568 },
+  { date:'2021-01-31', cdi:0.1546, dolar:5.4478, euro:3.3685, ibov:-3.3196, idkaPre3:-0.0849,ifix:-0.7875, igpm:2.5778, ihfa:0.2456, imaB:-1.0779, imaB5:-0.5056, imaBPlus:-1.4913,ipca:0.25,  irfm:-0.5009,msciEm:3.1003, msciEu:-0.2226,msciWorld:0.1854, sp500:-1.0106, sp500br:4.3777,  usTsy10y:-0.9784 },
+  { date:'2021-02-28', cdi:0.1319, dolar:2.4083, euro:0.5685, ibov:-4.3719, idkaPre3:-0.7041,ifix:-1.1568, igpm:2.5284, ihfa:-0.0779,imaB:-2.4208, imaB5:-1.1491, imaBPlus:-3.3765,ipca:0.86,  irfm:-0.8905,msciEm:0.6783, msciEu:2.5241, msciWorld:2.6145, sp500:2.6099,  sp500br:5.0182,  usTsy10y:-2.7003 },
+  { date:'2021-03-31', cdi:0.165,  dolar:-0.4584,euro:-2.4396,ibov:6.0024,  idkaPre3:-0.063, ifix:1.3851,  igpm:2.9407, ihfa:0.3485, imaB:-0.2474, imaB5:0.0997,  imaBPlus:-0.5046,ipca:0.93,  irfm:0.0406, msciEm:-1.5238,msciEu:7.1009, msciWorld:4.2295, sp500:4.2386,  sp500br:3.7802,  usTsy10y:-2.0867 },
+  { date:'2021-04-30', cdi:0.2106, dolar:-1.7567,euro:-0.9891,ibov:1.9395,  idkaPre3:0.3974, ifix:1.5068,  igpm:1.7443, ihfa:0.5576, imaB:0.5813,  imaB5:0.3895,  imaBPlus:0.7333, ipca:0.31,  irfm:0.5148, msciEm:2.4476, msciEu:2.0009, msciWorld:4.2625, sp500:5.2355,  sp500br:3.417,   usTsy10y:1.9065  },
+  { date:'2021-05-31', cdi:0.2671, dolar:-2.2499,euro:-1.2684,ibov:6.1572,  idkaPre3:0.3661, ifix:2.4476,  igpm:4.1049, ihfa:0.6982, imaB:1.4553,  imaB5:0.9386,  imaBPlus:1.8797, ipca:0.83,  irfm:0.7618, msciEm:2.5547, msciEu:3.6944, msciWorld:1.6543, sp500:0.5521,  sp500br:2.8403,  usTsy10y:0.3284  },
+  { date:'2021-06-30', cdi:0.3144, dolar:0.8001, euro:0.3956, ibov:0.4621,  idkaPre3:-0.0093,ifix:2.7539,  igpm:2.2787, ihfa:0.6177, imaB:-0.2265, imaB5:-0.0337, imaBPlus:-0.3888,ipca:0.53,  irfm:0.1638, msciEm:0.9003, msciEu:-0.7895,msciWorld:1.5459, sp500:2.2239,  sp500br:3.0463,  usTsy10y:1.9065  },
+  { date:'2021-07-31', cdi:0.3597, dolar:3.3736, euro:3.2434, ibov:-3.9393, idkaPre3:-0.2157,ifix:0.8337,  igpm:1.0398, ihfa:0.3843, imaB:-0.1817, imaB5:-0.0437, imaBPlus:-0.2849,ipca:0.96,  irfm:0.0494, msciEm:-6.7319,msciEu:-0.0256,msciWorld:1.2717, sp500:2.3779,  sp500br:5.8625,  usTsy10y:2.5454  },
+  { date:'2021-08-31', cdi:0.4306, dolar:-0.6316,euro:-1.4505,ibov:-2.4853, idkaPre3:-0.2019,ifix:0.5628,  igpm:0.8994, ihfa:0.4481, imaB:-0.6065, imaB5:-0.2698, imaBPlus:-0.8866,ipca:0.87,  irfm:-0.1476,msciEm:2.5786, msciEu:1.9904, msciWorld:2.3896, sp500:3.0417,  sp500br:2.4101,  usTsy10y:0.1478  },
+  { date:'2021-09-30', cdi:0.4394, dolar:4.3578, euro:2.8386, ibov:-6.5694, idkaPre3:-1.0052,ifix:-1.8303, igpm:2.0671, ihfa:-0.1047,imaB:-3.3003, imaB5:-1.4655, imaBPlus:-4.6782,ipca:1.16,  irfm:-1.3469,msciEm:-4.0155,msciEu:-3.3234,msciWorld:-3.9748, sp500:-4.7651, sp500br:-9.8261, usTsy10y:-1.3507 },
+  { date:'2021-10-31', cdi:0.4923, dolar:2.1041, euro:0.4938, ibov:-6.7383, idkaPre3:-1.2716,ifix:-2.7614, igpm:1.4384, ihfa:-0.0823,imaB:-2.8697, imaB5:-1.3254, imaBPlus:-3.9945,ipca:1.25,  irfm:-1.1539,msciEm:-3.0209,msciEu:4.5944, msciWorld:5.6478, sp500:7.0133,  sp500br:9.2741,  usTsy10y:-0.7003 },
+  { date:'2021-11-30', cdi:0.5869, dolar:3.5823, euro:2.5437, ibov:-1.5361, idkaPre3:-1.5386,ifix:-1.8085, igpm:2.0281, ihfa:-0.3248,imaB:-3.1625, imaB5:-1.5034, imaBPlus:-4.4671,ipca:0.95,  irfm:-1.3067,msciEm:-4.5618,msciEu:-4.4539,msciWorld:-1.9006, sp500:-0.8316, sp500br:2.7072,  usTsy10y:0.5127  },
+  { date:'2021-12-31', cdi:0.7699, dolar:0.6029, euro:-1.0697,ibov:2.8519,  idkaPre3:-0.3782,ifix:1.6551,  igpm:0.8741, ihfa:0.5285, imaB:-0.4207, imaB5:-0.1264, imaBPlus:-0.641, ipca:0.73,  irfm:-0.1004,msciEm:-2.6478,msciEu:-5.7042,msciWorld:3.7721, sp500:4.4561,  sp500br:5.0929,  usTsy10y:-0.7003 },
+  { date:'2022-01-31', cdi:0.7347, dolar:2.4638, euro:1.5843, ibov:6.9766,  idkaPre3:-0.5685,ifix:0.7282,  igpm:1.7391, ihfa:0.5399, imaB:-1.1449, imaB5:-0.4737, imaBPlus:-1.6667,ipca:0.54,  irfm:-0.4895,msciEm:1.7736, msciEu:-4.3337,msciWorld:-4.9959, sp500:-5.2597, sp500br:-2.9614, usTsy10y:-2.5657 },
+  { date:'2022-02-28', cdi:0.7618, dolar:-2.2523,euro:-1.0578,ibov:0.8909,  idkaPre3:-0.5413,ifix:1.1449,  igpm:1.8186, ihfa:0.3501, imaB:-1.6754, imaB5:-0.7489, imaBPlus:-2.3791,ipca:1.01,  irfm:-0.5884,msciEm:-3.0254,msciEu:-3.8265,msciWorld:-2.5972, sp500:-2.993,  sp500br:-5.1702, usTsy10y:-2.0867 },
+  { date:'2022-03-31', cdi:0.9343, dolar:-4.3491,euro:-6.8756,ibov:6.0651,  idkaPre3:-0.2685,ifix:0.7479,  igpm:1.7388, ihfa:0.8053, imaB:-0.5099, imaB5:0.1037,  imaBPlus:-0.9777,ipca:1.62,  irfm:0.1546, msciEm:-2.5268,msciEu:-0.5469,msciWorld:3.9296, sp500:3.7135,  sp500br:8.3943,  usTsy10y:-5.0524 },
+  { date:'2022-04-30', cdi:0.8327, dolar:0.6044, euro:1.2219, ibov:-10.0886,idkaPre3:-1.4499,ifix:-4.5748, igpm:1.4154, ihfa:-0.3127,imaB:-5.5066, imaB5:-2.6009, imaBPlus:-7.8069,ipca:1.06,  irfm:-2.1247,msciEm:-5.8523,msciEu:-4.1266,msciWorld:-8.0484, sp500:-8.7223, sp500br:-8.2201, usTsy10y:-5.5773 },
+  { date:'2022-05-31', cdi:1.025,  dolar:1.0286, euro:1.7671, ibov:3.2194,  idkaPre3:-0.0862,ifix:-2.2316, igpm:1.4699, ihfa:0.4613, imaB:-1.3736, imaB5:-0.5538, imaBPlus:-2.0113,ipca:0.47,  irfm:-0.4516,msciEm:0.3832, msciEu:-1.7694,msciWorld:0.1186, sp500:0.0098,  sp500br:1.0386,  usTsy10y:-1.1699 },
+  { date:'2022-06-30', cdi:1.0194, dolar:5.7753, euro:5.4597, ibov:-11.5013,idkaPre3:-1.8028,ifix:-4.6699, igpm:0.5955, ihfa:-0.3626,imaB:-6.0107, imaB5:-2.8819, imaBPlus:-8.6255,ipca:0.67,  irfm:-2.4271,msciEm:-6.6209,msciEu:-8.6439,msciWorld:-8.3714, sp500:-8.1406, sp500br:-2.8524, usTsy10y:-2.9038 },
+  { date:'2022-07-31', cdi:1.0341, dolar:-4.5985,euro:-4.2617,ibov:4.1583,  idkaPre3:1.0629, ifix:2.3459,  igpm:-0.6715,ihfa:0.8609, imaB:2.1568,  imaB5:1.3481,  imaBPlus:2.8051, ipca:0.0,   irfm:1.2621, msciEm:0.126, msciEu:6.3843, msciWorld:8.0318, sp500:9.1088,  sp500br:13.3024, usTsy10y:4.4009  },
+  { date:'2022-08-31', cdi:1.0726, dolar:2.3831, euro:3.0793, ibov:6.1612,  idkaPre3:-0.6048,ifix:1.8009,  igpm:0.0,   ihfa:0.6283, imaB:-1.4657, imaB5:-0.6338, imaBPlus:-2.1436,ipca:-0.29, irfm:-0.5987,msciEm:-1.9163,msciEu:-5.4527,msciWorld:-4.1449, sp500:-4.0807, sp500br:-1.8396, usTsy10y:-1.5762 },
+  { date:'2022-09-30', cdi:1.0816, dolar:6.0498, euro:6.4695, ibov:-0.4729, idkaPre3:-1.0498,ifix:-2.2476, igpm:0.0,   ihfa:-0.235, imaB:-3.3247, imaB5:-1.5476, imaBPlus:-4.7249,ipca:0.59,  irfm:-1.4266,msciEm:-11.4449,msciEu:-9.2009,msciWorld:-9.2543,sp500:-9.2432, sp500br:-3.6906, usTsy10y:-2.9038 },
+  { date:'2022-10-31', cdi:1.0683, dolar:-4.2617,euro:-5.1083,ibov:5.4552,  idkaPre3:0.3567, ifix:1.2178,  igpm:0.0,   ihfa:0.5399, imaB:0.2928,  imaB5:0.3454,  imaBPlus:0.2519, ipca:0.59,  irfm:0.5027, msciEm:-3.0827,msciEu:2.2453, msciWorld:7.8042, sp500:7.9888,  sp500br:12.5508, usTsy10y:-2.8476 },
+  { date:'2022-11-30', cdi:1.0226, dolar:-5.5014,euro:-4.0638,ibov:-3.0621, idkaPre3:0.9213, ifix:0.4048,  igpm:0.0,   ihfa:0.8267, imaB:2.4396,  imaB5:1.4693,  imaBPlus:3.1845, ipca:0.41,  irfm:1.2108, msciEm:14.8244,msciEu:9.3827, msciWorld:5.5066, sp500:5.5767,  sp500br:11.6614, usTsy10y:2.2476  },
+  { date:'2022-12-31', cdi:1.1218, dolar:2.0455, euro:2.5629, ibov:-2.4498, idkaPre3:0.4337, ifix:0.0785,  igpm:0.0,   ihfa:0.7734, imaB:0.4839,  imaB5:0.4044,  imaBPlus:0.5466, ipca:0.54,  irfm:0.5408, msciEm:-1.4831,msciEu:-2.0283,msciWorld:-6.2303, sp500:-5.8993, sp500br:-3.9839, usTsy10y:-0.617  },
+  { date:'2023-01-31', cdi:1.1209, dolar:-4.3494,euro:-2.3059,ibov:3.3685,  idkaPre3:1.5174, ifix:3.7028,  igpm:0.0,   ihfa:1.3673, imaB:4.5348,  imaB5:2.8039,  imaBPlus:5.8872, ipca:0.53,  irfm:2.1424, msciEm:7.8929, msciEu:9.0428, msciWorld:7.1046, sp500:6.2991,  sp500br:11.1036, usTsy10y:2.8044  },
+  { date:'2023-02-28', cdi:1.0559, dolar:2.5895, euro:3.4416, ibov:-7.4946, idkaPre3:-0.8004,ifix:-3.1975, igpm:0.0,   ihfa:0.4094, imaB:-2.7447, imaB5:-1.3009, imaBPlus:-3.9065,ipca:0.84,  irfm:-1.1023,msciEm:-6.6348,msciEu:-3.1574,msciWorld:-2.5073, sp500:-2.4433, sp500br:0.0395,  usTsy10y:-2.4509 },
+  { date:'2023-03-31', cdi:1.1648, dolar:-4.0461,euro:-2.9832,ibov:-2.9067, idkaPre3:0.7044, ifix:0.0527,  igpm:0.0,   ihfa:0.8017, imaB:1.9009,  imaB5:1.1504,  imaBPlus:2.5015, ipca:0.71,  irfm:1.0416, msciEm:2.9984, msciEu:2.9084, msciWorld:3.3252, sp500:3.6674,  sp500br:7.9655,  usTsy10y:3.6543  },
+  { date:'2023-04-28', cdi:1.0198, dolar:-1.8034,euro:-0.5374,ibov:2.4987,  idkaPre3:1.0534, ifix:1.9375,  igpm:0.0,   ihfa:0.9428, imaB:2.7539,  imaB5:1.719,   imaBPlus:3.6011, ipca:0.61,  irfm:1.2823, msciEm:0.4454, msciEu:1.9753, msciWorld:1.5748, sp500:1.5611,  sp500br:3.4223,  usTsy10y:0.9913  },
+  { date:'2023-05-31', cdi:1.0549, dolar:-0.9617,euro:-0.2505,ibov:3.7365,  idkaPre3:0.7777, ifix:2.2657,  igpm:0.0,   ihfa:0.7804, imaB:1.8972,  imaB5:1.1665,  imaBPlus:2.4784, ipca:0.23,  irfm:0.9073, msciEm:-1.8655,msciEu:-3.5208,msciWorld:0.5131, sp500:0.4283,  sp500br:1.4065,  usTsy10y:-0.5644 },
+  { date:'2023-06-30', cdi:1.0222, dolar:0.4908, euro:0.3226, ibov:9.0011,  idkaPre3:0.4756, ifix:2.7028,  igpm:0.0,   ihfa:0.8083, imaB:1.2929,  imaB5:0.8199,  imaBPlus:1.6803, ipca:0.08,  irfm:0.6313, msciEm:3.8529, msciEu:2.0649, msciWorld:6.2088, sp500:6.5019,  sp500br:5.9727,  usTsy10y:0.0718  },
+  { date:'2023-07-31', cdi:1.0595, dolar:-1.5039,euro:-1.1046,ibov:3.2706,  idkaPre3:0.6204, ifix:2.7439,  igpm:0.0,   ihfa:0.797,  imaB:1.6448,  imaB5:1.0284,  imaBPlus:2.1257, ipca:0.12,  irfm:0.7869, msciEm:5.8688, msciEu:1.7726, msciWorld:3.4247, sp500:3.1952,  sp500br:4.7613,  usTsy10y:-0.3843 },
+  { date:'2023-08-31', cdi:0.9706, dolar:4.0437, euro:1.9225, ibov:-5.0902, idkaPre3:-0.2459,ifix:-0.5261, igpm:0.0,   ihfa:0.362,  imaB:-0.5797, imaB5:-0.2043, imaBPlus:-0.8783,ipca:0.23,  irfm:-0.2178,msciEm:-6.2016,msciEu:-3.3748,msciWorld:-2.1494, sp500:-1.5793, sp500br:2.3571,  usTsy10y:-1.8668 },
+  { date:'2023-09-29', cdi:1.0052, dolar:2.0009, euro:1.0551, ibov:0.7143,  idkaPre3:-0.2979,ifix:0.2479,  igpm:0.0,   ihfa:0.4339, imaB:-1.0358, imaB5:-0.4501, imaBPlus:-1.5095,ipca:0.26,  irfm:-0.4295,msciEm:-2.7027,msciEu:-3.4849,msciWorld:-4.2664, sp500:-4.8655, sp500br:-2.9688, usTsy10y:-3.3994 },
+  { date:'2023-10-31', cdi:0.9528, dolar:2.4917, euro:2.3028, ibov:-2.9406, idkaPre3:-0.4684,ifix:-0.9228, igpm:0.0,   ihfa:0.2939, imaB:-1.5437, imaB5:-0.6967, imaBPlus:-2.2505,ipca:0.24,  irfm:-0.6363,msciEm:-3.8849,msciEu:-3.3278,msciWorld:-2.9862, sp500:-2.0997, sp500br:0.3386,  usTsy10y:-3.3432 },
+  { date:'2023-11-30', cdi:0.9191, dolar:-3.0437,euro:-2.5213,ibov:12.543,  idkaPre3:2.0006, ifix:4.0782,  igpm:0.0,   ihfa:1.5419, imaB:5.3393,  imaB5:3.2905,  imaBPlus:6.9943, ipca:0.28,  irfm:2.3846, msciEm:8.0309, msciEu:5.9636, msciWorld:9.4554, sp500:9.1302,  sp500br:12.5449, usTsy10y:5.1459  },
+  { date:'2023-12-29', cdi:0.9655, dolar:-0.4888,euro:1.0046, ibov:5.3845,  idkaPre3:1.4604, ifix:3.6461,  igpm:0.0,   ihfa:1.2279, imaB:3.8066,  imaB5:2.4367,  imaBPlus:4.9403, ipca:0.62,  irfm:1.8022, msciEm:3.8513, msciEu:3.5023, msciWorld:4.8418, sp500:4.5234,  sp500br:5.0484,  usTsy10y:3.9429  },
+  { date:'2024-01-31', cdi:0.9684, dolar:1.4763, euro:0.3289, ibov:-4.7872, idkaPre3:0.2671, ifix:-0.8491, igpm:0.0,   ihfa:0.5777, imaB:0.0617,  imaB5:0.1624,  imaBPlus:-0.012, ipca:0.42,  irfm:0.1498, msciEm:1.7376, msciEu:1.2484, msciWorld:0.5847, sp500:1.6836,  sp500br:3.1809,  usTsy10y:-0.1044 },
+  { date:'2024-02-29', cdi:0.8025, dolar:0.7993, euro:0.3591, ibov:0.9904,  idkaPre3:0.1773, ifix:0.696,   igpm:0.0,   ihfa:0.3717, imaB:0.3399,  imaB5:0.2549,  imaBPlus:0.3973, ipca:0.83,  irfm:0.2415, msciEm:4.7826, msciEu:2.0296, msciWorld:4.4843, sp500:5.1704,  sp500br:5.9931,  usTsy10y:-1.8668 },
+  { date:'2024-03-28', cdi:0.8326, dolar:0.3302, euro:-0.3741,ibov:-0.7091, idkaPre3:0.5516, ifix:1.8791,  igpm:0.0,   ihfa:0.8127, imaB:1.4624,  imaB5:0.9399,  imaBPlus:1.8831, ipca:0.16,  irfm:0.7562, msciEm:2.5356, msciEu:4.1736, msciWorld:3.3547, sp500:3.2198,  sp500br:3.5587,  usTsy10y:-1.5762 },
+  { date:'2024-04-30', cdi:0.8322, dolar:4.9716, euro:3.1578, ibov:-1.7026, idkaPre3:-0.6498,ifix:-1.5225, igpm:0.0,   ihfa:0.3161, imaB:-1.9219, imaB5:-0.8963, imaBPlus:-2.7643,ipca:0.38,  irfm:-0.7726,msciEm:-2.7174,msciEu:-2.2866,msciWorld:-3.9234, sp500:-4.0938, sp500br:0.6683,  usTsy10y:-3.1119 },
+  { date:'2024-05-31', cdi:0.8322, dolar:4.4718, euro:3.3249, ibov:-3.0389, idkaPre3:-0.4447,ifix:-1.7012, igpm:0.0,   ihfa:0.3428, imaB:-1.2553, imaB5:-0.5536, imaBPlus:-1.8206,ipca:0.46,  irfm:-0.4748,msciEm:0.5928, msciEu:1.7001, msciWorld:3.4427, sp500:4.9621,  sp500br:9.6448,  usTsy10y:-0.9784 },
+  { date:'2024-06-28', cdi:0.7935, dolar:0.8213, euro:0.2509, ibov:1.4808,  idkaPre3:0.1744, ifix:0.3736,  igpm:0.0,   ihfa:0.5021, imaB:0.3988,  imaB5:0.3147,  imaBPlus:0.4548, ipca:0.20,  irfm:0.2946, msciEm:3.9498, msciEu:-0.8375,msciWorld:2.5964, sp500:3.5891,  sp500br:4.43,    usTsy10y:0.281   },
+  { date:'2024-07-31', cdi:0.8914, dolar:-1.4758,euro:-0.3534,ibov:4.6927,  idkaPre3:0.5921, ifix:1.0979,  igpm:0.0,   ihfa:0.6876, imaB:1.3534,  imaB5:0.896,   imaBPlus:1.7029, ipca:0.38,  irfm:0.7047, msciEm:0.3246, msciEu:3.1066, msciWorld:1.7247, sp500:1.2228,  sp500br:2.7128,  usTsy10y:4.5132  },
+  { date:'2024-08-30', cdi:0.8691, dolar:2.9808, euro:1.8261, ibov:6.5407,  idkaPre3:0.3638, ifix:1.2441,  igpm:0.0,   ihfa:0.6527, imaB:0.888,   imaB5:0.6313,  imaBPlus:1.0922, ipca:0.44,  irfm:0.5577, msciEm:1.7065, msciEu:3.3042, msciWorld:2.3677, sp500:2.2821,  sp500br:5.3541,  usTsy10y:3.1482  },
+  { date:'2024-09-30', cdi:0.9041, dolar:6.6978, euro:3.8866, ibov:0.1884,  idkaPre3:-0.1476,ifix:0.8088,  igpm:0.0,   ihfa:0.5695, imaB:-0.3826, imaB5:-0.0882, imaBPlus:-0.606, ipca:0.44,  irfm:-0.1255,msciEm:6.4267, msciEu:0.8049, msciWorld:2.0717, sp500:2.0194,  sp500br:8.8958,  usTsy10y:3.1482  },
+  { date:'2024-10-31', cdi:0.9716, dolar:5.5813, euro:3.6017, ibov:-1.6089, idkaPre3:-0.9099,ifix:-2.0088, igpm:0.0,   ihfa:0.3168, imaB:-2.5419, imaB5:-1.1657, imaBPlus:-3.6792,ipca:0.56,  irfm:-1.0254,msciEm:-4.4596,msciEu:-5.8668,msciWorld:-2.0027, sp500:-0.9079, sp500br:4.4993,  usTsy10y:-2.9038 },
+  { date:'2024-11-29', cdi:1.0015, dolar:2.8068, euro:0.4782, ibov:-3.1249, idkaPre3:-0.7284,ifix:-1.7956, igpm:0.0,   ihfa:0.3068, imaB:-1.9481, imaB5:-0.897,  imaBPlus:-2.821, ipca:0.39,  irfm:-0.8185,msciEm:-4.5059,msciEu:-3.6988,msciWorld:1.9406, sp500:5.7371,  sp500br:8.7297,  usTsy10y:-2.1429 },
+  { date:'2024-12-31', cdi:0.9607, dolar:4.0066, euro:3.8867, ibov:-4.7913, idkaPre3:-1.5671,ifix:-4.1396, igpm:0.0,   ihfa:-0.2246,imaB:-4.5308, imaB5:-2.1481, imaBPlus:-6.4549,ipca:0.52,  irfm:-1.9284,msciEm:-1.8673,msciEu:-4.4765,msciWorld:-2.3861, sp500:-2.3792, sp500br:1.5028,  usTsy10y:-3.5114 },
+  { date:'2025-01-31', cdi:1.0168, dolar:-2.5267,euro:-1.0427,ibov:-0.9232, idkaPre3:0.6832, ifix:-0.3082, igpm:0.0,   ihfa:0.5784, imaB:1.591,   imaB5:0.9373,  imaBPlus:2.1354, ipca:0.16,  irfm:0.7914, msciEm:1.7267, msciEu:5.5042, msciWorld:3.0082, sp500:2.7789,  sp500br:5.4295,  usTsy10y:1.3818  },
+  { date:'2025-02-28', cdi:1.0377, dolar:-1.2277,euro:0.7546, ibov:-1.0209, idkaPre3:0.2754, ifix:0.9038,  igpm:0.0,   ihfa:0.7419, imaB:0.8047,  imaB5:0.5434,  imaBPlus:1.0094, ipca:1.31,  irfm:0.4399, msciEm:0.8997, msciEu:5.5549, msciWorld:0.5453, sp500:-1.3,    sp500br:-2.5079, usTsy10y:0.0718  },
+  { date:'2025-03-31', cdi:1.0665, dolar:0.7813, euro:3.1059, ibov:-2.5254, idkaPre3:-0.1448,ifix:0.7453,  igpm:0.0,   ihfa:0.6207, imaB:0.1025,  imaB5:0.1965,  imaBPlus:0.0428, ipca:0.56,  irfm:0.1651, msciEm:1.0302, msciEu:6.1494, msciWorld:0.2247, sp500:-5.6326, sp500br:-4.9006, usTsy10y:1.2536  },
+  { date:'2025-04-30', cdi:1.0352, dolar:1.2651, euro:5.8034, ibov:3.6951,  idkaPre3:0.2088, ifix:1.8625,  igpm:0.0,   ihfa:0.9695, imaB:0.8716,  imaB5:0.5773,  imaBPlus:1.1022, ipca:0.43,  irfm:0.5227, msciEm:1.0898, msciEu:-0.0024,msciWorld:0.7944, sp500:0.0,     sp500br:1.2782,  usTsy10y:2.2476  },
+  { date:'2025-05-30', cdi:1.0509, dolar:-3.9453,euro:-1.9474,ibov:3.7248,  idkaPre3:0.5437, ifix:1.956,   igpm:0.0,   ihfa:0.9451, imaB:1.5447,  imaB5:0.9729,  imaBPlus:2.0011, ipca:0.50,  irfm:0.8181, msciEm:4.7946, msciEu:2.6706, msciWorld:5.2956, sp500:6.3218,  sp500br:10.6174, usTsy10y:1.9627  },
+  { date:'2025-06-30', cdi:1.0758, dolar:0.4952, euro:1.4843, ibov:2.0142,  idkaPre3:0.2706, ifix:1.5461,  igpm:0.0,   ihfa:0.8624, imaB:0.7358,  imaB5:0.5156,  imaBPlus:0.9038, ipca:0.24,  irfm:0.4366, msciEm:5.5698, msciEu:3.5416, msciWorld:4.0399, sp500:4.9702,  sp500br:5.4925,  usTsy10y:0.562   },
+  { date:'2025-07-31', cdi:1.0669, dolar:-0.8265,euro:0.0597, ibov:5.0229,  idkaPre3:0.3847, ifix:2.1168,  igpm:0.0,   ihfa:0.9049, imaB:1.0647,  imaB5:0.7258,  imaBPlus:1.3369, ipca:0.38,  irfm:0.6126, msciEm:2.0892, msciEu:3.0793, msciWorld:3.9086, sp500:4.3386,  sp500br:5.1934,  usTsy10y:0.5408  },
+  { date:'2025-08-29', cdi:1.0972, dolar:-1.9571,euro:-0.7041,ibov:-3.013,  idkaPre3:0.2152, ifix:0.6744,  igpm:0.0,   ihfa:0.6498, imaB:0.4839,  imaB5:0.3674,  imaBPlus:0.5692, ipca:0.44,  irfm:0.3449, msciEm:0.0884, msciEu:2.2601, msciWorld:0.4406, sp500:2.4295,  sp500br:4.4669,  usTsy10y:0.0156  },
+  { date:'2025-09-30', cdi:1.0975, dolar:1.4843, euro:1.3745, ibov:1.4789,  idkaPre3:0.1716, ifix:1.1455,  igpm:0.0,   ihfa:0.7166, imaB:0.4054,  imaB5:0.3177,  imaBPlus:0.4724, ipca:0.44,  irfm:0.3039, msciEm:6.9782, msciEu:2.2286, msciWorld:1.7555, sp500:0.8636,  sp500br:2.3762,  usTsy10y:-0.5644 },
+  { date:'2025-10-31', cdi:1.1268, dolar:0.5044, euro:2.1474, ibov:2.0117,  idkaPre3:0.2044, ifix:1.3434,  igpm:0.0,   ihfa:0.7844, imaB:0.3862,  imaB5:0.3119,  imaBPlus:0.4484, ipca:0.45,  irfm:0.2988, msciEm:-0.6116,msciEu:3.8069, msciWorld:2.6427, sp500:2.5272,  sp500br:3.0532,  usTsy10y:-0.5082 },
+  { date:'2025-11-28', cdi:1.2014, dolar:-0.9623,euro:0.2985, ibov:3.0187,  idkaPre3:0.3779, ifix:1.7765,  igpm:0.0,   ihfa:0.9413, imaB:0.9499,  imaB5:0.6647,  imaBPlus:1.1834, ipca:0.39,  irfm:0.5625, msciEm:3.3289, msciEu:2.6004, msciWorld:5.7753, sp500:5.9092,  sp500br:7.0115,  usTsy10y:0.281   },
+  { date:'2025-12-31', cdi:1.1823, dolar:0.8027, euro:0.3539, ibov:-1.4876, idkaPre3:-0.1065,ifix:0.8408,  igpm:0.0,   ihfa:0.7224, imaB:0.0302,  imaB5:0.0863,  imaBPlus:-0.0129,ipca:0.40,  irfm:0.0618, msciEm:-1.7079,msciEu:-1.6348,msciWorld:2.9716, sp500:4.5523,  sp500br:5.3896,  usTsy10y:0.562   },
+  { date:'2026-01-30', cdi:1.1642, dolar:-4.9487,euro:-3.6453,ibov:12.5607, idkaPre3:0.9491, ifix:4.0963,  igpm:0.0,   ihfa:1.4785, imaB:2.5972,  imaB5:1.583,   imaBPlus:3.4288, ipca:0.33,  irfm:1.3065, msciEm:1.7296, msciEu:7.4399, msciWorld:4.8247, sp500:2.7046,  sp500br:7.8717,  usTsy10y:0.562   },
+  { date:'2026-02-27', cdi:0.997,  dolar:-1.5411,euro:-0.6042,ibov:4.0929,  idkaPre3:0.6567, ifix:2.3007,  igpm:0.0,   ihfa:1.0459, imaB:1.8266,  imaB5:1.1389,  imaBPlus:2.3898, ipca:0.70,  irfm:0.9465, msciEm:0.9289, msciEu:3.8384, msciWorld:2.7888, sp500:0.0,     sp500br:1.5581,  usTsy10y:2.2476  },
+  { date:'2026-03-31', cdi:1.2129, dolar:1.3574, euro:1.8564, ibov:-0.7019, idkaPre3:0.3969, ifix:0.4892,  igpm:0.0,   ihfa:0.8738, imaB:0.626,   imaB5:0.5072,  imaBPlus:0.7216, ipca:0.88,  irfm:0.4702, msciEm:5.3441, msciEu:5.2491, msciWorld:5.7892, sp500:5.6077,  sp500br:7.033,   usTsy10y:0.0     },
+  { date:'2026-04-30', cdi:1.0909, dolar:-4.422, euro:-2.6715,ibov:-0.0769, idkaPre3:1.2452, ifix:1.5331,  igpm:2.7269, ihfa:2.0486, imaB:1.8144,  imaB5:1.317,   imaBPlus:2.2035, ipca:0.67,  irfm:1.243,  msciEm:9.4659, msciEu:1.8135, msciWorld:4.6097, sp500:5.5405,  sp500br:11.3961, usTsy10y:-0.2224 },
+]
+
+function compoundBench(data: BenchmarkMonthly[], from: string, to: string, keys: Array<keyof Omit<BenchmarkMonthly,'date'>>): Record<string, number> {
   const rows = data.filter(r => r.date >= from && r.date <= to)
-  if (rows.length === 0) return null
-  let cdi = 1, dolar = 1, ibov = 1, ipca = 1
+  if (rows.length === 0) return {}
+  const acc: Record<string, number> = {}
+  for (const k of keys) acc[k] = 1
   for (const r of rows) {
-    cdi   *= 1 + r.cdi   / 100
-    dolar *= 1 + r.dolar / 100
-    ibov  *= 1 + r.ibov  / 100
-    ipca  *= 1 + r.ipca  / 100
+    for (const k of keys) acc[k] *= 1 + (r[k] as number) / 100
   }
-  return { cdi: (cdi-1)*100, dolar: (dolar-1)*100, ibov: (ibov-1)*100, ipca: (ipca-1)*100 }
+  const result: Record<string, number> = {}
+  for (const k of keys) result[k] = (acc[k] - 1) * 100
+  return result
 }
 
 export default function WealthV2() {
@@ -156,6 +223,14 @@ export default function WealthV2() {
   const [filterTax, setFilterTax] = useState<string>('all')
   const [globalLocation, setGlobalLocation] = useState<'all'|'onshore'|'offshore'>('all')
   const [benchmarkData, setBenchmarkData] = useState<BenchmarkMonthly[]>(BENCHMARK_MONTHLY)
+  const [visibleBenchmarks, setVisibleBenchmarks] = useState<Array<keyof Omit<BenchmarkMonthly,'date'>>>(() => {
+    try {
+      const saved = localStorage.getItem('luxorpro_visible_benchmarks')
+      if (saved) return JSON.parse(saved)
+    } catch { /* ignore */ }
+    return DEFAULT_BENCHMARKS
+  })
+  const [showBenchmarkPicker, setShowBenchmarkPicker] = useState(false)
 
   useEffect(() => {
     supabase.from('admin_config').select('value').eq('key', 'benchmark_monthly').single()
@@ -390,13 +465,38 @@ export default function WealthV2() {
     return total
   }, [linkedTxByInvestment, usdToBrl, eurToBrl])
 
-  // ── Period gain (capital + linked cashflow income) ──────────────────────
-  // Total return = capital gain + income received in bank account linked to this investment.
-  // periodGain = (V_end − V_start) + linked_income_period − (aportes − resgates)
+  // Income from manually logged cashflow events (dividends, coupons, JCP — not amortizations)
+  const periodCfIncomeBRL = useMemo(() => {
+    let total = 0
+    for (const inv of investments) {
+      for (const e of inv.cashflowHistory ?? []) {
+        if (e.type !== 'amortization' && e.date >= periodCutoff) {
+          total += convert(e.amount, inv.currency, 'BRL', usdToBrl, eurToBrl)
+        }
+      }
+    }
+    return total
+  }, [investments, periodCutoff, usdToBrl, eurToBrl])
+
+  const allTimeCfIncomeBRL = useMemo(() => {
+    let total = 0
+    for (const inv of investments) {
+      for (const e of inv.cashflowHistory ?? []) {
+        if (e.type !== 'amortization') {
+          total += convert(e.amount, inv.currency, 'BRL', usdToBrl, eurToBrl)
+        }
+      }
+    }
+    return total
+  }, [investments, usdToBrl, eurToBrl])
+
+  // ── Period gain (capital + linked cashflow income + manual cashflow events) ──
+  // Total return = capital gain + income from bank (linked txs) + income logged in modal
+  // periodGain = (V_end − V_start) + income_period − (aportes − resgates)
   const periodGainBRL =
     period === 'ALL'
-      ? totals.lifetimeGainBRL + allTimeLinkedIncomeBRL
-      : totals.totalValueBRL - totals.startValueBRL + periodLinkedIncomeBRL - (periodAportes - periodResgates)
+      ? totals.lifetimeGainBRL + allTimeLinkedIncomeBRL + allTimeCfIncomeBRL
+      : totals.totalValueBRL - totals.startValueBRL + periodLinkedIncomeBRL + periodCfIncomeBRL - (periodAportes - periodResgates)
   const periodGainBase =
     period === 'ALL'
       ? totals.totalCostBRL
@@ -905,11 +1005,16 @@ export default function WealthV2() {
           .reduce((s, t) => s + convert(t.amount, (t.currency ?? 'BRL') as 'BRL'|'USD'|'EUR', 'BRL', usdToBrl, eurToBrl), 0)
         const linkedIncomeAll = linked.filter(t => t.type === 'income')
           .reduce((s, t) => s + convert(t.amount, (t.currency ?? 'BRL') as 'BRL'|'USD'|'EUR', 'BRL', usdToBrl, eurToBrl), 0)
-        const periodGain = period === 'ALL' ? (cur - cost + linkedIncomeAll) : (cur - startVal + linkedIncomePer)
+        // Manually logged cashflow events (excludes amortizations — return of principal)
+        const cfPer = (i.cashflowHistory ?? []).filter(e => e.type !== 'amortization' && e.date >= periodCutoff)
+          .reduce((s, e) => s + convert(e.amount, i.currency, 'BRL', usdToBrl, eurToBrl), 0)
+        const cfAll = (i.cashflowHistory ?? []).filter(e => e.type !== 'amortization')
+          .reduce((s, e) => s + convert(e.amount, i.currency, 'BRL', usdToBrl, eurToBrl), 0)
+        const periodGain = period === 'ALL' ? (cur - cost + linkedIncomeAll + cfAll) : (cur - startVal + linkedIncomePer + cfPer)
         const periodPct  = period === 'ALL'
           ? (cost > 0 ? (periodGain / cost) * 100 : 0)
           : (startVal > 0 ? (periodGain / startVal) * 100 : 0)
-        const lifeGain = cur - cost + linkedIncomeAll
+        const lifeGain = cur - cost + linkedIncomeAll + cfAll
         const lifePct  = cost > 0 ? (lifeGain / cost) * 100 : 0
         return {
           inv: i,
@@ -1161,16 +1266,17 @@ export default function WealthV2() {
 
       // Benchmark periods
       const BENCH_PERIODS = [
-        { label: 'Mês Atual',  from: '2026-03-01', to: '2026-03-31' },
-        { label: 'Mês Ant.',   from: '2026-02-01', to: '2026-02-28' },
-        { label: 'YTD',        from: '2026-01-01', to: '2026-03-31' },
-        { label: '12M',        from: '2025-04-01', to: '2026-03-31' },
-        { label: '24M',        from: '2024-04-01', to: '2026-03-31' },
-        { label: '36M',        from: '2023-04-01', to: '2026-03-31' },
+        { label: 'Mês Atual',  from: '2026-04-01', to: '2026-04-30' },
+        { label: 'Mês Ant.',   from: '2026-03-01', to: '2026-03-31' },
+        { label: 'YTD',        from: '2026-01-01', to: '2026-04-30' },
+        { label: '12M',        from: '2025-05-01', to: '2026-04-30' },
+        { label: '24M',        from: '2024-05-01', to: '2026-04-30' },
+        { label: '36M',        from: '2023-05-01', to: '2026-04-30' },
       ]
+      const pdfBenchKeys: Array<keyof Omit<BenchmarkMonthly,'date'>> = ['cdi','ipca','ibov','dolar']
       const benchmarkPeriods = BENCH_PERIODS.map(bp => {
-        const c = compoundBench(benchmarkData, bp.from, bp.to)
-        return { label: bp.label, cdi: c?.cdi ?? null, dolar: c?.dolar ?? null, ibov: c?.ibov ?? null, ipca: c?.ipca ?? null }
+        const c = compoundBench(benchmarkData, bp.from, bp.to, pdfBenchKeys)
+        return { label: bp.label, cdi: c['cdi'] ?? null, dolar: c['dolar'] ?? null, ibov: c['ibov'] ?? null, ipca: c['ipca'] ?? null }
       })
 
       const iliquidBRL = investments
@@ -2480,22 +2586,30 @@ export default function WealthV2() {
         {/* BENCHMARKS */}
         {(() => {
           const BENCH_PERIODS = [
-            { label: 'Mês Atual',  from: '2026-03-01', to: '2026-03-31' },
-            { label: 'Mês Ant.',   from: '2026-02-01', to: '2026-02-28' },
-            { label: 'YTD',        from: '2026-01-01', to: '2026-03-31' },
-            { label: '12M',        from: '2025-04-01', to: '2026-03-31' },
-            { label: '24M',        from: '2024-04-01', to: '2026-03-31' },
-            { label: '36M',        from: '2023-04-01', to: '2026-03-31' },
-          ] as const
-          const BENCH_ROWS = [
-            { key: 'cdi',   label: 'CDI',       color: '#00d4ff' },
-            { key: 'dolar', label: 'Dólar',     color: '#ff7a00' },
-            { key: 'ibov',  label: 'Ibovespa',  color: '#a78bfa' },
-            { key: 'ipca',  label: 'IPCA',      color: '#34d399' },
-          ] as const
-          type BenchKey = typeof BENCH_ROWS[number]['key']
-          const cells = BENCH_PERIODS.map(p => compoundBench(benchmarkData, p.from, p.to))
+            { label: 'Mês Atual',  from: '2026-04-01', to: '2026-04-30' },
+            { label: 'Mês Ant.',   from: '2026-03-01', to: '2026-03-31' },
+            { label: 'YTD',        from: '2026-01-01', to: '2026-04-30' },
+            { label: '12M',        from: '2025-05-01', to: '2026-04-30' },
+            { label: '24M',        from: '2024-05-01', to: '2026-04-30' },
+            { label: '36M',        from: '2023-05-01', to: '2026-04-30' },
+          ]
+          const activeRows = ALL_BENCHMARKS.filter(b => visibleBenchmarks.includes(b.key))
+          const availableToAdd = ALL_BENCHMARKS.filter(b => !visibleBenchmarks.includes(b.key))
+          const cells = BENCH_PERIODS.map(p => compoundBench(benchmarkData, p.from, p.to, visibleBenchmarks))
           const fmtPct = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`
+
+          const addBenchmark = (key: keyof Omit<BenchmarkMonthly,'date'>) => {
+            const next = [...visibleBenchmarks, key]
+            setVisibleBenchmarks(next)
+            try { localStorage.setItem('luxorpro_visible_benchmarks', JSON.stringify(next)) } catch { /* ignore */ }
+            setShowBenchmarkPicker(false)
+          }
+          const removeBenchmark = (key: keyof Omit<BenchmarkMonthly,'date'>) => {
+            const next = visibleBenchmarks.filter(k => k !== key)
+            setVisibleBenchmarks(next)
+            try { localStorage.setItem('luxorpro_visible_benchmarks', JSON.stringify(next)) } catch { /* ignore */ }
+          }
+
           return (
             <section className="v2-reveal">
               <div className="v2-card p-5">
@@ -2506,22 +2620,48 @@ export default function WealthV2() {
                     </span>
                     <div>
                       <p className="text-sm font-semibold tracking-wide">Benchmarks</p>
-                      <p className="text-xs text-[#55556a] mt-0.5">Retornos acumulados por período · até mar/2026</p>
+                      <p className="text-xs text-[#55556a] mt-0.5">Retornos acumulados por período · até abr/2026</p>
                     </div>
+                  </div>
+                  <div className="relative">
+                    {availableToAdd.length > 0 && (
+                      <button
+                        onClick={() => setShowBenchmarkPicker(v => !v)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-[#1e1e30] bg-[#0a0a0f] text-[#8888aa] hover:text-[#00d4ff] hover:border-[#00d4ff]/30 transition-colors"
+                      >
+                        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        Adicionar
+                      </button>
+                    )}
+                    {showBenchmarkPicker && availableToAdd.length > 0 && (
+                      <div className="absolute right-0 top-full mt-1 z-50 w-52 rounded-xl border border-[#1e1e30] bg-[#0d0e1a] shadow-2xl overflow-hidden">
+                        {availableToAdd.map(b => (
+                          <button
+                            key={b.key}
+                            onClick={() => addBenchmark(b.key)}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left hover:bg-[#161729] transition-colors"
+                          >
+                            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: b.color }}/>
+                            <span className="text-[#c8c8e0]">{b.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[560px] border-collapse">
                     <thead>
                       <tr>
-                        <th className="text-left text-[10px] font-semibold text-[#55556a] uppercase tracking-widest pb-3 pr-4 w-28">Índice</th>
+                        <th className="text-left text-[10px] font-semibold text-[#55556a] uppercase tracking-widest pb-3 pr-4 w-36">Índice</th>
                         {BENCH_PERIODS.map(p => (
                           <th key={p.label} className="text-right text-[10px] font-semibold text-[#55556a] uppercase tracking-widest pb-3 px-2">{p.label}</th>
                         ))}
+                        <th className="w-6 pb-3"/>
                       </tr>
                     </thead>
                     <tbody>
-                      {BENCH_ROWS.map((row, ri) => (
+                      {activeRows.map((row, ri) => (
                         <tr key={row.key} style={{ borderTop: ri === 0 ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(255,255,255,0.03)' }}>
                           <td className="py-3 pr-4">
                             <div className="flex items-center gap-2">
@@ -2530,10 +2670,10 @@ export default function WealthV2() {
                             </div>
                           </td>
                           {cells.map((c, ci) => {
-                            const val = c ? c[row.key as BenchKey] : null
+                            const val = c[row.key] ?? null
                             return (
                               <td key={ci} className="py-3 px-2 text-right">
-                                {val === null
+                                {val === null || val === undefined
                                   ? <span className="text-xs text-[#2a2a3e]">—</span>
                                   : <span
                                       className="text-xs font-semibold v2-num tabular-nums"
@@ -2550,6 +2690,19 @@ export default function WealthV2() {
                               </td>
                             )
                           })}
+                          <td className="py-3 pl-1">
+                            {visibleBenchmarks.length > 1 && (
+                              <button
+                                onClick={() => removeBenchmark(row.key)}
+                                className="w-5 h-5 flex items-center justify-center rounded text-[#55556a] hover:text-[#ff4466] hover:bg-[#ff446610] transition-colors opacity-0 group-hover:opacity-100"
+                                style={{ opacity: 0.4 }}
+                                onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+                                onMouseLeave={e => (e.currentTarget.style.opacity = '0.4')}
+                              >
+                                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                              </button>
+                            )}
+                          </td>
                         </tr>
                       ))}
                     </tbody>

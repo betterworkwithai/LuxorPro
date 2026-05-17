@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import Landing from "./pages/Landing";
 import LuxorApp from "./LuxorApp";
 import ResetPassword from "./pages/ResetPassword";
+import Calculadora from "./pages/Calculadora";
 import { supabase, SUPABASE_CONFIGURED } from "./lib/supabase";
 
 // Shared key used across Sidebar, MobileNav, Auth and LuxorApp
@@ -46,6 +47,7 @@ export default function App() {
       <Route path="/login" element={<AuthEntry mode="login" />} />
       <Route path="/signup" element={<AuthEntry mode="signup" />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/calculadora" element={<Calculadora />} />
       <Route path="/app/*" element={<LuxorApp />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

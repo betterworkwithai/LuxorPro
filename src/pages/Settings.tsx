@@ -95,7 +95,6 @@ export default function Settings() {
   const customCategories = settings.customCategories ?? []
 
   const containerRef = React.useRef<HTMLDivElement>(null)
-  useReveal(containerRef, [activeTab])
   const [form,           setForm]           = useState(settings)
   const [saved,          setSaved]          = useState(false)
   const [showClearModal, setShowClearModal] = useState(false)
@@ -106,6 +105,7 @@ export default function Settings() {
     const hash = (typeof window !== 'undefined' ? window.location.hash.replace('#','') : '') || ''
     return validTabs.includes(hash) ? hash : 'perfil'
   })
+  useReveal(containerRef, [activeTab])
   const [user,           setUser]           = useState<{ email: string | null } | null>(null)
   const [isAdminUser,    setIsAdminUser]    = useState(false)
 

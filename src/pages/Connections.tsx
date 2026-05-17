@@ -502,9 +502,8 @@ type SyncStatus =
 export default function Connections() {
   const { addTransaction, addInvestment, updateInvestment } = useStore()
   const containerRef = React.useRef<HTMLDivElement>(null)
-  useReveal(containerRef, [items.length])
-
   const [items,        setItems]        = useState<StoredItem[]>(loadItems)
+  useReveal(containerRef, [items.length])
   const [status,       setStatus]       = useState<SyncStatus>({ type: 'idle' })
   const [connectToken, setConnectToken] = useState<string | null>(null)
   const [autoSyncMsg,  setAutoSyncMsg]  = useState<string | null>(null)
