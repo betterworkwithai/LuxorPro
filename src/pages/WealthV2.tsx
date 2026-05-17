@@ -30,7 +30,7 @@ type ColId = 'ticker'|'name'|'assetClass'|'maturity'|'qty'|'pm'|'position'|'allo
 type ColSortKey = 'name'|'class'|'institution'|'qty'|'avgCost'|'currentPrice'|'position'|'period'|'allocation'|'maturity'|'mtd'|'prevMonth'|'ytd'|'m12'|'m24'|'inception'
 interface PosColDef { id: ColId; label: string; width: string; align: 'left'|'right'; sortKey?: ColSortKey; fixed?: boolean; defaultOn?: boolean }
 const POS_COL_DEFS: PosColDef[] = [
-  { id: 'ticker',    label: 'Ticker',     width: '80px',                align: 'left',  sortKey: 'name',       fixed: true, defaultOn: true },
+  { id: 'ticker',    label: 'Ticker',     width: '80px',                align: 'left',  sortKey: 'name',                    defaultOn: false },
   { id: 'name',      label: 'Ativo',      width: 'minmax(130px,1.4fr)', align: 'left',  sortKey: 'name',       fixed: true, defaultOn: true },
   { id: 'assetClass',label: 'Classe',     width: 'minmax(100px,1fr)',   align: 'left',  sortKey: 'class',                   defaultOn: true },
   { id: 'maturity',  label: 'Vencimento', width: '88px',                align: 'left',  sortKey: 'maturity' },
@@ -95,14 +95,14 @@ export default function WealthV2() {
   const [filterTax, setFilterTax] = useState<string>('all')
   const [globalLocation, setGlobalLocation] = useState<'all'|'onshore'|'offshore'>('all')
   const [visibleCols, setVisibleCols] = useState<ColId[]>(() => {
-    try { const s = localStorage.getItem('luxor-pos-cols'); if (s) return JSON.parse(s) as ColId[] } catch {}
+    try { const s = localStorage.getItem('luxor-pos-cols-v2'); if (s) return JSON.parse(s) as ColId[] } catch {}
     return DEFAULT_COL_IDS
   })
   const [showColPicker, setShowColPicker] = useState(false)
   const dragColFrom = useRef<number | null>(null)
   const updateCols = (cols: ColId[]) => {
     setVisibleCols(cols)
-    try { localStorage.setItem('luxor-pos-cols', JSON.stringify(cols)) } catch {}
+    try { localStorage.setItem('luxor-pos-cols-v2', JSON.stringify(cols)) } catch {}
   }
   type SortKey = ColSortKey
   const [sortKey, setSortKey] = useState<SortKey>('position')
