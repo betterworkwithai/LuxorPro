@@ -259,6 +259,9 @@ export default function WealthV2() {
     return DEFAULT_BENCHMARKS
   })
   const [showBenchmarkPicker, setShowBenchmarkPicker] = useState(false)
+  const [grossUp, setGrossUp] = useState(() => {
+    try { return localStorage.getItem('luxorpro_gross_up') === '1' } catch { return false }
+  })
 
   useEffect(() => {
     supabase.from('admin_config').select('value').eq('key', 'benchmark_monthly').single()
@@ -1044,14 +1047,15 @@ export default function WealthV2() {
           : (startVal > 0 ? (periodGain / startVal) * 100 : 0)
         const lifeGain = cur - cost + linkedIncomeAll + cfAll
         const lifePct  = cost > 0 ? (lifeGain / cost) * 100 : 0
+        const gu = (pct: number) => grossUp && i.taxTreatment === 'tax-exempt' ? pct / (1 - (i.grossUpRate ?? 0.15)) : pct
         return {
           inv: i,
           current: cur, cost, startVal,
-          gain: periodGain, pct: periodPct,
-          lifeGain, lifePct,
+          gain: periodGain, pct: gu(periodPct),
+          lifeGain, lifePct: gu(lifePct),
         }
       })
-  }, [investments, usdToBrl, eurToBrl, periodCutoff, period, linkedTxByInvestment, globalLocation])
+  }, [investments, usdToBrl, eurToBrl, periodCutoff, period, linkedTxByInvestment, globalLocation, grossUp])
 
   const topGainers = useMemo(() => [...movers].filter(m => m.gain > 0).sort((a, b) => b.gain - a.gain).slice(0, 3), [movers])
   const topLosers  = useMemo(() => [...movers].filter(m => m.gain < 0).sort((a, b) => a.gain - b.gain).slice(0, 3), [movers])
@@ -1150,16 +1154,20 @@ export default function WealthV2() {
         const income = cfNative(perfCutoffs.prevMonthStart, perfCutoffs.prevMonthEnd)
         return ((i.quantity * e2 - startPosVal + income) / startPosVal) * 100
       })()
+      const gu = (pct: number | null) =>
+        pct !== null && grossUp && i.taxTreatment === 'tax-exempt'
+          ? pct / (1 - (i.grossUpRate ?? 0.15))
+          : pct
       return {
         ...i, currentBRL: cur, costBRL: cost, startBRL: startVal,
-        gain: gainPer, pct: pctPer, gainLife, pctLife,
+        gain: gainPer, pct: gu(pctPer) ?? pctPer, gainLife, pctLife: gu(pctLife) ?? pctLife,
         linkedIncomePer, linkedIncomeAll, linkedCount: linked.length, linkedTxs: linked,
-        pctMtd: pctFor(perfCutoffs.mtd),
-        pctPrevMonth,
-        pctYtd: pctFor(perfCutoffs.ytd),
-        pct12m: pctFor(perfCutoffs.m12),
-        pct24m: pctFor(perfCutoffs.m24),
-        pctInception: pctLife,
+        pctMtd: gu(pctFor(perfCutoffs.mtd)),
+        pctPrevMonth: gu(pctPrevMonth),
+        pctYtd: gu(pctFor(perfCutoffs.ytd)),
+        pct12m: gu(pctFor(perfCutoffs.m12)),
+        pct24m: gu(pctFor(perfCutoffs.m24)),
+        pctInception: gu(pctLife) ?? pctLife,
         allocPct: 0,
       }
     })
@@ -1198,7 +1206,7 @@ export default function WealthV2() {
         default:             return dir * (a.currentBRL - b.currentBRL)
       }
     })
-  }, [investments, search, filterClass, filterInstitution, filterTax, globalLocation, usdToBrl, eurToBrl, periodCutoff, period, sortKey, sortDir, linkedTxByInvestment, perfCutoffs])
+  }, [investments, search, filterClass, filterInstitution, filterTax, globalLocation, usdToBrl, eurToBrl, periodCutoff, period, sortKey, sortDir, linkedTxByInvestment, perfCutoffs, grossUp])
 
   const positionsWithAlloc = useMemo(() => {
     const total = positions.reduce((s, p) => s + p.currentBRL, 0)
@@ -1397,6 +1405,20 @@ export default function WealthV2() {
                 { value: 'offshore', label: 'Exterior' },
               ]}
             />
+            <button
+              onClick={() => {
+                const next = !grossUp
+                setGrossUp(next)
+                try { localStorage.setItem('luxorpro_gross_up', next ? '1' : '0') } catch { /* ignore */ }
+              }}
+              className="px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors border"
+              style={grossUp
+                ? { background: 'rgba(255,122,0,0.15)', color: '#ff7a00', borderColor: 'rgba(255,122,0,0.4)' }
+                : { background: 'rgba(255,255,255,0.04)', color: '#6b7280', borderColor: 'rgba(255,255,255,0.08)' }}
+              title={grossUp ? 'Gross-up ativo (÷0,85)' : 'Ativar gross-up para isentos'}
+            >
+              Gross-up
+            </button>
             <button
               onClick={handleDownloadPDF}
               disabled={pdfLoading}
