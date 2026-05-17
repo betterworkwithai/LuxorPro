@@ -269,10 +269,11 @@ export default function CashflowV2() {
   }, [transactions, periodMode, selMonth, selYear, todayMonth, todayYear])
 
   const income     = useMemo(() => periodTx.filter(t => t.type === 'income'  && t.category !== 'investimento').reduce((a, t) => a + txBrl(t), 0), [periodTx])
-  const expenses   = useMemo(() => periodTx.filter(t => t.type === 'expense' && t.category !== 'investimento').reduce((a, t) => a + txBrl(t), 0), [periodTx])
+  const expenses   = useMemo(() => periodTx.filter(t => t.type === 'expense' && t.category !== 'investimento' && t.category !== 'imposto').reduce((a, t) => a + txBrl(t), 0), [periodTx])
+  const impostos   = useMemo(() => periodTx.filter(t => t.type === 'expense' && t.category === 'imposto').reduce((a, t) => a + txBrl(t), 0), [periodTx])
 
   const expenseBreakdown = useMemo(() => {
-    const exps = periodTx.filter(t => t.type === 'expense' && t.category !== 'investimento')
+    const exps = periodTx.filter(t => t.type === 'expense' && t.category !== 'investimento' && t.category !== 'imposto')
     let fixed = 0, variable = 0, investment = 0, other = 0
     for (const t of exps) {
       const v = txBrl(t)
@@ -285,12 +286,13 @@ export default function CashflowV2() {
   }, [periodTx])
   const aportes    = useMemo(() => periodTx.filter(t => t.type === 'expense' && t.category === 'investimento').reduce((a, t) => a + txBrl(t), 0), [periodTx])
   const resgates   = useMemo(() => periodTx.filter(t => t.type === 'income' && t.category === 'investimento').reduce((a, t) => a + txBrl(t), 0), [periodTx])
-  const netFlow    = income - expenses
-  const savingsRate = income > 0 ? ((income - expenses) / income) * 100 : 0
+  const netFlow    = income - expenses - impostos
+  const savingsRate = income > 0 ? ((income - expenses - impostos) / income) * 100 : 0
 
-  const lastIncome = useMemo(() => lastPeriodTx.filter(t => t.type === 'income'  && t.category !== 'investimento').reduce((a, t) => a + txBrl(t), 0), [lastPeriodTx])
-  const lastExpenses = useMemo(() => lastPeriodTx.filter(t => t.type === 'expense' && t.category !== 'investimento').reduce((a, t) => a + txBrl(t), 0), [lastPeriodTx])
-  const lastNet = lastIncome - lastExpenses
+  const lastIncome   = useMemo(() => lastPeriodTx.filter(t => t.type === 'income'  && t.category !== 'investimento').reduce((a, t) => a + txBrl(t), 0), [lastPeriodTx])
+  const lastExpenses = useMemo(() => lastPeriodTx.filter(t => t.type === 'expense' && t.category !== 'investimento' && t.category !== 'imposto').reduce((a, t) => a + txBrl(t), 0), [lastPeriodTx])
+  const lastImpostos = useMemo(() => lastPeriodTx.filter(t => t.type === 'expense' && t.category === 'imposto').reduce((a, t) => a + txBrl(t), 0), [lastPeriodTx])
+  const lastNet = lastIncome - lastExpenses - lastImpostos
 
   // ── Period days for daily burn ─────────────────
   const periodDays = useMemo(() => {
@@ -681,7 +683,7 @@ export default function CashflowV2() {
         </section>
 
         {/* KPI STRIP */}
-        <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 v2-reveal">
+        <section className="grid grid-cols-2 lg:grid-cols-5 gap-3 v2-reveal">
           <KpiCard
             caption="Receitas"
             value={`+${formatBRL(income, true)}`}
@@ -699,19 +701,28 @@ export default function CashflowV2() {
             pillColor={expenses <= lastExpenses ? 'green' : 'red'}
           />
           <KpiCard
-            caption="Aportes"
+            caption="Impostos"
+            value={impostos > 0 ? `−${formatBRL(impostos, true)}` : formatBRL(0, true)}
+            valueColor={impostos > 0 ? '#ff7a00' : '#55556a'}
+            secondary={lastImpostos > 0 ? `vs ${formatBRL(lastImpostos, true)} período anterior` : 'sem impostos no período'}
+            pillText={lastImpostos > 0 ? `${(((impostos - lastImpostos) / lastImpostos) * 100).toFixed(0)}%` : '—'}
+            pillColor={impostos <= lastImpostos ? 'green' : 'amber'}
+          />
+          <KpiCard
+            caption="Aportes / Resgates"
             value={formatBRL(aportes, true)}
             valueColor="#00d4ff"
-            secondary={resgates > 0 ? `Resgates ${formatBRL(resgates, true)}` : 'sem resgates no período'}
+            secondary={resgates > 0 ? `Resgates ${formatBRL(resgates, true)} · líq. ${formatBRL(aportes - resgates, true)}` : 'sem resgates no período'}
             pillText={aportes > 0 ? 'ativo' : 'sem'}
             pillColor={aportes > 0 ? 'cyan' : 'muted'}
           />
           <KpiCard
-            caption="Taxa de poupança"
-            value={income > 0 ? `${savingsRate.toFixed(0)}%` : '—'}
-            secondary={`Meta ${settings.savingsRateGoal ?? 30}%`}
-            pillText={savingsRate >= (settings.savingsRateGoal ?? 30) ? 'no alvo' : 'abaixo'}
-            pillColor={savingsRate >= (settings.savingsRateGoal ?? 30) ? 'green' : 'amber'}
+            caption="Resultado"
+            value={`${netFlow >= 0 ? '+' : ''}${formatBRL(netFlow, true)}`}
+            valueColor={netFlow >= 0 ? '#00ff88' : '#ff4466'}
+            secondary={`vs ${formatBRL(lastNet, true)} período anterior`}
+            pillText={netFlow >= lastNet ? 'melhor' : 'pior'}
+            pillColor={netFlow >= lastNet ? 'green' : 'amber'}
           />
         </section>
 

@@ -102,19 +102,21 @@ export default function DashboardV2() {
     const prefix = `${y}-${String(m).padStart(2, '0')}-`
     const txs = transactions.filter(t => t.date.startsWith(prefix))
     const txBrl = (t: typeof txs[number]) => convert(t.amount, (t.currency ?? 'BRL') as 'BRL' | 'USD' | 'EUR', 'BRL', usdToBrl, eurToBrl)
-    const inc = txs.filter(t => t.type === 'income').reduce((a, t) => a + txBrl(t), 0)
-    const exp = txs.filter(t => t.type === 'expense').reduce((a, t) => a + txBrl(t), 0)
-    return inc - exp
+    const inc  = txs.filter(t => t.type === 'income'  && t.category !== 'investimento').reduce((a, t) => a + txBrl(t), 0)
+    const exp  = txs.filter(t => t.type === 'expense' && t.category !== 'investimento' && t.category !== 'imposto').reduce((a, t) => a + txBrl(t), 0)
+    const tax  = txs.filter(t => t.type === 'expense' && t.category === 'imposto').reduce((a, t) => a + txBrl(t), 0)
+    return inc - exp - tax
   }, [transactions, todayMonth, todayYear, usdToBrl, eurToBrl])
 
   // ── KPIs ──────────────────────────────────────
   const txBrl = (t: typeof periodTx[number]) =>
     convert(t.amount, (t.currency ?? 'BRL') as 'BRL' | 'USD' | 'EUR', 'BRL', usdToBrl, eurToBrl)
   const income = useMemo(() => periodTx.filter(t => t.type === 'income' && t.category !== 'investimento').reduce((a, t) => a + txBrl(t), 0), [periodTx])
-  const expenses = useMemo(() => periodTx.filter(t => t.type === 'expense' && t.category !== 'investimento').reduce((a, t) => a + txBrl(t), 0), [periodTx])
+  const expenses = useMemo(() => periodTx.filter(t => t.type === 'expense' && t.category !== 'investimento' && t.category !== 'imposto').reduce((a, t) => a + txBrl(t), 0), [periodTx])
+  const impostos = useMemo(() => periodTx.filter(t => t.type === 'expense' && t.category === 'imposto').reduce((a, t) => a + txBrl(t), 0), [periodTx])
   const aportes = useMemo(() => periodTx.filter(t => t.type === 'expense' && t.category === 'investimento').reduce((a, t) => a + txBrl(t), 0), [periodTx])
-  const netFlow = income - expenses
-  const savingsRate = income > 0 ? ((income - expenses) / income) * 100 : 0
+  const netFlow = income - expenses - impostos
+  const savingsRate = income > 0 ? ((income - expenses - impostos) / income) * 100 : 0
 
   // ── Net worth sparkline (last 12 months — derived from current value
   //    plus monthly aportes/withdrawals from transactions; illustrative) ──
