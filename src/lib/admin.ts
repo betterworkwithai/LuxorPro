@@ -9,10 +9,15 @@
 
 import type { User } from '@supabase/supabase-js'
 
+// Emails that always have admin access regardless of Supabase app_metadata.
+// Used as a fallback when VITE_ADMIN_EMAIL is not set in the deployment env.
+const ADMIN_EMAILS: string[] = ['betterworkwithai@gmail.com']
+
 export const isAdmin = (user?: User | null): boolean => {
-  if (user?.app_metadata?.role === 'admin') return true
-  // Fallback: VITE_ADMIN_EMAIL in .env.local — useful when Supabase app_metadata isn't set
-  const adminEmail = import.meta.env.VITE_ADMIN_EMAIL as string | undefined
-  if (adminEmail && user?.email === adminEmail) return true
+  if (!user) return false
+  if (user.app_metadata?.role === 'admin') return true
+  const envEmail = import.meta.env.VITE_ADMIN_EMAIL as string | undefined
+  if (envEmail && user.email === envEmail) return true
+  if (user.email && ADMIN_EMAILS.includes(user.email)) return true
   return false
 }

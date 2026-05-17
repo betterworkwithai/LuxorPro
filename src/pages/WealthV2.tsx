@@ -195,6 +195,34 @@ const BENCHMARK_MONTHLY: BenchmarkMonthly[] = [
   { date:'2026-04-30', cdi:1.0909, dolar:-4.422, euro:-2.6715,ibov:-0.0769, idkaPre3:1.2452, ifix:1.5331,  igpm:2.7269, ihfa:2.0486, imaB:1.8144,  imaB5:1.317,   imaBPlus:2.2035, ipca:0.67,  irfm:1.243,  msciEm:9.4659, msciEu:1.8135, msciWorld:4.6097, sp500:5.5405,  sp500br:11.3961, usTsy10y:-0.2224 },
 ]
 
+const PT_MONTHS_SHORT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
+
+function buildBenchPeriods(latestISO: string) {
+  const y = parseInt(latestISO.slice(0,4), 10)
+  const m = parseInt(latestISO.slice(5,7), 10)   // 1-based
+  const yy = String(y).slice(2)
+  const curLabel  = `${PT_MONTHS_SHORT[m-1]}/${yy}`
+  const curFrom   = `${y}-${String(m).padStart(2,'0')}-01`
+  const prevM     = m === 1 ? 12 : m - 1
+  const prevY     = m === 1 ? y - 1 : y
+  const prevLabel = `${PT_MONTHS_SHORT[prevM-1]}/${String(prevY).slice(2)}`
+  const prevFrom  = `${prevY}-${String(prevM).padStart(2,'0')}-01`
+  const lastDayPrev = new Date(y, m - 1, 0)
+  const prevTo    = lastDayPrev.toISOString().split('T')[0]
+  const ytdFrom   = `${y}-01-01`
+  const nxtM      = m === 12 ? 1  : m + 1
+  const nxtY_off  = (nyrs: number) => (m === 12 ? y - nyrs + 1 : y - nyrs)
+  const fromNM    = (nyrs: number) => `${nxtY_off(nyrs)}-${String(nxtM).padStart(2,'0')}-01`
+  return [
+    { label: curLabel,  from: curFrom,  to: latestISO },
+    { label: prevLabel, from: prevFrom, to: prevTo    },
+    { label: 'YTD',     from: ytdFrom,  to: latestISO },
+    { label: '12M',     from: fromNM(1),to: latestISO },
+    { label: '24M',     from: fromNM(2),to: latestISO },
+    { label: '36M',     from: fromNM(3),to: latestISO },
+  ]
+}
+
 function compoundBench(data: BenchmarkMonthly[], from: string, to: string, keys: Array<keyof Omit<BenchmarkMonthly,'date'>>): Record<string, number> {
   const rows = data.filter(r => r.date >= from && r.date <= to)
   if (rows.length === 0) return {}
@@ -1090,21 +1118,37 @@ export default function WealthV2() {
         .reduce((s, t) => s + convert(t.amount, (t.currency ?? 'BRL') as 'BRL'|'USD'|'EUR', 'BRL', usdToBrl, eurToBrl), 0)
       const linkedIncomeAll  = linked.filter(t => t.type === 'income')
         .reduce((s, t) => s + convert(t.amount, (t.currency ?? 'BRL') as 'BRL'|'USD'|'EUR', 'BRL', usdToBrl, eurToBrl), 0)
-      const gainLife = cur - cost + linkedIncomeAll
+      // Manually logged cashflow income (excludes amortizations — return of principal)
+      const cfHistory = i.cashflowHistory ?? []
+      const cfAll = cfHistory.filter(e => e.type !== 'amortization')
+        .reduce((s, e) => s + convert(e.amount, i.currency, 'BRL', usdToBrl, eurToBrl), 0)
+      const cfPer = cfHistory.filter(e => e.type !== 'amortization' && e.date >= periodCutoff)
+        .reduce((s, e) => s + convert(e.amount, i.currency, 'BRL', usdToBrl, eurToBrl), 0)
+      const gainLife = cur - cost + linkedIncomeAll + cfAll
       const pctLife  = cost > 0 ? (gainLife / cost) * 100 : 0
-      const gainPer  = period === 'ALL' ? gainLife : (cur - startVal + linkedIncomePer)
+      const gainPer  = period === 'ALL' ? gainLife : (cur - startVal + linkedIncomePer + cfPer)
       const pctPer   = period === 'ALL' ? pctLife  : (startVal > 0 ? (gainPer / startVal) * 100 : 0)
       // Fixed performance period returns — null when asset not old enough for the window
+      // Uses per-unit amounts so no currency conversion needed (all in asset native currency)
+      const cfNative = (from: string, to?: string) =>
+        cfHistory.filter(e => e.type !== 'amortization' && e.date >= from && (to === undefined || e.date < to))
+          .reduce((s, e) => s + e.amount, 0)
       const pctFor = (cutISO: string): number | null => {
         if (!i.purchaseDate || i.purchaseDate >= cutISO) return null
         const s2 = priceAt(i, cutISO)
-        return s2 > 0 ? ((i.currentPrice - s2) / s2) * 100 : 0
+        const startPosVal = i.quantity * s2
+        if (startPosVal <= 0) return 0
+        const income = cfNative(cutISO)
+        return ((i.quantity * i.currentPrice - startPosVal + income) / startPosVal) * 100
       }
       const pctPrevMonth: number | null = (() => {
         if (!i.purchaseDate || i.purchaseDate >= perfCutoffs.prevMonthStart) return null
         const s2 = priceAt(i, perfCutoffs.prevMonthStart)
         const e2 = priceAt(i, perfCutoffs.prevMonthEnd)
-        return s2 > 0 ? ((e2 - s2) / s2) * 100 : 0
+        const startPosVal = i.quantity * s2
+        if (startPosVal <= 0) return 0
+        const income = cfNative(perfCutoffs.prevMonthStart, perfCutoffs.prevMonthEnd)
+        return ((i.quantity * e2 - startPosVal + income) / startPosVal) * 100
       })()
       return {
         ...i, currentBRL: cur, costBRL: cost, startBRL: startVal,
@@ -1264,15 +1308,9 @@ export default function WealthV2() {
         }
       })
 
-      // Benchmark periods
-      const BENCH_PERIODS = [
-        { label: 'Mês Atual',  from: '2026-04-01', to: '2026-04-30' },
-        { label: 'Mês Ant.',   from: '2026-03-01', to: '2026-03-31' },
-        { label: 'YTD',        from: '2026-01-01', to: '2026-04-30' },
-        { label: '12M',        from: '2025-05-01', to: '2026-04-30' },
-        { label: '24M',        from: '2024-05-01', to: '2026-04-30' },
-        { label: '36M',        from: '2023-05-01', to: '2026-04-30' },
-      ]
+      // Benchmark periods — dynamic based on latest data row
+      const latestBenchDate = benchmarkData[benchmarkData.length - 1]?.date ?? '2026-04-30'
+      const BENCH_PERIODS = buildBenchPeriods(latestBenchDate)
       const pdfBenchKeys: Array<keyof Omit<BenchmarkMonthly,'date'>> = ['cdi','ipca','ibov','dolar']
       const benchmarkPeriods = BENCH_PERIODS.map(bp => {
         const c = compoundBench(benchmarkData, bp.from, bp.to, pdfBenchKeys)
@@ -2585,14 +2623,9 @@ export default function WealthV2() {
 
         {/* BENCHMARKS */}
         {(() => {
-          const BENCH_PERIODS = [
-            { label: 'Mês Atual',  from: '2026-04-01', to: '2026-04-30' },
-            { label: 'Mês Ant.',   from: '2026-03-01', to: '2026-03-31' },
-            { label: 'YTD',        from: '2026-01-01', to: '2026-04-30' },
-            { label: '12M',        from: '2025-05-01', to: '2026-04-30' },
-            { label: '24M',        from: '2024-05-01', to: '2026-04-30' },
-            { label: '36M',        from: '2023-05-01', to: '2026-04-30' },
-          ]
+          const latestBenchDate = benchmarkData[benchmarkData.length - 1]?.date ?? '2026-04-30'
+          const BENCH_PERIODS = buildBenchPeriods(latestBenchDate)
+          const latestLabel = `${PT_MONTHS_SHORT[parseInt(latestBenchDate.slice(5,7),10)-1]}/${latestBenchDate.slice(2,4)}`
           const activeRows = ALL_BENCHMARKS.filter(b => visibleBenchmarks.includes(b.key))
           const availableToAdd = ALL_BENCHMARKS.filter(b => !visibleBenchmarks.includes(b.key))
           const cells = BENCH_PERIODS.map(p => compoundBench(benchmarkData, p.from, p.to, visibleBenchmarks))
@@ -2620,7 +2653,7 @@ export default function WealthV2() {
                     </span>
                     <div>
                       <p className="text-sm font-semibold tracking-wide">Benchmarks</p>
-                      <p className="text-xs text-[#55556a] mt-0.5">Retornos acumulados por período · até abr/2026</p>
+                      <p className="text-xs text-[#55556a] mt-0.5">Retornos acumulados por período · até {latestLabel}</p>
                     </div>
                   </div>
                   <div className="relative">
