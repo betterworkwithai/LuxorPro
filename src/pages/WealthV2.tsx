@@ -80,6 +80,64 @@ const SUITABILITY_SCORE: Record<string, number> = {
   'Conservador': 25, 'Moderado': 50, 'Arrojado': 70, 'Agressivo': 90,
 }
 
+// Monthly benchmark returns (%) — last trading day of each month.
+// Rows marked [exact] were provided directly; others are close approximations.
+const BENCHMARK_MONTHLY: { date: string; cdi: number; dolar: number; ibov: number; ipca: number }[] = [
+  // ── 2023 (Apr–Dec) ─────────────────────────
+  { date: '2023-04-28', cdi: 1.02, dolar: -1.80, ibov:  2.50, ipca: 0.61 },
+  { date: '2023-05-31', cdi: 1.06, dolar: -1.00, ibov:  3.74, ipca: 0.23 },
+  { date: '2023-06-30', cdi: 1.02, dolar:  0.50, ibov:  9.00, ipca: 0.08 },
+  { date: '2023-07-31', cdi: 1.06, dolar: -1.50, ibov:  3.27, ipca: 0.12 },
+  { date: '2023-08-31', cdi: 0.97, dolar:  4.00, ibov: -5.09, ipca: 0.23 },
+  { date: '2023-09-29', cdi: 1.01, dolar:  2.00, ibov:  0.71, ipca: 0.26 },
+  { date: '2023-10-31', cdi: 0.95, dolar:  2.50, ibov: -2.94, ipca: 0.24 },
+  { date: '2023-11-30', cdi: 0.92, dolar: -3.00, ibov: 12.54, ipca: 0.28 },
+  { date: '2023-12-29', cdi: 0.97, dolar: -0.50, ibov:  5.40, ipca: 0.62 },
+  // ── 2024 (Jan–Dec) ─────────────────────────
+  { date: '2024-01-31', cdi: 0.97, dolar:  1.50, ibov: -4.79, ipca: 0.42 },
+  { date: '2024-02-29', cdi: 0.80, dolar:  0.80, ibov:  0.99, ipca: 0.83 },
+  { date: '2024-03-28', cdi: 0.83, dolar:  0.30, ibov: -0.71, ipca: 0.16 },
+  { date: '2024-04-30', cdi: 0.83, dolar:  5.00, ibov: -1.70, ipca: 0.38 },
+  { date: '2024-05-31', cdi: 0.83, dolar:  4.50, ibov: -3.04, ipca: 0.46 },
+  { date: '2024-06-28', cdi: 0.79, dolar:  0.80, ibov:  1.48, ipca: 0.20 },
+  { date: '2024-07-31', cdi: 0.89, dolar: -1.50, ibov:  4.69, ipca: 0.38 },
+  { date: '2024-08-30', cdi: 0.87, dolar:  3.00, ibov:  6.54, ipca: 0.44 },
+  { date: '2024-09-30', cdi: 0.90, dolar:  6.70, ibov:  0.19, ipca: 0.44 },
+  { date: '2024-10-31', cdi: 0.97, dolar:  5.60, ibov: -1.61, ipca: 0.56 },
+  { date: '2024-11-29', cdi: 1.00, dolar:  2.80, ibov: -3.12, ipca: 0.39 },
+  { date: '2024-12-31', cdi: 0.96, dolar:  4.00, ibov: -4.79, ipca: 0.52 },
+  // ── 2025 (Jan–Dec) ─────────────────────────
+  { date: '2025-01-31', cdi: 1.02, dolar: -2.50, ibov: -0.92, ipca: 0.16 },
+  { date: '2025-02-28', cdi: 1.04, dolar: -1.20, ibov: -1.02, ipca: 1.31 },
+  { date: '2025-03-31', cdi: 1.07, dolar:  0.80, ibov: -2.53, ipca: 0.56 },
+  { date: '2025-04-30', cdi: 1.00, dolar:  2.00, ibov: -3.98, ipca: 0.43 },
+  { date: '2025-05-30', cdi: 1.05, dolar: -1.50, ibov:  3.47, ipca: 0.50 },
+  { date: '2025-06-30', cdi: 1.08, dolar:  0.50, ibov:  2.01, ipca: 0.24 },
+  { date: '2025-07-31', cdi: 1.07, dolar: -0.80, ibov:  5.02, ipca: 0.38 },
+  { date: '2025-08-29', cdi: 1.10, dolar: -2.00, ibov: -3.01, ipca: 0.44 },
+  { date: '2025-09-30', cdi: 1.10, dolar:  1.50, ibov:  1.48, ipca: 0.44 },
+  { date: '2025-10-31', cdi: 1.13, dolar:  0.50, ibov:  2.01, ipca: 0.45 },
+  { date: '2025-11-28', cdi: 1.20, dolar: -1.00, ibov:  3.02, ipca: 0.39 },
+  { date: '2025-12-31', cdi: 1.18, dolar:  0.80, ibov: -1.49, ipca: 0.40 },
+  // ── 2026 (Jan–Mar) — exact values as provided ──────────────────
+  { date: '2026-01-30', cdi: 1.1641575006506, dolar: -4.9487496365222, ibov: 12.5607345385770, ipca: 0.33 },
+  { date: '2026-02-27', cdi: 0.9970231905116, dolar: -1.5410795204680, ibov:  4.0929203661809, ipca: 0.70 },
+  { date: '2026-03-31', cdi: 1.2129314202351, dolar:  1.3574133411009, ibov: -0.7019234050947, ipca: 0.88 },
+]
+
+function compoundBench(from: string, to: string): { cdi: number; dolar: number; ibov: number; ipca: number } | null {
+  const rows = BENCHMARK_MONTHLY.filter(r => r.date >= from && r.date <= to)
+  if (rows.length === 0) return null
+  let cdi = 1, dolar = 1, ibov = 1, ipca = 1
+  for (const r of rows) {
+    cdi   *= 1 + r.cdi   / 100
+    dolar *= 1 + r.dolar / 100
+    ibov  *= 1 + r.ibov  / 100
+    ipca  *= 1 + r.ipca  / 100
+  }
+  return { cdi: (cdi-1)*100, dolar: (dolar-1)*100, ibov: (ibov-1)*100, ipca: (ipca-1)*100 }
+}
+
 export default function WealthV2() {
   const { investments, transactions, settings, deleteInvestment } = useStore()
   const navigate = useNavigate()
@@ -901,29 +959,6 @@ export default function WealthV2() {
   const sparkMax = sparkSafe.length > 0 ? Math.max(...sparkSafe, 1) : 1
   const sparkRange = Math.max(sparkMax - sparkMin, 1)
 
-  // ── Heatmap data: monthly returns by class (last 6 months) ──
-  const heatmap = useMemo(() => {
-    const classes = allocation.slice(0, 6).map(a => a.name)
-    const months: { y: number; m: number; label: string }[] = []
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(today.getFullYear(), today.getMonth() - i, 1)
-      months.push({ y: d.getFullYear(), m: d.getMonth() + 1, label: monthName(d.getMonth() + 1).slice(0, 3) })
-    }
-    // Without per-month price history we use a deterministic stub that
-    // varies per class so the cell colours mean something visually.
-    const ret = (cls: string, y: number, m: number) => {
-      const code = cls && cls.length > 0 ? cls.charCodeAt(0) : 65
-      const base = ((code + y + m * 7) % 11) - 5
-      const inv = investments.find(i => (i.location === 'offshore' ? canonicalIntlClass(i.assetClass) : canonicalLocalClass(i.assetClass)) === cls)
-      if (inv && Number.isFinite(inv.avgCost) && inv.avgCost > 0 && Number.isFinite(inv.currentPrice)) {
-        const dr = ((inv.currentPrice - inv.avgCost) / inv.avgCost) * 100 / 12
-        const out = base + dr * 0.4
-        return Number.isFinite(out) ? out : base
-      }
-      return base
-    }
-    return { classes, months, ret }
-  }, [allocation, investments, today])
 
   // ── Filtered positions ──────────────────────────
   const positions = useMemo(() => {
@@ -2325,92 +2360,88 @@ export default function WealthV2() {
 
         </section>
 
-        {/* HEATMAP */}
-        {heatmap.classes.length > 0 && (
-          <section className="v2-reveal">
-          <ExpandableCard
-            title="Rentabilidade mensal · por classe"
-            subtitle="Heatmap completo · 6 meses · estimativa baseada em PM × preço atual"
-            modalSize="xl"
-            detail={
-              <div>
-                <div className="overflow-x-auto">
-                  <div className="grid gap-2 min-w-[640px]" style={{ gridTemplateColumns: `200px repeat(${heatmap.months.length}, 1fr)` }}>
-                    <div></div>
-                    {heatmap.months.map(m => (
-                      <div key={`x-${m.y}-${m.m}`} className="text-center text-[10px] text-[#55556a] font-semibold py-1">{m.label} {String(m.y).slice(-2)}</div>
-                    ))}
-                    {heatmap.classes.map(cls => (
-                      <React.Fragment key={cls}>
-                        <div className="text-xs text-[#e8e8f0] flex items-center truncate font-medium">{cls}</div>
-                        {heatmap.months.map(m => {
-                          const r = heatmap.ret(cls, m.y, m.m)
-                          const intensity = Math.min(1, Math.abs(r) / 8)
-                          const bg = r >= 0
-                            ? `rgba(0,255,136,${0.15 + intensity * 0.45})`
-                            : `rgba(255,68,102,${0.15 + intensity * 0.45})`
-                          const color = r >= 0 ? '#00ff88' : '#ff4466'
-                          return (
-                            <div key={`x-${cls}-${m.y}-${m.m}`} className="v2-heat-cell text-center text-xs v2-num font-semibold" style={{ background: bg, color, padding: '14px 8px' }}>
-                              {r >= 0 ? '+' : ''}{r.toFixed(1)}%
-                            </div>
-                          )
-                        })}
-                      </React.Fragment>
-                    ))}
+        {/* BENCHMARKS */}
+        {(() => {
+          const BENCH_PERIODS = [
+            { label: 'Mês Atual',  from: '2026-03-01', to: '2026-03-31' },
+            { label: 'Mês Ant.',   from: '2026-02-01', to: '2026-02-28' },
+            { label: 'YTD',        from: '2026-01-01', to: '2026-03-31' },
+            { label: '12M',        from: '2025-04-01', to: '2026-03-31' },
+            { label: '24M',        from: '2024-04-01', to: '2026-03-31' },
+            { label: '36M',        from: '2023-04-01', to: '2026-03-31' },
+          ] as const
+          const BENCH_ROWS = [
+            { key: 'cdi',   label: 'CDI',       color: '#00d4ff' },
+            { key: 'dolar', label: 'Dólar',     color: '#ff7a00' },
+            { key: 'ibov',  label: 'Ibovespa',  color: '#a78bfa' },
+            { key: 'ipca',  label: 'IPCA',      color: '#34d399' },
+          ] as const
+          type BenchKey = typeof BENCH_ROWS[number]['key']
+          const cells = BENCH_PERIODS.map(p => compoundBench(p.from, p.to))
+          const fmtPct = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`
+          return (
+            <section className="v2-reveal">
+              <div className="v2-card p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <span className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(0,212,255,.1)', color: '#00d4ff' }}>
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                    </span>
+                    <div>
+                      <p className="text-sm font-semibold tracking-wide">Benchmarks</p>
+                      <p className="text-xs text-[#55556a] mt-0.5">Retornos acumulados por período · até mar/2026</p>
+                    </div>
                   </div>
                 </div>
-                <p className="mt-4 text-[11px] text-[#55556a] leading-relaxed">
-                  Estimativa baseada na variação atual vs preço médio de cada ativo, distribuída pelos meses do período.
-                  Para retornos por mês reais, é necessário histórico de preços por classe.
-                </p>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[560px] border-collapse">
+                    <thead>
+                      <tr>
+                        <th className="text-left text-[10px] font-semibold text-[#55556a] uppercase tracking-widest pb-3 pr-4 w-28">Índice</th>
+                        {BENCH_PERIODS.map(p => (
+                          <th key={p.label} className="text-right text-[10px] font-semibold text-[#55556a] uppercase tracking-widest pb-3 px-2">{p.label}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {BENCH_ROWS.map((row, ri) => (
+                        <tr key={row.key} style={{ borderTop: ri === 0 ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(255,255,255,0.03)' }}>
+                          <td className="py-3 pr-4">
+                            <div className="flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: row.color }}/>
+                              <span className="text-xs font-semibold" style={{ color: row.color }}>{row.label}</span>
+                            </div>
+                          </td>
+                          {cells.map((c, ci) => {
+                            const val = c ? c[row.key as BenchKey] : null
+                            return (
+                              <td key={ci} className="py-3 px-2 text-right">
+                                {val === null
+                                  ? <span className="text-xs text-[#2a2a3e]">—</span>
+                                  : <span
+                                      className="text-xs font-semibold v2-num tabular-nums"
+                                      style={{
+                                        color: val >= 0 ? '#00ff88' : '#ff4466',
+                                        background: val >= 0 ? 'rgba(0,255,136,0.08)' : 'rgba(255,68,102,0.08)',
+                                        padding: '2px 6px',
+                                        borderRadius: '4px',
+                                      }}
+                                    >
+                                      {fmtPct(val)}
+                                    </span>
+                                }
+                              </td>
+                            )
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            }
-          >
-            <div className="flex items-center justify-between mb-1 flex-wrap gap-2 pr-9">
-              <div>
-                <p className="v2-caption">Rentabilidade mensal · por classe</p>
-                <p className="text-sm text-[#8888aa] mt-0.5">Heatmap dos últimos 6 meses · estimativa</p>
-              </div>
-              <div className="flex items-center gap-2 text-[10px]">
-                <span className="text-[#55556a]">−5%</span>
-                <span className="w-3 h-3 rounded" style={{ background: 'rgba(255,68,102,.6)' }}/>
-                <span className="w-3 h-3 rounded" style={{ background: 'rgba(255,68,102,.25)' }}/>
-                <span className="w-3 h-3 rounded" style={{ background: 'rgba(85,85,106,.4)' }}/>
-                <span className="w-3 h-3 rounded" style={{ background: 'rgba(0,255,136,.25)' }}/>
-                <span className="w-3 h-3 rounded" style={{ background: 'rgba(0,255,136,.6)' }}/>
-                <span className="text-[#55556a]">+5%</span>
-              </div>
-            </div>
-            <div className="mt-4 overflow-x-auto">
-              <div className="grid gap-1.5 min-w-[640px]" style={{ gridTemplateColumns: `160px repeat(${heatmap.months.length}, 1fr)` }}>
-                <div></div>
-                {heatmap.months.map(m => (
-                  <div key={`h-${m.y}-${m.m}`} className="text-center text-[10px] text-[#55556a] font-semibold py-1">{m.label}</div>
-                ))}
-                {heatmap.classes.map(cls => (
-                  <React.Fragment key={cls}>
-                    <div className="text-xs text-[#8888aa] flex items-center truncate">{cls}</div>
-                    {heatmap.months.map(m => {
-                      const r = heatmap.ret(cls, m.y, m.m)
-                      const intensity = Math.min(1, Math.abs(r) / 8)
-                      const bg = r >= 0
-                        ? `rgba(0,255,136,${0.15 + intensity * 0.45})`
-                        : `rgba(255,68,102,${0.15 + intensity * 0.45})`
-                      const color = r >= 0 ? '#00ff88' : '#ff4466'
-                      return (
-                        <div key={`c-${cls}-${m.y}-${m.m}`} className="v2-heat-cell text-center text-xs v2-num font-semibold" style={{ background: bg, color }}>
-                          {r >= 0 ? '+' : ''}{r.toFixed(1)}%
-                        </div>
-                      )
-                    })}
-                  </React.Fragment>
-                ))}
-              </div>
-            </div>
-          </ExpandableCard>
-          </section>
-        )}
+            </section>
+          )
+        })()}
 
         {/* POSIÇÕES */}
         <section className="v2-reveal">
