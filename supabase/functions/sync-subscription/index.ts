@@ -44,15 +44,33 @@ Deno.serve(async (req) => {
     .eq('id', user.id)
     .single()
 
-  if (!profile?.stripe_customer_id) {
-    console.log('[sync-subscription] no stripe_customer_id found')
-    return json({ synced: false, reason: 'no_customer' })
+  let customerId = profile?.stripe_customer_id as string | undefined
+
+  if (!customerId) {
+    // Buy button flow: customer wasn't pre-linked — find by email
+    console.log('[sync-subscription] no stripe_customer_id, searching by email:', user.email)
+    const customers = await stripe.customers.search({
+      query: `email:"${user.email}"`,
+      limit: 1,
+    })
+    if (customers.data.length === 0) {
+      console.log('[sync-subscription] no Stripe customer found for email')
+      return json({ synced: false, reason: 'no_customer' })
+    }
+    customerId = customers.data[0].id
+    // Save it for future lookups
+    await supabase.from('profiles').upsert({
+      id:                 user.id,
+      stripe_customer_id: customerId,
+      updated_at:         new Date().toISOString(),
+    })
+    console.log('[sync-subscription] found and linked customer', customerId)
   }
 
   try {
     // Check active/trialing subscriptions first
     const subscriptions = await stripe.subscriptions.list({
-      customer: profile.stripe_customer_id,
+      customer: customerId,
       status:   'all',
       limit:    1,
     })
@@ -81,7 +99,7 @@ Deno.serve(async (req) => {
 
     // No subscription — check for one-time lifetime payment
     const payments = await stripe.paymentIntents.list({
-      customer: profile.stripe_customer_id,
+      customer: customerId,
       limit:    5,
     })
 

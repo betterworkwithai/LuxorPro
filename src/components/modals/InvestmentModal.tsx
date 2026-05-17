@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Globe, Building2, Home, ChevronDown, ChevronRight, Plus, X } from 'lucide-react'
+import { Globe, Building2, Home, ClipboardList, Plus, X, ChevronRight } from 'lucide-react'
 import { Modal, ModalFooter } from '../ui/Modal'
 import { useStore } from '../../store/useStore'
 import { todayISO, formatDate } from '../../lib/formatters'
@@ -62,6 +62,55 @@ const PAYMENT_FREQ_FUNDO = ['Mensal', 'Distribuição de Capital - Alternativos'
 
 const RISK_COLORS: Record<number, string> = {
   1: '#60a5fa', 2: '#84cc16', 3: '#eab308', 4: '#f97316', 5: '#ef4444',
+}
+
+// ─── Bulk-paste parser ────────────────────────
+function parseBrazilDate(s: string): string | null {
+  const m = s.trim().match(/^(\d{1,2})[\/\-.‐](\d{1,2})[\/\-.‐](\d{2,4})$/)
+  if (!m) return null
+  let [, d, mo, y] = m
+  if (y.length === 2) y = y < '50' ? '20' + y : '19' + y
+  return `${y.padStart(4, '20')}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`
+}
+
+function parseAnyNumber(s: string): number | null {
+  const t = s.trim().replace(/\s/g, '').replace(/R\$\s*/i, '')
+  if (!t) return null
+  const lastComma  = t.lastIndexOf(',')
+  const lastPeriod = t.lastIndexOf('.')
+  let norm: string
+  if (lastComma > lastPeriod) {
+    // Brazilian: comma is decimal separator (e.g. "1.234,56")
+    norm = t.replace(/\./g, '').replace(',', '.')
+  } else {
+    // US / plain (e.g. "1,234.56" or "564.44")
+    norm = t.replace(/,/g, '')
+  }
+  const n = parseFloat(norm)
+  return isNaN(n) ? null : n
+}
+
+function parsePasteRows(text: string): { date: string; value: number }[] {
+  const results: { date: string; value: number }[] = []
+  const seen = new Set<string>()
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim()
+    if (!line) continue
+    // Split by tab, semicolon, or 2+ spaces
+    const parts = line.split(/\t|;|\s{2,}/).map(p => p.trim()).filter(Boolean)
+    if (parts.length < 2) continue
+    let date: string | null = null
+    let value: number | null = null
+    for (const p of parts) {
+      if (!date) { date = parseBrazilDate(p); if (date) continue }
+      if (date && value === null) { value = parseAnyNumber(p); if (value !== null) break }
+    }
+    if (date && value !== null && !seen.has(date)) {
+      seen.add(date)
+      results.push({ date, value })
+    }
+  }
+  return results
 }
 
 // ─── Form state ──────────────────────────────
@@ -277,6 +326,10 @@ export function InvestmentModal({ open, onClose, initial, linkedTransactions, se
   const [cfAmount, setCfAmount] = useState('')
   const [cfDesc, setCfDesc]     = useState('')
   const [histTab, setHistTab]   = useState<'prices' | 'cashflow'>('prices')
+  const [showPricePaste, setShowPricePaste] = useState(false)
+  const [pricePasteText, setPricePasteText] = useState('')
+  const [showCfPaste, setShowCfPaste]       = useState(false)
+  const [cfPasteText, setCfPasteText]       = useState('')
 
   useEffect(() => {
     if (!open) return
@@ -284,6 +337,8 @@ export function InvestmentModal({ open, onClose, initial, linkedTransactions, se
     setHistory(initial?.priceHistory ?? [])
     setCashflowHistory(initial?.cashflowHistory ?? [])
     setHistTab('prices')
+    setShowPricePaste(false); setPricePasteText('')
+    setShowCfPaste(false);    setCfPasteText('')
     setStep(0)
     setSaveError(null)
     setSaveSuccess(false)
@@ -905,28 +960,100 @@ export function InvestmentModal({ open, onClose, initial, linkedTransactions, se
                     Adicione pontos históricos para que os gráficos de performance (1M, 6M, YTD, 1Y, ALL) reflitam dados reais.
                   </p>
                 </div>
-                <div className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
-                  <div>
-                    <label className="text-xs text-[#8888aa] mb-1.5 block">Data</label>
-                    <input type="date" className="input-dark" value={hpDate} onChange={e => setHpDate(e.target.value)} />
-                  </div>
-                  <div>
-                    <label className="text-xs text-[#8888aa] mb-1.5 block">Preço ({f.currency})</label>
-                    <input type="number" className="input-dark" value={hpPrice} onChange={e => setHpPrice(e.target.value)} />
-                  </div>
-                  <button onClick={addHistoryPoint} disabled={!hpDate || !hpPrice} className="btn-primary h-[38px]">
-                    <Plus className="w-4 h-4" />
-                  </button>
+
+                {/* Mode toggle */}
+                <div className="flex items-center gap-1.5">
+                  <button type="button"
+                    onClick={() => { setShowPricePaste(false); setPricePasteText('') }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${!showPricePaste ? 'bg-[#ff7a00]/15 border-[#ff7a00]/40 text-[#ff7a00]' : 'bg-[#16161f] border-[#1e1e2e] text-[#55556a] hover:text-[#e8e8f0]'}`}
+                  >Adicionar ponto</button>
+                  <button type="button"
+                    onClick={() => setShowPricePaste(true)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all flex items-center gap-1.5 ${showPricePaste ? 'bg-[#ff7a00]/15 border-[#ff7a00]/40 text-[#ff7a00]' : 'bg-[#16161f] border-[#1e1e2e] text-[#55556a] hover:text-[#e8e8f0]'}`}
+                  ><ClipboardList className="w-3.5 h-3.5"/>Colar do Excel</button>
                 </div>
+
+                {!showPricePaste ? (
+                  <div className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
+                    <div>
+                      <label className="text-xs text-[#8888aa] mb-1.5 block">Data</label>
+                      <input type="date" className="input-dark" value={hpDate} onChange={e => setHpDate(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="text-xs text-[#8888aa] mb-1.5 block">Preço ({f.currency})</label>
+                      <input type="number" className="input-dark" value={hpPrice} onChange={e => setHpPrice(e.target.value)} />
+                    </div>
+                    <button onClick={addHistoryPoint} disabled={!hpDate || !hpPrice} className="btn-primary h-[38px]">
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <textarea
+                      className="w-full h-44 bg-[#0a0a0f] border border-[#1e1e2e] rounded-xl p-3 text-[11px] text-[#e8e8f0] font-mono placeholder:text-[#55556a] resize-none focus:outline-none focus:border-[#ff7a00]/40"
+                      placeholder={`Cole dados copiados do Excel (data + preço, um por linha):\n\nData\t\tPreço\n30/04/2026\t1,02\n31/03/2026\t1,01\n28/02/2026\t0,98\n\nAceita DD/MM/AAAA, vírgula ou ponto decimal, separado por Tab.`}
+                      value={pricePasteText}
+                      onChange={e => setPricePasteText(e.target.value)}
+                    />
+                    {pricePasteText.trim() && (() => {
+                      const parsed = parsePasteRows(pricePasteText)
+                      return (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] text-[#8888aa]">
+                              {parsed.length > 0
+                                ? `${parsed.length} ponto${parsed.length !== 1 ? 's' : ''} detectado${parsed.length !== 1 ? 's' : ''}`
+                                : 'Nenhuma linha reconhecida — verifique o formato'}
+                            </span>
+                            <button
+                              type="button"
+                              disabled={parsed.length === 0}
+                              onClick={() => {
+                                setHistory(prev => {
+                                  const next = [...prev]
+                                  for (const { date, value: price } of parsed) {
+                                    const idx = next.findIndex(p => p.date === date)
+                                    if (idx >= 0) next[idx] = { date, price }
+                                    else next.push({ date, price })
+                                  }
+                                  return next.sort((a, b) => a.date.localeCompare(b.date))
+                                })
+                                setPricePasteText('')
+                                setShowPricePaste(false)
+                              }}
+                              className="btn-primary text-xs px-4 py-1.5 disabled:opacity-40"
+                            >Importar {parsed.length} ponto{parsed.length !== 1 ? 's' : ''}</button>
+                          </div>
+                          {parsed.length > 0 && (
+                            <div className="border border-[#1e1e2e] rounded-xl overflow-hidden">
+                              <div className="max-h-36 overflow-y-auto">
+                                {parsed.map(({ date, value }) => (
+                                  <div key={date} className="flex items-center justify-between px-3 py-1.5 border-b border-[#1e1e2e] last:border-0 text-xs">
+                                    <span className="text-[#8888aa]">{formatDate(date)}</span>
+                                    <span className="font-mono text-[#e8e8f0]">{value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 6 })}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })()}
+                  </div>
+                )}
+
                 {history.length === 0 ? (
                   <p className="text-xs text-[#55556a] italic text-center py-6">Nenhum ponto histórico ainda.</p>
                 ) : (
                   <div className="border border-[#1e1e2e] rounded-xl overflow-hidden">
-                    <div className="max-h-56 overflow-y-auto">
-                      {history.map(p => (
+                    <div className="flex items-center justify-between px-3 py-1.5 border-b border-[#1e1e2e] bg-[#0d0e1c]">
+                      <span className="text-[10px] uppercase tracking-wider text-[#55556a]">{history.length} pontos salvos</span>
+                    </div>
+                    <div className="max-h-48 overflow-y-auto">
+                      {[...history].reverse().map(p => (
                         <div key={p.date} className="flex items-center justify-between px-3 py-2 border-b border-[#1e1e2e] last:border-0 text-xs">
                           <span className="text-[#8888aa]">{formatDate(p.date)}</span>
-                          <span className="text-[#e8e8f0] font-mono">{p.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                          <span className="text-[#e8e8f0] font-mono">{p.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 6 })}</span>
                           <button onClick={() => removeHistoryPoint(p.date)} className="text-[#55556a] hover:text-[#ff4466]">
                             <X className="w-3.5 h-3.5" />
                           </button>
@@ -968,24 +1095,99 @@ export function InvestmentModal({ open, onClose, initial, linkedTransactions, se
                   </div>
                 </div>
 
-                <div className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
-                  <div>
-                    <label className="text-xs text-[#8888aa] mb-1.5 block">Data</label>
-                    <input type="date" className="input-dark" value={cfDate} onChange={e => setCfDate(e.target.value)} />
-                  </div>
-                  <div>
-                    <label className="text-xs text-[#8888aa] mb-1.5 block">Valor Total ({f.currency})</label>
-                    <input type="number" className="input-dark" placeholder="0.00" value={cfAmount} onChange={e => setCfAmount(e.target.value)} />
-                  </div>
-                  <button onClick={addCashflowEvent} disabled={!cfDate || !cfAmount} className="btn-primary h-[38px]">
-                    <Plus className="w-4 h-4" />
-                  </button>
+                {/* Mode toggle */}
+                <div className="flex items-center gap-1.5">
+                  <button type="button"
+                    onClick={() => { setShowCfPaste(false); setCfPasteText('') }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${!showCfPaste ? 'bg-[#00ff88]/15 border-[#00ff88]/40 text-[#00ff88]' : 'bg-[#16161f] border-[#1e1e2e] text-[#55556a] hover:text-[#e8e8f0]'}`}
+                  >Adicionar</button>
+                  <button type="button"
+                    onClick={() => setShowCfPaste(true)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all flex items-center gap-1.5 ${showCfPaste ? 'bg-[#00ff88]/15 border-[#00ff88]/40 text-[#00ff88]' : 'bg-[#16161f] border-[#1e1e2e] text-[#55556a] hover:text-[#e8e8f0]'}`}
+                  ><ClipboardList className="w-3.5 h-3.5"/>Colar do Excel</button>
                 </div>
 
-                <div>
-                  <label className="text-xs text-[#8888aa] mb-1.5 block">Descrição (opcional)</label>
-                  <input className="input-dark" placeholder="Ex: Dividendo referente a nov/24" value={cfDesc} onChange={e => setCfDesc(e.target.value)} />
-                </div>
+                {!showCfPaste ? (
+                  <>
+                    <div className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
+                      <div>
+                        <label className="text-xs text-[#8888aa] mb-1.5 block">Data</label>
+                        <input type="date" className="input-dark" value={cfDate} onChange={e => setCfDate(e.target.value)} />
+                      </div>
+                      <div>
+                        <label className="text-xs text-[#8888aa] mb-1.5 block">Valor Total ({f.currency})</label>
+                        <input type="number" className="input-dark" placeholder="0.00" value={cfAmount} onChange={e => setCfAmount(e.target.value)} />
+                      </div>
+                      <button onClick={addCashflowEvent} disabled={!cfDate || !cfAmount} className="btn-primary h-[38px]">
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div>
+                      <label className="text-xs text-[#8888aa] mb-1.5 block">Descrição (opcional)</label>
+                      <input className="input-dark" placeholder="Ex: Dividendo referente a nov/24" value={cfDesc} onChange={e => setCfDesc(e.target.value)} />
+                    </div>
+                  </>
+                ) : (
+                  <div className="space-y-2">
+                    <textarea
+                      className="w-full h-44 bg-[#0a0a0f] border border-[#1e1e2e] rounded-xl p-3 text-[11px] text-[#e8e8f0] font-mono placeholder:text-[#55556a] resize-none focus:outline-none focus:border-[#00ff88]/40"
+                      placeholder={`Cole dados copiados do Excel (data + valor, um por linha):\n\nData\t\tProventos\n30/04/2026\t564,44\n31/03/2026\t599,40\n28/02/2026\t587,22\n\nAceita DD/MM/AAAA, vírgula ou ponto decimal, separado por Tab.`}
+                      value={cfPasteText}
+                      onChange={e => setCfPasteText(e.target.value)}
+                    />
+                    {cfPasteText.trim() && (() => {
+                      const parsed = parsePasteRows(cfPasteText)
+                      const activeCfType = CASHFLOW_EVENT_TYPES.find(t => t.value === cfType)
+                      return (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] text-[#8888aa]">
+                              {parsed.length > 0
+                                ? `${parsed.length} rendimento${parsed.length !== 1 ? 's' : ''} detectado${parsed.length !== 1 ? 's' : ''}`
+                                : 'Nenhuma linha reconhecida — verifique o formato'}
+                            </span>
+                            <button
+                              type="button"
+                              disabled={parsed.length === 0}
+                              onClick={() => {
+                                const desc = cfDesc.trim() || undefined
+                                setCashflowHistory(prev => {
+                                  const next: CashflowEvent[] = [
+                                    ...prev,
+                                    ...parsed.map(({ date, value }) => ({
+                                      date,
+                                      type: cfType,
+                                      amount: value,
+                                      description: desc,
+                                    })),
+                                  ]
+                                  next.sort((a, b) => a.date.localeCompare(b.date))
+                                  return next
+                                })
+                                setCfPasteText('')
+                                setShowCfPaste(false)
+                              }}
+                              className="btn-primary text-xs px-4 py-1.5 disabled:opacity-40"
+                              style={{ background: parsed.length > 0 ? activeCfType?.color + '22' : undefined, borderColor: parsed.length > 0 ? activeCfType?.color + '55' : undefined, color: parsed.length > 0 ? activeCfType?.color : undefined }}
+                            >Importar {parsed.length} rendimento{parsed.length !== 1 ? 's' : ''}</button>
+                          </div>
+                          {parsed.length > 0 && (
+                            <div className="border border-[#1e1e2e] rounded-xl overflow-hidden">
+                              <div className="max-h-36 overflow-y-auto">
+                                {parsed.map(({ date, value }) => (
+                                  <div key={date} className="flex items-center justify-between px-3 py-1.5 border-b border-[#1e1e2e] last:border-0 text-xs">
+                                    <span className="text-[#8888aa]">{formatDate(date)}</span>
+                                    <span className="font-mono text-[#e8e8f0]">{value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {f.currency}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })()}
+                  </div>
+                )}
 
                 {cashflowHistory.length === 0 ? (
                   <p className="text-xs text-[#55556a] italic text-center py-4">Nenhum rendimento registrado ainda.</p>

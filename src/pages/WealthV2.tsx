@@ -9,7 +9,7 @@ import React, { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   AlertTriangle, ArrowDownRight, ArrowDownUp, ArrowRight, ArrowUpRight, Building2,
-  ChevronDown, Download, Filter, Gift, Layers, Link2, PlusCircle, RefreshCw,
+  ChevronDown, Columns, Download, Filter, Gift, GripVertical, Layers, Link2, PlusCircle, RefreshCw,
   Scale, Search, TrendingUp, Wallet, Zap,
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
@@ -24,6 +24,57 @@ import { pfPath } from '../constants'
 
 type PeriodMode = '1M' | '3M' | 'YTD' | '12M' | '5A' | 'ALL'
 type CurrencyMode = 'BRL' | 'USD' | 'EUR'
+
+// ── Positions table — column registry ──────────────────────────────
+type ColId = 'ticker'|'name'|'assetClass'|'maturity'|'qty'|'pm'|'position'|'allocation'|'period'|'mtd'|'prevMonth'|'ytd'|'m12'|'m24'|'inception'
+type ColSortKey = 'name'|'class'|'institution'|'qty'|'avgCost'|'currentPrice'|'position'|'period'|'allocation'|'maturity'|'mtd'|'prevMonth'|'ytd'|'m12'|'m24'|'inception'
+interface PosColDef { id: ColId; label: string; width: string; align: 'left'|'right'; sortKey?: ColSortKey; fixed?: boolean; defaultOn?: boolean }
+const POS_COL_DEFS: PosColDef[] = [
+  { id: 'ticker',    label: 'Ticker',     width: '80px',                align: 'left',  sortKey: 'name',       fixed: true, defaultOn: true },
+  { id: 'name',      label: 'Ativo',      width: 'minmax(130px,1.4fr)', align: 'left',  sortKey: 'name',       fixed: true, defaultOn: true },
+  { id: 'assetClass',label: 'Classe',     width: 'minmax(100px,1fr)',   align: 'left',  sortKey: 'class',                   defaultOn: true },
+  { id: 'maturity',  label: 'Vencimento', width: '88px',                align: 'left',  sortKey: 'maturity' },
+  { id: 'qty',       label: 'Qtd',        width: '68px',                align: 'right', sortKey: 'qty',                     defaultOn: true },
+  { id: 'pm',        label: 'PM / Atual', width: '116px',               align: 'right', sortKey: 'avgCost',                 defaultOn: true },
+  { id: 'position',  label: 'Posição',    width: '105px',               align: 'right', sortKey: 'position',                defaultOn: true },
+  { id: 'allocation',label: 'Aloc.',      width: '62px',                align: 'right', sortKey: 'allocation',              defaultOn: true },
+  { id: 'period',    label: 'Retorno',    width: '80px',                align: 'right', sortKey: 'period',                  defaultOn: true },
+  { id: 'mtd',       label: 'Mês atual',  width: '72px',                align: 'right', sortKey: 'mtd' },
+  { id: 'prevMonth', label: 'Mês ant.',   width: '72px',                align: 'right', sortKey: 'prevMonth' },
+  { id: 'ytd',       label: 'YTD',        width: '70px',                align: 'right', sortKey: 'ytd' },
+  { id: 'm12',       label: '12M',        width: '70px',                align: 'right', sortKey: 'm12' },
+  { id: 'm24',       label: '24M',        width: '70px',                align: 'right', sortKey: 'm24' },
+  { id: 'inception', label: 'Início',     width: '80px',                align: 'right', sortKey: 'inception' },
+]
+const DEFAULT_COL_IDS: ColId[] = POS_COL_DEFS.filter(c => c.defaultOn).map(c => c.id)
+
+// Pure price-at-date helper (no dependency on 'period' state)
+function priceAt(inv: Investment, cutoffISO: string): number {
+  const cost = Number.isFinite(inv.avgCost) ? inv.avgCost : 0
+  if (Array.isArray(inv.priceHistory) && inv.priceHistory.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const valid = (inv.priceHistory as any[]).filter((p: any) => p && typeof p.date === 'string' && p.date.length > 0 && Number.isFinite(p.price))
+    const before = valid.filter((p: any) => p.date <= cutoffISO)
+    if (before.length > 0) {
+      const sorted = [...before].sort((a: any, b: any) => b.date > a.date ? 1 : b.date < a.date ? -1 : 0)
+      const px = sorted[0]?.price
+      if (Number.isFinite(px)) return px
+    }
+  }
+  if (!inv.purchaseDate || typeof inv.purchaseDate !== 'string' || inv.purchaseDate > cutoffISO) return cost
+  const cur = Number.isFinite(inv.currentPrice) ? inv.currentPrice : cost
+  if (cost > 0 && cur > 0) {
+    const purchaseMs = new Date(inv.purchaseDate + 'T00:00:00').getTime()
+    const cutoffMs   = new Date(cutoffISO + 'T00:00:00').getTime()
+    const nowMs      = Date.now()
+    const totalMs    = nowMs - purchaseMs
+    if (totalMs > 0 && cutoffMs > purchaseMs) {
+      const t = (cutoffMs - purchaseMs) / totalMs
+      return cost * Math.pow(cur / cost, Math.min(1, t))
+    }
+  }
+  return cost
+}
 
 const SUITABILITY_SCORE: Record<string, number> = {
   'Conservador': 25, 'Moderado': 50, 'Arrojado': 70, 'Agressivo': 90,
@@ -42,8 +93,18 @@ export default function WealthV2() {
   const [filterClass, setFilterClass] = useState<string>('all')
   const [filterInstitution, setFilterInstitution] = useState<string>('all')
   const [filterTax, setFilterTax] = useState<string>('all')
-  const [showAllPos, setShowAllPos] = useState(false)
-  type SortKey = 'name' | 'class' | 'institution' | 'qty' | 'avgCost' | 'currentPrice' | 'position' | 'period'
+  const [filterLocation, setFilterLocation] = useState<'all'|'onshore'|'offshore'>('all')
+  const [visibleCols, setVisibleCols] = useState<ColId[]>(() => {
+    try { const s = localStorage.getItem('luxor-pos-cols'); if (s) return JSON.parse(s) as ColId[] } catch {}
+    return DEFAULT_COL_IDS
+  })
+  const [showColPicker, setShowColPicker] = useState(false)
+  const dragColFrom = useRef<number | null>(null)
+  const updateCols = (cols: ColId[]) => {
+    setVisibleCols(cols)
+    try { localStorage.setItem('luxor-pos-cols', JSON.stringify(cols)) } catch {}
+  }
+  type SortKey = ColSortKey
   const [sortKey, setSortKey] = useState<SortKey>('position')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [breakdownLocation, setBreakdownLocation] = useState<'all' | 'onshore' | 'offshore'>('all')
@@ -90,6 +151,16 @@ export default function WealthV2() {
     if (period === 'ALL')  cutoff.setFullYear(1970)
     return cutoff.toISOString().split('T')[0]
   }, [period])
+
+  const perfCutoffs = useMemo(() => {
+    const iso = (d: Date) => d.toISOString().split('T')[0]
+    const mtd  = new Date(today.getFullYear(), today.getMonth(), 1)
+    const pms  = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+    const ytd  = new Date(today.getFullYear(), 0, 1)
+    const m12  = new Date(today); m12.setFullYear(today.getFullYear() - 1)
+    const m24  = new Date(today); m24.setFullYear(today.getFullYear() - 2)
+    return { mtd: iso(mtd), prevMonthStart: iso(pms), prevMonthEnd: iso(mtd), ytd: iso(ytd), m12: iso(m12), m24: iso(m24) }
+  }, [today])
 
   // ── Per-investment start-of-period price ──────
   // Returns the best estimate of this asset's per-unit price at `cutoffISO`:
@@ -856,27 +927,39 @@ export default function WealthV2() {
       const cost = convert(i.quantity * i.avgCost,      i.currency, 'BRL', usdToBrl, eurToBrl)
       const sp   = startPriceFor(i, periodCutoff)
       const startVal = convert(i.quantity * sp, i.currency, 'BRL', usdToBrl, eurToBrl)
-      // Linked cashflow income for this specific investment
       const linked = linkedTxByInvestment.get(i.id) ?? []
       const linkedIncomePer  = linked.filter(t => t.date >= periodCutoff && t.type === 'income')
         .reduce((s, t) => s + convert(t.amount, (t.currency ?? 'BRL') as 'BRL'|'USD'|'EUR', 'BRL', usdToBrl, eurToBrl), 0)
       const linkedIncomeAll  = linked.filter(t => t.type === 'income')
         .reduce((s, t) => s + convert(t.amount, (t.currency ?? 'BRL') as 'BRL'|'USD'|'EUR', 'BRL', usdToBrl, eurToBrl), 0)
-      const gainLife  = cur - cost + linkedIncomeAll
-      const pctLife   = cost > 0 ? (gainLife / cost) * 100 : 0
-      const gainPer   = period === 'ALL'
-        ? gainLife
-        : (cur - startVal + linkedIncomePer)
-      const pctPer    = period === 'ALL'
-        ? pctLife
-        : (startVal > 0 ? (gainPer / startVal) * 100 : 0)
+      const gainLife = cur - cost + linkedIncomeAll
+      const pctLife  = cost > 0 ? (gainLife / cost) * 100 : 0
+      const gainPer  = period === 'ALL' ? gainLife : (cur - startVal + linkedIncomePer)
+      const pctPer   = period === 'ALL' ? pctLife  : (startVal > 0 ? (gainPer / startVal) * 100 : 0)
+      // Fixed performance period returns via priceAt (no 'ALL' shortcut)
+      const pctFor = (cutISO: string) => {
+        const s2 = priceAt(i, cutISO)
+        return s2 > 0 ? ((i.currentPrice - s2) / s2) * 100 : 0
+      }
+      const pctPrevMonth = (() => {
+        const s2 = priceAt(i, perfCutoffs.prevMonthStart)
+        const e2 = priceAt(i, perfCutoffs.prevMonthEnd)
+        return s2 > 0 ? ((e2 - s2) / s2) * 100 : 0
+      })()
       return {
         ...i, currentBRL: cur, costBRL: cost, startBRL: startVal,
         gain: gainPer, pct: pctPer, gainLife, pctLife,
-        linkedIncomePer, linkedIncomeAll, linkedCount: linked.length,
-        linkedTxs: linked,
+        linkedIncomePer, linkedIncomeAll, linkedCount: linked.length, linkedTxs: linked,
+        pctMtd: pctFor(perfCutoffs.mtd),
+        pctPrevMonth,
+        pctYtd: pctFor(perfCutoffs.ytd),
+        pct12m: pctFor(perfCutoffs.m12),
+        pct24m: pctFor(perfCutoffs.m24),
+        pctInception: pctLife,
+        allocPct: 0,
       }
     })
+    if (filterLocation !== 'all') out = out.filter(i => i.location === filterLocation)
     if (filterClass !== 'all') out = out.filter(i => i.assetClass === filterClass)
     if (filterInstitution !== 'all') out = out.filter(i => (i.institution || '') === filterInstitution)
     if (filterTax !== 'all') out = out.filter(i => (i.taxTreatment ?? 'unset') === filterTax)
@@ -899,13 +982,51 @@ export default function WealthV2() {
         case 'avgCost':      return dir * (a.avgCost - b.avgCost)
         case 'currentPrice': return dir * (a.currentPrice - b.currentPrice)
         case 'period':       return dir * (a.pct - b.pct)
+        case 'allocation':   return dir * (a.allocPct - b.allocPct)
+        case 'maturity':     return dir * ((a.maturityDate ?? '9999-12-31') < (b.maturityDate ?? '9999-12-31') ? -1 : 1)
+        case 'mtd':          return dir * (a.pctMtd - b.pctMtd)
+        case 'prevMonth':    return dir * (a.pctPrevMonth - b.pctPrevMonth)
+        case 'ytd':          return dir * (a.pctYtd - b.pctYtd)
+        case 'm12':          return dir * (a.pct12m - b.pct12m)
+        case 'm24':          return dir * (a.pct24m - b.pct24m)
+        case 'inception':    return dir * (a.pctInception - b.pctInception)
         case 'position':
         default:             return dir * (a.currentBRL - b.currentBRL)
       }
     })
-  }, [investments, search, filterClass, filterInstitution, filterTax, usdToBrl, eurToBrl, periodCutoff, period, sortKey, sortDir, linkedTxByInvestment])
+  }, [investments, search, filterClass, filterInstitution, filterTax, filterLocation, usdToBrl, eurToBrl, periodCutoff, period, sortKey, sortDir, linkedTxByInvestment, perfCutoffs])
 
-  const visiblePos = showAllPos ? positions : positions.slice(0, 8)
+  const positionsWithAlloc = useMemo(() => {
+    const total = positions.reduce((s, p) => s + p.currentBRL, 0)
+    return positions.map(p => ({ ...p, allocPct: total > 0 ? (p.currentBRL / total) * 100 : 0 }))
+  }, [positions])
+
+  const groupedPositions = useMemo(() => {
+    const ORDER = [...LOCAL_CLASSES, ...INTL_CLASSES]
+    const map = new Map<string, typeof positionsWithAlloc[number][]>()
+    for (const p of positionsWithAlloc) {
+      const canon = p.location === 'offshore'
+        ? canonicalIntlClass(p.assetClass)
+        : canonicalLocalClass(p.assetClass)
+      const key = ORDER.includes(canon) ? canon : p.assetClass
+      const arr = map.get(key) ?? []
+      arr.push(p)
+      map.set(key, arr)
+    }
+    const knownKeys   = ORDER.filter(k => map.has(k))
+    const unknownKeys = Array.from(map.keys()).filter(k => !ORDER.includes(k)).sort()
+    return [...knownKeys, ...unknownKeys].map(key => {
+      const items        = map.get(key)!
+      const totalBRL     = items.reduce((s, p) => s + p.currentBRL, 0)
+      const totalGain    = items.reduce((s, p) => s + p.gain, 0)
+      const totalBase    = period === 'ALL'
+        ? items.reduce((s, p) => s + p.costBRL, 0)
+        : items.reduce((s, p) => s + p.startBRL, 0)
+      const totalAllocPct = items.reduce((s, p) => s + p.allocPct, 0)
+      const gainPct = totalBase > 0 ? (totalGain / totalBase) * 100 : 0
+      return { key, items, totalBRL, gainPct, totalAllocPct }
+    })
+  }, [positionsWithAlloc, period])
 
   const allClassesForFilter = useMemo(() => {
     const s = new Set<string>()
@@ -2289,8 +2410,9 @@ export default function WealthV2() {
               </span>
             </summary>
             <div className="px-5 pb-5">
+              {/* ── Filter bar ── */}
               <div className="flex items-center gap-2 mb-3 flex-wrap">
-                <div className="flex-1 min-w-[200px] relative">
+                <div className="flex-1 min-w-[160px] relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#55556a]"/>
                   <input
                     type="text"
@@ -2300,11 +2422,23 @@ export default function WealthV2() {
                     className="w-full pl-9 pr-3 py-2 text-xs rounded-lg bg-[#0a0a0f] border border-[#1e1e30] text-[#e8e8f0] placeholder:text-[#55556a] focus:outline-none focus:border-[#00d4ff]/40"
                   />
                 </div>
-                <select value={filterClass} onChange={e => setFilterClass(e.target.value)} className="px-3 py-2 rounded-lg text-xs font-medium border border-[#1e1e30] bg-[#0a0a0f] text-[#8888aa] max-w-[200px]">
+                {/* Location toggle */}
+                <div className="flex items-center gap-0.5 p-0.5 rounded-lg bg-[#0a0a0f] border border-[#1e1e30] flex-shrink-0">
+                  {(['all', 'onshore', 'offshore'] as const).map(loc => (
+                    <button
+                      key={loc}
+                      onClick={() => setFilterLocation(loc)}
+                      className={`px-2.5 py-1.5 rounded-md text-[10px] font-semibold transition-colors ${filterLocation === loc ? 'bg-[#00d4ff]/15 text-[#00d4ff]' : 'text-[#55556a] hover:text-[#8888aa]'}`}
+                    >
+                      {loc === 'all' ? 'Todos' : loc === 'onshore' ? 'Brasil' : 'Exterior'}
+                    </button>
+                  ))}
+                </div>
+                <select value={filterClass} onChange={e => setFilterClass(e.target.value)} className="px-3 py-2 rounded-lg text-xs font-medium border border-[#1e1e30] bg-[#0a0a0f] text-[#8888aa] max-w-[180px]">
                   <option value="all">Classe: todas</option>
                   {allClassesForFilter.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
-                <select value={filterInstitution} onChange={e => setFilterInstitution(e.target.value)} className="px-3 py-2 rounded-lg text-xs font-medium border border-[#1e1e30] bg-[#0a0a0f] text-[#8888aa] max-w-[200px]">
+                <select value={filterInstitution} onChange={e => setFilterInstitution(e.target.value)} className="px-3 py-2 rounded-lg text-xs font-medium border border-[#1e1e30] bg-[#0a0a0f] text-[#8888aa] max-w-[180px]">
                   <option value="all">Instituição: todas</option>
                   {Array.from(new Set(investments.map(i => i.institution).filter(Boolean))).sort().map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
@@ -2315,94 +2449,220 @@ export default function WealthV2() {
                   <option value="tax-exempt">Isento</option>
                   <option value="unset">Não classif.</option>
                 </select>
-                {(filterClass !== 'all' || filterInstitution !== 'all' || filterTax !== 'all' || search) && (
+                {(filterClass !== 'all' || filterInstitution !== 'all' || filterTax !== 'all' || filterLocation !== 'all' || search) && (
                   <button
-                    onClick={() => { setFilterClass('all'); setFilterInstitution('all'); setFilterTax('all'); setSearch('') }}
+                    onClick={() => { setFilterClass('all'); setFilterInstitution('all'); setFilterTax('all'); setFilterLocation('all'); setSearch('') }}
                     className="px-3 py-2 rounded-lg text-xs font-medium border border-[#1e1e30] bg-[#0a0a0f] text-[#ff7a00] hover:border-[#ff7a00]/40"
                   >Limpar filtros</button>
                 )}
-              </div>
-              <div className="overflow-x-auto">
-                <div className="min-w-[960px] overflow-hidden rounded-xl border border-[#1e1e30] divide-y divide-[#1e1e30]">
-                  <div className="grid grid-cols-[90px_minmax(160px,1.4fr)_minmax(120px,1fr)_80px_130px_110px_100px_32px] items-center gap-1 px-3 py-2 text-[10px] uppercase tracking-wider text-[#55556a]">
-                    <button onClick={() => toggleSort('name')}     className="text-left hover:text-[#e8e8f0]">Ticker{sortIcon('name')}</button>
-                    <button onClick={() => toggleSort('name')}     className="text-left hover:text-[#e8e8f0]">Ativo{sortIcon('name')}</button>
-                    <button onClick={() => toggleSort('class')}    className="text-left hover:text-[#e8e8f0]">Classe{sortIcon('class')}</button>
-                    <button onClick={() => toggleSort('qty')}      className="text-right hover:text-[#e8e8f0]">Qtd{sortIcon('qty')}</button>
-                    <button onClick={() => toggleSort('avgCost')}  className="text-right hover:text-[#e8e8f0]">PM / Atual{sortIcon('avgCost')}</button>
-                    <button onClick={() => toggleSort('position')} className="text-right hover:text-[#e8e8f0]">Posição{sortIcon('position')}</button>
-                    <button onClick={() => toggleSort('period')}   className="text-right hover:text-[#e8e8f0]">Retorno {periodLabel}{sortIcon('period')}</button>
-                    <span></span>
-                  </div>
-                  {visiblePos.length === 0 ? (
-                    <div className="px-3 py-6 text-center text-xs text-[#55556a]">Nenhum ativo encontrado.</div>
-                  ) : visiblePos.map(p => {
-                    const isPluggy = !!p.notes?.match(/pluggy:[^\s]+/)
-                    return (
-                      <div
-                        key={p.id}
-                        onClick={() => setEditing(p as Investment)}
-                        className="grid grid-cols-[90px_minmax(160px,1.4fr)_minmax(120px,1fr)_80px_130px_110px_100px_32px] items-center gap-1 px-3 py-2.5 text-xs v2-row-hover cursor-pointer"
-                        title="Clique para editar"
-                      >
-                        <span className="font-mono font-semibold truncate flex items-center gap-1.5" style={{ color: '#00d4ff' }}>
-                          {p.ticker || p.name.slice(0, 8)}
-                        </span>
-                        <span className="font-medium truncate flex items-center gap-2">
-                          <span className="truncate">{p.name}</span>
-                          {isPluggy && (
-                            <span
-                              className="text-[9px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-md flex-shrink-0"
-                              style={{ background: 'rgba(236,72,153,.15)', color: '#ec4899', border: '1px solid rgba(236,72,153,.3)' }}
-                              title="Importado via Open Finance (Pluggy)"
+                {/* Column picker */}
+                <div className="relative ml-auto flex-shrink-0">
+                  <button
+                    onClick={() => setShowColPicker(v => !v)}
+                    className={`px-3 py-2 rounded-lg text-xs font-medium border bg-[#0a0a0f] flex items-center gap-1.5 transition-colors ${showColPicker ? 'border-[#00d4ff]/50 text-[#00d4ff]' : 'border-[#1e1e30] text-[#8888aa] hover:text-[#e8e8f0]'}`}
+                  >
+                    <Columns className="w-3.5 h-3.5"/>
+                    Colunas
+                  </button>
+                  {showColPicker && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setShowColPicker(false)}/>
+                      <div className="absolute top-full right-0 mt-1.5 w-52 rounded-xl border border-[#1e1e30] bg-[#13142a] shadow-2xl z-50 p-3" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-[#55556a]">Colunas</span>
+                          <button onClick={() => updateCols(DEFAULT_COL_IDS)} className="text-[9px] text-[#00d4ff] hover:underline">Restaurar</button>
+                        </div>
+                        {POS_COL_DEFS.filter(c => c.fixed).map(col => (
+                          <div key={col.id} className="flex items-center gap-2 py-1 px-1 rounded text-[11px] text-[#55556a]">
+                            <span className="w-3 h-3"/>
+                            <span className="w-3.5 h-3.5 rounded bg-[#1e1e30] flex items-center justify-center text-[8px]">✓</span>
+                            <span>{col.label}</span>
+                            <span className="ml-auto text-[9px] opacity-50">fixo</span>
+                          </div>
+                        ))}
+                        <div className="my-1.5 border-t border-[#1e1e30]"/>
+                        {POS_COL_DEFS.filter(c => !c.fixed).map(col => {
+                          const isOn = visibleCols.includes(col.id)
+                          const visIdx = visibleCols.indexOf(col.id)
+                          return (
+                            <div
+                              key={col.id}
+                              draggable={isOn}
+                              onDragStart={() => { dragColFrom.current = visIdx }}
+                              onDragOver={e => { if (isOn) e.preventDefault() }}
+                              onDrop={() => {
+                                if (!isOn || dragColFrom.current === null || dragColFrom.current === visIdx) return
+                                const nc = [...visibleCols]
+                                const [m] = nc.splice(dragColFrom.current, 1)
+                                nc.splice(visIdx, 0, m)
+                                updateCols(nc)
+                                dragColFrom.current = null
+                              }}
+                              onClick={() => isOn ? updateCols(visibleCols.filter(id => id !== col.id)) : updateCols([...visibleCols, col.id])}
+                              className="flex items-center gap-2 py-1 px-1 rounded text-[11px] cursor-pointer hover:bg-[#1e1e30]/60 select-none"
                             >
-                              Open Finance
-                            </span>
-                          )}
-                        </span>
-                        <span className="truncate text-[#8888aa]">{p.assetClass}</span>
-                        <span className="v2-num text-right text-[#8888aa]">{p.quantity.toLocaleString('pt-BR', { maximumFractionDigits: 4 })}</span>
-                        <span className="v2-num text-right text-[#8888aa]">{p.avgCost.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} / {p.currentPrice.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}</span>
-                        <span className="v2-num text-right font-semibold">{fmt(toBase(p.currentBRL), true)}</span>
-                        <span className="v2-num text-right font-semibold flex flex-col items-end gap-0.5" style={{ color: p.pct >= 0 ? '#00ff88' : '#ff4466' }}>
-                          <span>{p.pct >= 0 ? '+' : ''}{p.pct.toFixed(1)}%</span>
-                          {p.linkedIncomeAll > 0 && (
-                            <span
-                              className="text-[9px] font-semibold px-1 py-0.5 rounded"
-                              style={{ background: 'rgba(0,212,255,.12)', color: '#00d4ff' }}
-                              title={`Rendimentos vinculados do extrato: ${fmt(toBase(p.linkedIncomeAll), true)}`}
-                            >
-                              +{fmt(toBase(p.linkedIncomeAll), true)} rend.
-                            </span>
-                          )}
-                        </span>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            const msg = isPluggy
-                              ? `Excluir "${p.name}"?\n\nEste ativo foi importado do Open Finance. A exclusão é permanente: ele NÃO volta automaticamente em syncs futuros, mesmo que ainda apareça na sua corretora.`
-                              : `Excluir "${p.name}"?`
-                            if (confirm(msg)) {
-                              deleteInvestment(p.id).catch(err => {
-                                console.error('[WealthV2] delete failed', err)
-                                alert('Falha ao excluir. Tente novamente.')
-                              })
-                            }
-                          }}
-                          className="w-6 h-6 rounded-md flex items-center justify-center text-[#55556a] hover:text-[#ff4466] hover:bg-[#ff4466]/10 mx-auto"
-                          title={isPluggy ? 'Excluir (permanente — não retorna em sync)' : 'Excluir'}
-                        >
-                          ×
-                        </button>
+                              {isOn
+                                ? <GripVertical className="w-3 h-3 text-[#55556a] cursor-grab flex-shrink-0"/>
+                                : <span className="w-3 h-3 flex-shrink-0"/>
+                              }
+                              <span
+                                className="w-3.5 h-3.5 rounded flex items-center justify-center flex-shrink-0 text-[8px] font-bold leading-none"
+                                style={{ background: isOn ? 'rgba(0,212,255,.2)' : 'transparent', border: `1px solid ${isOn ? '#00d4ff' : '#1e1e30'}`, color: '#00d4ff' }}
+                              >{isOn ? '✓' : ''}</span>
+                              <span style={{ color: isOn ? '#c8c8e0' : '#55556a' }}>{col.label}</span>
+                            </div>
+                          )
+                        })}
                       </div>
-                    )
-                  })}
-                  {positions.length > 8 && !showAllPos && (
-                    <div className="px-3 py-3 text-center">
-                      <button onClick={() => setShowAllPos(true)} className="text-[11px] text-[#8888aa] hover:text-white">Mostrar mais {positions.length - 8} ativos</button>
-                    </div>
+                    </>
                   )}
                 </div>
+              </div>
+              {/* ── Table ── */}
+              <div className="overflow-x-auto">
+                {(() => {
+                  const gridTemplate = visibleCols.map(id => POS_COL_DEFS.find(c => c.id === id)!.width).join(' ') + ' 32px'
+                  const pctCell = (pct: number) => (
+                    <span className="v2-num text-right font-medium text-[11px]" style={{ color: pct >= 0 ? '#00ff88' : '#ff4466' }}>
+                      {pct >= 0 ? '+' : ''}{pct.toFixed(1)}%
+                    </span>
+                  )
+                  return (
+                    <div className="min-w-full overflow-hidden rounded-xl border border-[#1e1e30] divide-y divide-[#1e1e30]">
+                      {/* Header row */}
+                      <div className="grid items-center gap-1 px-3 py-2 text-[10px] uppercase tracking-wider text-[#55556a]" style={{ gridTemplateColumns: gridTemplate }}>
+                        {visibleCols.map(colId => {
+                          const col = POS_COL_DEFS.find(c => c.id === colId)!
+                          const label = col.id === 'period' ? `Retorno ${periodLabel}` : col.label
+                          return col.sortKey ? (
+                            <button key={colId} onClick={() => toggleSort(col.sortKey!)} className={`${col.align === 'right' ? 'text-right' : 'text-left'} hover:text-[#e8e8f0] w-full`}>
+                              {label}{sortIcon(col.sortKey)}
+                            </button>
+                          ) : (
+                            <span key={colId} className={col.align === 'right' ? 'text-right' : 'text-left'}>{label}</span>
+                          )
+                        })}
+                        <span/>
+                      </div>
+                      {/* Body */}
+                      {positions.length === 0 ? (
+                        <div className="px-3 py-6 text-center text-xs text-[#55556a]">Nenhum ativo encontrado.</div>
+                      ) : groupedPositions.flatMap(({ key, items, totalBRL, gainPct, totalAllocPct }) => [
+                        /* Group header */
+                        <div
+                          key={`grp-${key}`}
+                          className="flex items-center gap-2 px-3 py-1.5 flex-wrap"
+                          style={{ background: '#0d0e1c', borderTop: '1px solid #1e1e30', borderBottom: '1px solid #1e1e30' }}
+                        >
+                          <span className="text-[10px] font-bold uppercase tracking-wider flex-1 truncate" style={{ color: '#00d4ff' }}>{key}</span>
+                          <span className="v2-num text-[10px] text-[#55556a]">{items.length} ativo{items.length !== 1 ? 's' : ''}</span>
+                          {visibleCols.includes('allocation') && (
+                            <span className="v2-num text-[10px] text-[#55556a] w-[62px] text-right">{totalAllocPct.toFixed(1)}%</span>
+                          )}
+                          {visibleCols.includes('position') && (
+                            <span className="v2-num text-[11px] font-semibold text-[#e8e8f0] w-[105px] text-right">{fmt(toBase(totalBRL), true)}</span>
+                          )}
+                          {(visibleCols.includes('period') || visibleCols.includes('ytd') || visibleCols.includes('inception')) && (
+                            <span className="v2-num text-[11px] font-semibold w-[70px] text-right" style={{ color: gainPct >= 0 ? '#00ff88' : '#ff4466' }}>
+                              {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(1)}%
+                            </span>
+                          )}
+                          <span className="w-6"/>
+                        </div>,
+                        /* Item rows */
+                        ...items.map(p => {
+                          const isPluggy = !!p.notes?.match(/pluggy:[^\s]+/)
+                          return (
+                            <div
+                              key={p.id}
+                              onClick={() => setEditing(p as Investment)}
+                              className="grid items-center gap-1 px-3 py-2.5 text-xs v2-row-hover cursor-pointer"
+                              style={{ gridTemplateColumns: gridTemplate }}
+                              title="Clique para editar"
+                            >
+                              {visibleCols.map(colId => {
+                                switch (colId) {
+                                  case 'ticker': return (
+                                    <span key={colId} className="font-mono font-semibold truncate" style={{ color: '#00d4ff' }}>
+                                      {p.ticker || p.name.slice(0, 8)}
+                                    </span>
+                                  )
+                                  case 'name': return (
+                                    <span key={colId} className="font-medium truncate flex items-center gap-2">
+                                      <span className="truncate">{p.name}</span>
+                                      {isPluggy && (
+                                        <span
+                                          className="text-[9px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-md flex-shrink-0"
+                                          style={{ background: 'rgba(236,72,153,.15)', color: '#ec4899', border: '1px solid rgba(236,72,153,.3)' }}
+                                          title="Importado via Open Finance (Pluggy)"
+                                        >Open Finance</span>
+                                      )}
+                                    </span>
+                                  )
+                                  case 'assetClass': return <span key={colId} className="truncate text-[#8888aa]">{p.assetClass}</span>
+                                  case 'maturity': return (
+                                    <span key={colId} className="text-left text-[#8888aa] truncate">
+                                      {p.maturityDate ? formatDate(p.maturityDate) : '—'}
+                                    </span>
+                                  )
+                                  case 'qty': return (
+                                    <span key={colId} className="v2-num text-right text-[#8888aa]">
+                                      {p.quantity.toLocaleString('pt-BR', { maximumFractionDigits: 4 })}
+                                    </span>
+                                  )
+                                  case 'pm': return (
+                                    <span key={colId} className="v2-num text-right text-[#8888aa]">
+                                      {p.avgCost.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} / {p.currentPrice.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}
+                                    </span>
+                                  )
+                                  case 'position': return (
+                                    <span key={colId} className="v2-num text-right font-semibold">{fmt(toBase(p.currentBRL), true)}</span>
+                                  )
+                                  case 'allocation': return (
+                                    <span key={colId} className="v2-num text-right text-[#8888aa]">{p.allocPct.toFixed(1)}%</span>
+                                  )
+                                  case 'period': return (
+                                    <span key={colId} className="v2-num text-right font-semibold flex flex-col items-end gap-0.5" style={{ color: p.pct >= 0 ? '#00ff88' : '#ff4466' }}>
+                                      <span>{p.pct >= 0 ? '+' : ''}{p.pct.toFixed(1)}%</span>
+                                      {p.linkedIncomeAll > 0 && (
+                                        <span className="text-[9px] font-semibold px-1 py-0.5 rounded" style={{ background: 'rgba(0,212,255,.12)', color: '#00d4ff' }} title={`Rendimentos vinculados: ${fmt(toBase(p.linkedIncomeAll), true)}`}>
+                                          +{fmt(toBase(p.linkedIncomeAll), true)} rend.
+                                        </span>
+                                      )}
+                                    </span>
+                                  )
+                                  case 'mtd':       return <span key={colId}>{pctCell(p.pctMtd)}</span>
+                                  case 'prevMonth': return <span key={colId}>{pctCell(p.pctPrevMonth)}</span>
+                                  case 'ytd':       return <span key={colId}>{pctCell(p.pctYtd)}</span>
+                                  case 'm12':       return <span key={colId}>{pctCell(p.pct12m)}</span>
+                                  case 'm24':       return <span key={colId}>{pctCell(p.pct24m)}</span>
+                                  case 'inception': return <span key={colId}>{pctCell(p.pctInception)}</span>
+                                  default: return <span key={colId}/>
+                                }
+                              })}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  const msg = isPluggy
+                                    ? `Excluir "${p.name}"?\n\nEste ativo foi importado do Open Finance. A exclusão é permanente: ele NÃO volta automaticamente em syncs futuros, mesmo que ainda apareça na sua corretora.`
+                                    : `Excluir "${p.name}"?`
+                                  if (confirm(msg)) {
+                                    deleteInvestment(p.id).catch(err => {
+                                      console.error('[WealthV2] delete failed', err)
+                                      alert('Falha ao excluir. Tente novamente.')
+                                    })
+                                  }
+                                }}
+                                className="w-6 h-6 rounded-md flex items-center justify-center text-[#55556a] hover:text-[#ff4466] hover:bg-[#ff4466]/10 mx-auto"
+                                title={isPluggy ? 'Excluir (permanente — não retorna em sync)' : 'Excluir'}
+                              >×</button>
+                            </div>
+                          )
+                        }),
+                      ])}
+                    </div>
+                  )
+                })()}
               </div>
             </div>
           </details>
