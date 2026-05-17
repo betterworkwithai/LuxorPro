@@ -2507,120 +2507,170 @@ export default function WealthV2() {
                 {(() => {
                   const gridTemplate = visibleCols.map(id => POS_COL_DEFS.find(c => c.id === id)!.width).join(' ') + ' 32px'
                   const pctCell = (pct: number) => (
-                    <span className="v2-num text-right font-medium text-[11px]" style={{ color: pct >= 0 ? '#00ff88' : '#ff4466' }}>
+                    <span className="v2-num text-right font-semibold tabular-nums text-[11px]" style={{ color: pct >= 0 ? '#00ff88' : '#ff4466' }}>
                       {pct >= 0 ? '+' : ''}{pct.toFixed(1)}%
                     </span>
                   )
                   return (
-                    <div className="min-w-full overflow-hidden rounded-xl border border-[#1e1e30] divide-y divide-[#1e1e30]">
-                      {/* Header row */}
-                      <div className="grid items-center gap-1 px-3 py-2 text-[10px] uppercase tracking-wider text-[#55556a]" style={{ gridTemplateColumns: gridTemplate }}>
+                    <div className="min-w-full overflow-hidden rounded-xl border border-[#1e1e30]">
+                      {/* Column header */}
+                      <div
+                        className="grid items-center gap-1 px-4 py-2.5"
+                        style={{ gridTemplateColumns: gridTemplate, background: '#080910', borderBottom: '1px solid #1e1e30' }}
+                      >
                         {visibleCols.map(colId => {
                           const col = POS_COL_DEFS.find(c => c.id === colId)!
                           const label = col.id === 'period' ? `Retorno ${periodLabel}` : col.label
                           return col.sortKey ? (
-                            <button key={colId} onClick={() => toggleSort(col.sortKey!)} className={`${col.align === 'right' ? 'text-right' : 'text-left'} hover:text-[#e8e8f0] w-full`}>
+                            <button
+                              key={colId}
+                              onClick={() => toggleSort(col.sortKey!)}
+                              className={`text-[10px] font-semibold uppercase tracking-widest transition-colors ${col.align === 'right' ? 'text-right' : 'text-left'} w-full`}
+                              style={{ color: sortKey === col.sortKey ? '#00d4ff' : '#44445a' }}
+                            >
                               {label}{sortIcon(col.sortKey)}
                             </button>
                           ) : (
-                            <span key={colId} className={col.align === 'right' ? 'text-right' : 'text-left'}>{label}</span>
+                            <span key={colId} className={`text-[10px] font-semibold uppercase tracking-widest ${col.align === 'right' ? 'text-right' : 'text-left'}`} style={{ color: '#44445a' }}>{label}</span>
                           )
                         })}
                         <span/>
                       </div>
+
                       {/* Body */}
                       {positions.length === 0 ? (
-                        <div className="px-3 py-6 text-center text-xs text-[#55556a]">Nenhum ativo encontrado.</div>
+                        <div className="px-4 py-10 text-center text-xs text-[#55556a]">Nenhum ativo encontrado.</div>
                       ) : groupedPositions.flatMap(({ key, items, totalBRL, gainPct, totalAllocPct }) => [
-                        /* Group header */
+
+                        /* ── Group header ── */
                         <div
                           key={`grp-${key}`}
-                          className="flex items-center gap-2 px-3 py-1.5 flex-wrap"
-                          style={{ background: '#0d0e1c', borderTop: '1px solid #1e1e30', borderBottom: '1px solid #1e1e30' }}
+                          style={{
+                            background: 'linear-gradient(90deg, rgba(0,212,255,0.06) 0%, rgba(0,212,255,0.02) 40%, transparent 100%)',
+                            borderTop: '1px solid rgba(0,212,255,0.12)',
+                            borderBottom: '1px solid rgba(0,212,255,0.08)',
+                          }}
                         >
-                          <span className="text-[10px] font-bold uppercase tracking-wider flex-1 truncate" style={{ color: '#00d4ff' }}>{key}</span>
-                          <span className="v2-num text-[10px] text-[#55556a]">{items.length} ativo{items.length !== 1 ? 's' : ''}</span>
-                          {visibleCols.includes('allocation') && (
-                            <span className="v2-num text-[10px] text-[#55556a] w-[62px] text-right">{totalAllocPct.toFixed(1)}%</span>
-                          )}
-                          {visibleCols.includes('position') && (
-                            <span className="v2-num text-[11px] font-semibold text-[#e8e8f0] w-[105px] text-right">{fmt(toBase(totalBRL), true)}</span>
-                          )}
-                          {(visibleCols.includes('period') || visibleCols.includes('ytd') || visibleCols.includes('inception')) && (
-                            <span className="v2-num text-[11px] font-semibold w-[70px] text-right" style={{ color: gainPct >= 0 ? '#00ff88' : '#ff4466' }}>
-                              {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(1)}%
-                            </span>
-                          )}
-                          <span className="w-6"/>
+                          <div className="flex items-center gap-3 px-4 py-2">
+                            {/* Left accent bar */}
+                            <div className="w-[3px] h-5 rounded-full flex-shrink-0" style={{ background: 'linear-gradient(180deg, #00d4ff, #0066aa)' }}/>
+
+                            {/* Class label */}
+                            <span
+                              className="text-[11px] font-bold uppercase tracking-widest flex-1 truncate"
+                              style={{ color: '#00d4ff', letterSpacing: '0.08em' }}
+                            >{key}</span>
+
+                            {/* Right-side summary — mimics the grid column positions */}
+                            <div className="flex items-center gap-4 flex-shrink-0">
+                              {visibleCols.includes('allocation') && (
+                                <div className="text-right" style={{ width: '62px' }}>
+                                  <span className="v2-num text-[11px] font-semibold tabular-nums" style={{ color: '#6688aa' }}>{totalAllocPct.toFixed(1)}%</span>
+                                </div>
+                              )}
+                              {visibleCols.includes('position') && (
+                                <div className="text-right" style={{ width: '105px' }}>
+                                  <span className="v2-num text-[13px] font-bold tabular-nums text-white">{fmt(toBase(totalBRL), true)}</span>
+                                </div>
+                              )}
+                              {(visibleCols.includes('period') || visibleCols.includes('ytd') || visibleCols.includes('inception')) && (
+                                <div className="text-right" style={{ width: '80px' }}>
+                                  <span
+                                    className="v2-num text-[11px] font-semibold tabular-nums"
+                                    style={{ color: gainPct >= 0 ? '#00ff88' : '#ff4466' }}
+                                  >{gainPct >= 0 ? '+' : ''}{gainPct.toFixed(1)}%</span>
+                                </div>
+                              )}
+                              {/* spacer for delete col */}
+                              <div style={{ width: '32px' }}/>
+                            </div>
+                          </div>
                         </div>,
-                        /* Item rows */
-                        ...items.map(p => {
+
+                        /* ── Item rows ── */
+                        ...items.map((p, rowIdx) => {
                           const isPluggy = !!p.notes?.match(/pluggy:[^\s]+/)
+                          const isEven = rowIdx % 2 === 0
                           return (
                             <div
                               key={p.id}
                               onClick={() => setEditing(p as Investment)}
-                              className="grid items-center gap-1 px-3 py-2.5 text-xs v2-row-hover cursor-pointer"
-                              style={{ gridTemplateColumns: gridTemplate }}
+                              className="grid items-center gap-1 px-4 cursor-pointer group transition-colors duration-75"
+                              style={{
+                                gridTemplateColumns: gridTemplate,
+                                paddingTop: '9px',
+                                paddingBottom: '9px',
+                                background: isEven ? 'transparent' : 'rgba(255,255,255,0.012)',
+                                borderBottom: '1px solid rgba(30,30,48,0.6)',
+                              }}
+                              onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = 'rgba(0,212,255,0.04)' }}
+                              onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = isEven ? 'transparent' : 'rgba(255,255,255,0.012)' }}
                               title="Clique para editar"
                             >
                               {visibleCols.map(colId => {
                                 switch (colId) {
                                   case 'ticker': return (
-                                    <span key={colId} className="font-mono font-semibold truncate" style={{ color: '#00d4ff' }}>
+                                    <span key={colId} className="font-mono font-bold text-[11px] truncate tabular-nums" style={{ color: '#00d4ff' }}>
                                       {p.ticker || p.name.slice(0, 8)}
                                     </span>
                                   )
                                   case 'name': return (
-                                    <span key={colId} className="font-medium truncate flex items-center gap-2">
+                                    <span key={colId} className="text-[12px] font-medium truncate flex items-center gap-2" style={{ color: '#c8c8e0' }}>
                                       <span className="truncate">{p.name}</span>
                                       {isPluggy && (
                                         <span
-                                          className="text-[9px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-md flex-shrink-0"
-                                          style={{ background: 'rgba(236,72,153,.15)', color: '#ec4899', border: '1px solid rgba(236,72,153,.3)' }}
-                                          title="Importado via Open Finance (Pluggy)"
-                                        >Open Finance</span>
+                                          className="text-[8px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded flex-shrink-0"
+                                          style={{ background: 'rgba(236,72,153,.12)', color: '#ec4899', border: '1px solid rgba(236,72,153,.25)' }}
+                                        >OF</span>
                                       )}
                                     </span>
                                   )
-                                  case 'assetClass': return <span key={colId} className="truncate text-[#8888aa]">{p.assetClass}</span>
+                                  case 'assetClass': return (
+                                    <span key={colId} className="text-[11px] truncate" style={{ color: '#55556a' }}>{p.assetClass}</span>
+                                  )
                                   case 'maturity': return (
-                                    <span key={colId} className="text-left text-[#8888aa] truncate">
+                                    <span key={colId} className="text-[11px] tabular-nums text-left truncate" style={{ color: p.maturityDate ? '#8888aa' : '#33334a' }}>
                                       {p.maturityDate ? formatDate(p.maturityDate) : '—'}
                                     </span>
                                   )
                                   case 'qty': return (
-                                    <span key={colId} className="v2-num text-right text-[#8888aa]">
+                                    <span key={colId} className="v2-num text-right tabular-nums text-[11px]" style={{ color: '#66667a' }}>
                                       {p.quantity.toLocaleString('pt-BR', { maximumFractionDigits: 4 })}
                                     </span>
                                   )
                                   case 'pm': return (
-                                    <span key={colId} className="v2-num text-right text-[#8888aa]">
-                                      {p.avgCost.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} / {p.currentPrice.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}
+                                    <span key={colId} className="v2-num text-right tabular-nums text-[11px]" style={{ color: '#66667a' }}>
+                                      {p.avgCost.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}
+                                      <span style={{ color: '#33334a' }}> / </span>
+                                      {p.currentPrice.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}
                                     </span>
                                   )
                                   case 'position': return (
-                                    <span key={colId} className="v2-num text-right font-semibold">{fmt(toBase(p.currentBRL), true)}</span>
+                                    <span key={colId} className="v2-num text-right tabular-nums text-[12px] font-semibold" style={{ color: '#e8e8f0' }}>{fmt(toBase(p.currentBRL), true)}</span>
                                   )
                                   case 'allocation': return (
-                                    <span key={colId} className="v2-num text-right text-[#8888aa]">{p.allocPct.toFixed(1)}%</span>
+                                    <span key={colId} className="v2-num text-right tabular-nums text-[11px]" style={{ color: '#6688aa' }}>{p.allocPct.toFixed(1)}%</span>
                                   )
                                   case 'period': return (
-                                    <span key={colId} className="v2-num text-right font-semibold flex flex-col items-end gap-0.5" style={{ color: p.pct >= 0 ? '#00ff88' : '#ff4466' }}>
-                                      <span>{p.pct >= 0 ? '+' : ''}{p.pct.toFixed(1)}%</span>
+                                    <span key={colId} className="v2-num text-right flex flex-col items-end gap-0.5">
+                                      <span className="tabular-nums text-[12px] font-semibold" style={{ color: p.pct >= 0 ? '#00ff88' : '#ff4466' }}>
+                                        {p.pct >= 0 ? '+' : ''}{p.pct.toFixed(1)}%
+                                      </span>
                                       {p.linkedIncomeAll > 0 && (
-                                        <span className="text-[9px] font-semibold px-1 py-0.5 rounded" style={{ background: 'rgba(0,212,255,.12)', color: '#00d4ff' }} title={`Rendimentos vinculados: ${fmt(toBase(p.linkedIncomeAll), true)}`}>
-                                          +{fmt(toBase(p.linkedIncomeAll), true)} rend.
-                                        </span>
+                                        <span
+                                          className="text-[9px] font-semibold px-1 py-0.5 rounded"
+                                          style={{ background: 'rgba(0,212,255,.1)', color: '#00d4ff' }}
+                                          title={`Rendimentos vinculados: ${fmt(toBase(p.linkedIncomeAll), true)}`}
+                                        >+{fmt(toBase(p.linkedIncomeAll), true)} rend.</span>
                                       )}
                                     </span>
                                   )
-                                  case 'mtd':       return <span key={colId}>{pctCell(p.pctMtd)}</span>
-                                  case 'prevMonth': return <span key={colId}>{pctCell(p.pctPrevMonth)}</span>
-                                  case 'ytd':       return <span key={colId}>{pctCell(p.pctYtd)}</span>
-                                  case 'm12':       return <span key={colId}>{pctCell(p.pct12m)}</span>
-                                  case 'm24':       return <span key={colId}>{pctCell(p.pct24m)}</span>
-                                  case 'inception': return <span key={colId}>{pctCell(p.pctInception)}</span>
+                                  case 'mtd':       return <span key={colId} className="flex justify-end">{pctCell(p.pctMtd)}</span>
+                                  case 'prevMonth': return <span key={colId} className="flex justify-end">{pctCell(p.pctPrevMonth)}</span>
+                                  case 'ytd':       return <span key={colId} className="flex justify-end">{pctCell(p.pctYtd)}</span>
+                                  case 'm12':       return <span key={colId} className="flex justify-end">{pctCell(p.pct12m)}</span>
+                                  case 'm24':       return <span key={colId} className="flex justify-end">{pctCell(p.pct24m)}</span>
+                                  case 'inception': return <span key={colId} className="flex justify-end">{pctCell(p.pctInception)}</span>
                                   default: return <span key={colId}/>
                                 }
                               })}
@@ -2637,7 +2687,10 @@ export default function WealthV2() {
                                     })
                                   }
                                 }}
-                                className="w-6 h-6 rounded-md flex items-center justify-center text-[#55556a] hover:text-[#ff4466] hover:bg-[#ff4466]/10 mx-auto"
+                                className="w-6 h-6 rounded flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity mx-auto text-sm"
+                                style={{ color: '#55556a' }}
+                                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#ff4466'; (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,68,102,0.1)' }}
+                                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = '#55556a'; (e.currentTarget as HTMLButtonElement).style.background = 'transparent' }}
                                 title={isPluggy ? 'Excluir (permanente — não retorna em sync)' : 'Excluir'}
                               >×</button>
                             </div>
