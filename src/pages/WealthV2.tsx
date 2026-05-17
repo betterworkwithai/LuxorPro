@@ -941,12 +941,14 @@ export default function WealthV2() {
       const pctLife  = cost > 0 ? (gainLife / cost) * 100 : 0
       const gainPer  = period === 'ALL' ? gainLife : (cur - startVal + linkedIncomePer)
       const pctPer   = period === 'ALL' ? pctLife  : (startVal > 0 ? (gainPer / startVal) * 100 : 0)
-      // Fixed performance period returns via priceAt (no 'ALL' shortcut)
-      const pctFor = (cutISO: string) => {
+      // Fixed performance period returns — null when asset not old enough for the window
+      const pctFor = (cutISO: string): number | null => {
+        if (!i.purchaseDate || i.purchaseDate >= cutISO) return null
         const s2 = priceAt(i, cutISO)
         return s2 > 0 ? ((i.currentPrice - s2) / s2) * 100 : 0
       }
-      const pctPrevMonth = (() => {
+      const pctPrevMonth: number | null = (() => {
+        if (!i.purchaseDate || i.purchaseDate >= perfCutoffs.prevMonthStart) return null
         const s2 = priceAt(i, perfCutoffs.prevMonthStart)
         const e2 = priceAt(i, perfCutoffs.prevMonthEnd)
         return s2 > 0 ? ((e2 - s2) / s2) * 100 : 0
@@ -989,11 +991,11 @@ export default function WealthV2() {
         case 'period':       return dir * (a.pct - b.pct)
         case 'allocation':   return dir * (a.allocPct - b.allocPct)
         case 'maturity':     return dir * ((a.maturityDate ?? '9999-12-31') < (b.maturityDate ?? '9999-12-31') ? -1 : 1)
-        case 'mtd':          return dir * (a.pctMtd - b.pctMtd)
-        case 'prevMonth':    return dir * (a.pctPrevMonth - b.pctPrevMonth)
-        case 'ytd':          return dir * (a.pctYtd - b.pctYtd)
-        case 'm12':          return dir * (a.pct12m - b.pct12m)
-        case 'm24':          return dir * (a.pct24m - b.pct24m)
+        case 'mtd':          { const an = a.pctMtd      ?? -Infinity * dir, bn = b.pctMtd      ?? -Infinity * dir; return dir * (an - bn) }
+        case 'prevMonth':    { const an = a.pctPrevMonth ?? -Infinity * dir, bn = b.pctPrevMonth ?? -Infinity * dir; return dir * (an - bn) }
+        case 'ytd':          { const an = a.pctYtd      ?? -Infinity * dir, bn = b.pctYtd      ?? -Infinity * dir; return dir * (an - bn) }
+        case 'm12':          { const an = a.pct12m      ?? -Infinity * dir, bn = b.pct12m      ?? -Infinity * dir; return dir * (an - bn) }
+        case 'm24':          { const an = a.pct24m      ?? -Infinity * dir, bn = b.pct24m      ?? -Infinity * dir; return dir * (an - bn) }
         case 'inception':    return dir * (a.pctInception - b.pctInception)
         case 'position':
         default:             return dir * (a.currentBRL - b.currentBRL)
@@ -2506,11 +2508,9 @@ export default function WealthV2() {
               <div className="overflow-x-auto">
                 {(() => {
                   const gridTemplate = visibleCols.map(id => POS_COL_DEFS.find(c => c.id === id)!.width).join(' ') + ' 32px'
-                  const pctCell = (pct: number) => (
-                    <span className="v2-num text-right font-semibold tabular-nums text-[11px]" style={{ color: pct >= 0 ? '#00ff88' : '#ff4466' }}>
-                      {pct >= 0 ? '+' : ''}{pct.toFixed(1)}%
-                    </span>
-                  )
+                  const pctCell = (pct: number | null) => pct === null
+                    ? <span className="v2-num text-right tabular-nums text-[11px]" style={{ color: '#2a2a3e' }}>—</span>
+                    : <span className="v2-num text-right font-semibold tabular-nums text-[11px]" style={{ color: pct >= 0 ? '#00ff88' : '#ff4466' }}>{pct >= 0 ? '+' : ''}{pct.toFixed(1)}%</span>
                   return (
                     <div className="min-w-full overflow-hidden rounded-xl border border-[#1e1e30]">
                       {/* Column header */}
