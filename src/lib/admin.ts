@@ -11,7 +11,12 @@ import type { User } from '@supabase/supabase-js'
 
 // Emails that always have admin access regardless of Supabase app_metadata.
 // Used as a fallback when VITE_ADMIN_EMAIL is not set in the deployment env.
-const ADMIN_EMAILS: string[] = ['betterworkwithai@gmail.com']
+const ADMIN_EMAILS: string[] = [
+  'betterworkwithai@gmail.com',
+  'gabiaureli2@hotmail.com',
+  'gabriel.aureli.araujo@gmail.com',
+  'suporte@luxorpro.com.br',
+]
 
 export const isAdmin = (user?: User | null): boolean => {
   if (!user) return false

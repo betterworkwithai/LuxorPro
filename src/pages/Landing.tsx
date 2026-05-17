@@ -3,7 +3,7 @@ import {
   Check, ChevronDown, TrendingUp, Target, FileSearch,
   Calculator, Zap, Shield, ArrowRight, Lock,
   BarChart3, Wallet, Globe, Wifi,
-  Eye, Clock, Brain, Download, Monitor, Star, X,
+  Eye, Clock, Brain, Download, Monitor,
 } from 'lucide-react'
 
 const STRIPE_MONTHLY  = 'https://buy.stripe.com/eVqbIV9EAa91c4navC3wQ03'
@@ -425,11 +425,6 @@ export default function Landing() {
 
         /* Section anchor offset for sticky nav */
         section[id] { scroll-margin-top: 80px; }
-
-        /* Testimonial card left-border colors */
-        .testimonial-orange { border-left-color: #ff7a00 !important; }
-        .testimonial-cyan   { border-left-color: #00d4ff !important; }
-        .testimonial-green  { border-left-color: #00ff88 !important; }
       `}</style>
 
       {/* Top scroll progress strip */}
@@ -496,44 +491,21 @@ export default function Landing() {
             willChange: 'transform, opacity',
           }}
         >
-
-          {/* ── Social proof strip ── */}
-          <Reveal direction="fade" delay={0}>
-            <div className="flex flex-wrap justify-center items-center gap-3 sm:gap-6 mb-10 px-5 py-3 rounded-2xl bg-[#0d0d14] border border-[#1e1e2e] max-w-2xl mx-auto">
-              <div className="flex items-center gap-1">
-                {[...Array(5)].map((_, i) => (
-                  <Star key={i} className="w-3 h-3 text-[#ff7a00] fill-[#ff7a00]" />
-                ))}
-                <span className="text-xs text-[#8888aa] ml-1.5">4.9/5</span>
-              </div>
-              <div className="hidden sm:block w-px h-4 bg-[#2a2a3e]" />
-              <span className="text-xs text-[#8888aa]">
-                <span className="text-[#e8e8f0] font-semibold">+847 investidores</span> confiam no Luxor Pro
-              </span>
-              <div className="hidden sm:block w-px h-4 bg-[#2a2a3e]" />
-              <span className="text-xs text-[#8888aa]">
-                <span className="text-[#00ff88] font-semibold">R$ 2,4 bilhões</span> gerenciados
-              </span>
-            </div>
-          </Reveal>
-
           <div className="grid lg:grid-cols-2 gap-16 items-center">
 
             {/* Left: Copy — staggered reveal */}
             <div>
               <Reveal direction="up" delay={0}>
-                <h1 className="text-4xl sm:text-5xl lg:text-[52px] font-bold leading-[1.1] tracking-tight mb-6">
-                  <span className="gradient-text-white">O painel financeiro que</span><br />
-                  <span className="gradient-text">investidores com R$ 500k+</span><br />
-                  <span className="gradient-text-white">usam para decidir melhor.</span>
+                <h1 className="text-4xl sm:text-5xl lg:text-[56px] font-bold leading-[1.08] tracking-tight mb-6">
+                  <span className="gradient-text-white">Pare de perder dinheiro</span><br />
+                  <span className="gradient-text">por falta de controle.</span>
                 </h1>
               </Reveal>
 
               <Reveal direction="up" delay={120}>
                 <p className="text-lg text-[#8888aa] leading-relaxed mb-8 max-w-lg">
                   Luxor Pro centraliza <strong className="text-[#e8e8f0]">todos os seus investimentos, despesas e patrimônio</strong> em um painel inteligente.
-                  Tome decisões financeiras precisas — com dados reais, em tempo real.{' '}
-                  <span className="text-[#e8e8f0] font-medium">Assim como +847 investidores brasileiros já fazem.</span>
+                  Tome decisões financeiras precisas — com dados reais, em tempo real.
                 </p>
               </Reveal>
 
@@ -596,25 +568,6 @@ export default function Landing() {
                 <span className="text-[#8888aa]">Ainda está gerenciando com planilhas?</span>
               </h2>
               <p className="text-[#55556a] max-w-xl mx-auto">Cada dia sem visibilidade clara é dinheiro deixado na mesa.</p>
-            </div>
-          </Reveal>
-
-          {/* ── Cost of inaction callout ── */}
-          <Reveal direction="up" delay={60}>
-            <div className="mb-10 p-6 rounded-2xl border" style={{ background: 'rgba(255,68,102,0.05)', borderColor: 'rgba(255,68,102,0.2)' }}>
-              <div className="flex flex-col sm:flex-row items-center gap-5 text-center sm:text-left">
-                <div className="text-4xl flex-shrink-0">💸</div>
-                <div>
-                  <p className="text-base font-bold text-[#e8e8f0] mb-1.5">
-                    Investidores sem controle claro do portfólio perdem, em média,{' '}
-                    <span className="text-[#ff4466] text-xl">1,8% a.a.</span>{' '}
-                    em rentabilidade.
-                  </p>
-                  <p className="text-sm text-[#8888aa] leading-relaxed">
-                    O equivalente a <strong className="text-[#e8e8f0]">R$ 18.000/ano</strong> em uma carteira de R$ 1M — perdido em ineficiências, realocações tardias e custo de oportunidade invisível.
-                  </p>
-                </div>
-              </div>
             </div>
           </Reveal>
 
@@ -750,85 +703,6 @@ export default function Landing() {
       </section>
 
       {/* ════════════════════════════════════════════════════════════
-          TESTIMONIALS — social proof
-      ════════════════════════════════════════════════════════════ */}
-      <section className="py-24 px-6">
-        <div className="max-w-5xl mx-auto">
-          <Reveal direction="up">
-            <div className="text-center mb-12">
-              <p className="text-xs text-[#ff7a00] uppercase tracking-widest font-bold mb-3">O que dizem os investidores</p>
-              <h2 className="text-3xl sm:text-4xl font-bold leading-tight">
-                R$ 2,4 bilhões gerenciados.<br />
-                <span className="gradient-text">847 investidores satisfeitos.</span>
-              </h2>
-            </div>
-          </Reveal>
-          <div className="grid md:grid-cols-3 gap-6">
-            {[
-              {
-                initials: 'RM',
-                accentColor: '#ff7a00',
-                borderClass: 'testimonial-orange',
-                quote: 'Tinha R$ 1,2M espalhados em 4 corretoras e não sabia minha rentabilidade real. Em 10 minutos o Luxor importou tudo e finalmente enxerguei o quadro completo.',
-                name: 'Rodrigo M.',
-                city: 'São Paulo',
-                portfolio: 'Carteira R$ 1,2M+',
-              },
-              {
-                initials: 'CT',
-                accentColor: '#00d4ff',
-                borderClass: 'testimonial-cyan',
-                quote: 'Economizei 6 horas por mês que gastava em planilhas. O módulo de metas me mostrou que estava 3 anos atrasado no meu FIRE — agora estou no caminho certo.',
-                name: 'Camila T.',
-                city: 'Belo Horizonte',
-                portfolio: 'Carteira R$ 680k',
-              },
-              {
-                initials: 'FA',
-                accentColor: '#00ff88',
-                borderClass: 'testimonial-green',
-                quote: 'Nunca imaginei pagar R$ 15/mês por uma ferramenta e recuperar isso em uma única decisão de realocação. Já recuperei o valor anual em 2 semanas.',
-                name: 'Fernando A.',
-                city: 'Curitiba',
-                portfolio: 'Carteira R$ 890k',
-              },
-            ].map(({ initials, accentColor, borderClass, quote, name, city, portfolio }, i) => (
-              <Reveal key={name} direction="up" delay={i * 100}>
-                <div className={`relative p-6 rounded-2xl bg-[#0d0d14] border border-[#1e1e2e] border-l-4 ${borderClass} card-glow h-full overflow-hidden`}>
-                  {/* Decorative background quote */}
-                  <div
-                    className="absolute top-1 right-4 text-8xl font-serif leading-none pointer-events-none select-none"
-                    style={{ color: accentColor, opacity: 0.06 }}
-                  >
-                    ❝
-                  </div>
-                  {/* Stars */}
-                  <div className="flex gap-0.5 mb-4">
-                    {[...Array(5)].map((_, j) => (
-                      <Star key={j} className="w-3.5 h-3.5 fill-[#ff7a00] text-[#ff7a00]" />
-                    ))}
-                  </div>
-                  <p className="text-sm text-[#c8c8d8] leading-relaxed mb-5 relative z-10">"{quote}"</p>
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0 border"
-                      style={{ background: `${accentColor}15`, borderColor: `${accentColor}35`, color: accentColor }}
-                    >
-                      {initials}
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-[#e8e8f0]">{name}</p>
-                      <p className="text-[11px] text-[#55556a]">{city} · {portfolio}</p>
-                    </div>
-                  </div>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ════════════════════════════════════════════════════════════
           BENEFITS / FEATURES
       ════════════════════════════════════════════════════════════ */}
       <section className="py-24 px-6 bg-[#080810] dot-grid">
@@ -939,77 +813,6 @@ export default function Landing() {
       </section>
 
       {/* ════════════════════════════════════════════════════════════
-          IDENTITY HOOK — "É para você?"
-      ════════════════════════════════════════════════════════════ */}
-      <section className="py-24 px-6 bg-[#080810]">
-        <div className="max-w-4xl mx-auto">
-          <Reveal direction="up">
-            <div className="text-center mb-14">
-              <p className="text-xs text-[#ff7a00] uppercase tracking-widest font-bold mb-3">Fit perfeito</p>
-              <h2 className="text-3xl sm:text-4xl font-bold leading-tight">
-                Luxor Pro é para quem<br />
-                <span className="gradient-text">leva o patrimônio a sério.</span>
-              </h2>
-            </div>
-          </Reveal>
-
-          <div className="grid sm:grid-cols-2 gap-10 max-w-3xl mx-auto">
-
-            {/* FOR YOU */}
-            <Reveal direction="left" delay={0}>
-              <div>
-                <div className="flex items-center gap-2.5 mb-6">
-                  <div className="w-6 h-6 rounded-full bg-[#00ff88]/15 border border-[#00ff88]/30 flex items-center justify-center flex-shrink-0">
-                    <Check className="w-3.5 h-3.5 text-[#00ff88]" />
-                  </div>
-                  <span className="text-sm font-bold text-[#00ff88] uppercase tracking-wider">Para você se...</span>
-                </div>
-                <div className="space-y-4">
-                  {[
-                    'Você tem R$ 200k+ investidos e perdeu o controle do todo',
-                    'Gasta horas por mês conciliando planilhas manualmente',
-                    'Quer saber sua rentabilidade real, não a da corretora',
-                    'Busca independência financeira com planejamento real',
-                    'Tem ativos em múltiplos bancos, corretoras ou países',
-                  ].map(text => (
-                    <div key={text} className="flex items-start gap-3">
-                      <Check className="w-4 h-4 text-[#00ff88] mt-0.5 flex-shrink-0" />
-                      <p className="text-sm text-[#c8c8d8] leading-snug">{text}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </Reveal>
-
-            {/* NOT FOR YOU */}
-            <Reveal direction="right" delay={80}>
-              <div>
-                <div className="flex items-center gap-2.5 mb-6">
-                  <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 border" style={{ background: 'rgba(255,68,102,0.1)', borderColor: 'rgba(255,68,102,0.2)' }}>
-                    <X className="w-3.5 h-3.5 text-[#ff4466]" />
-                  </div>
-                  <span className="text-sm font-bold text-[#55556a] uppercase tracking-wider">Não é para você se...</span>
-                </div>
-                <div className="space-y-4">
-                  {[
-                    'Está começando do zero e ainda não tem investimentos',
-                    'Quer apenas uma planilha básica de gastos domésticos',
-                    'Não está disposto a dedicar 10 min para configurar',
-                  ].map(text => (
-                    <div key={text} className="flex items-start gap-3">
-                      <X className="w-4 h-4 text-[#55556a] mt-0.5 flex-shrink-0" />
-                      <p className="text-sm text-[#55556a] leading-snug">{text}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </Reveal>
-
-          </div>
-        </div>
-      </section>
-
-      {/* ════════════════════════════════════════════════════════════
           PRICING
       ════════════════════════════════════════════════════════════ */}
       <section id="planos" className="py-24 px-6 dot-grid">
@@ -1050,9 +853,7 @@ export default function Landing() {
                 ))}
               </ul>
               <a
-                href={STRIPE_MONTHLY}
-                target="_blank"
-                rel="noopener noreferrer"
+                href="/signup"
                 className="block text-center py-3 rounded-xl border border-[#2a2a3e] text-sm font-semibold text-[#8888aa] hover:border-[#ff7a00]/30 hover:text-[#e8e8f0] transition-all"
               >
                 Assinar mensalmente
@@ -1060,7 +861,7 @@ export default function Landing() {
             </div>
             </Reveal>
 
-            {/* Annual — FEATURED */}
+            {/* Annual — FEATURED, scale-in for emphasis */}
             <Reveal direction="scale" delay={100} className="h-full">
             <div className="relative p-6 rounded-2xl bg-[#ff7a00]/5 border-2 border-[#ff7a00] shadow-[0_0_50px_rgba(255,122,0,0.12)] transition-all md:-mt-4 md:pb-10">
               <div className="absolute -top-4 left-0 right-0 flex justify-center">
@@ -1068,12 +869,7 @@ export default function Landing() {
                   🚀 Mais popular — 7 dias grátis
                 </span>
               </div>
-              <div className="flex items-start justify-between mt-3 mb-1">
-                <p className="text-xs text-[#ff7a00] uppercase tracking-widest font-bold">Anual</p>
-                <span className="px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wide" style={{ background: 'rgba(255,68,102,0.15)', color: '#ff4466' }}>
-                  Preço de lançamento
-                </span>
-              </div>
+              <p className="text-xs text-[#ff7a00] uppercase tracking-widest font-bold mb-1 mt-3">Anual</p>
               <div className="flex items-end gap-1 mb-1">
                 <span className="text-4xl font-bold text-[#e8e8f0]">R$ 15</span>
                 <span className="text-sm text-[#55556a] mb-1.5">/mês</span>
@@ -1097,9 +893,7 @@ export default function Landing() {
                 ))}
               </ul>
               <a
-                href={STRIPE_ANNUAL}
-                target="_blank"
-                rel="noopener noreferrer"
+                href="/signup"
                 className="block text-center py-3.5 rounded-xl bg-[#ff7a00] text-[#0a0a0f] text-sm font-bold hover:bg-[#e06500] transition-all btn-glow"
               >
                 Começar 7 dias grátis →
@@ -1114,8 +908,7 @@ export default function Landing() {
               <div className="flex items-end gap-1 mb-1">
                 <span className="text-4xl font-bold text-[#e8e8f0]">R$ 597</span>
               </div>
-              <p className="text-xs text-[#55556a] mb-1">Pagamento único · para sempre</p>
-              <p className="text-[11px] text-[#55556a] italic mb-6">Equivale a apenas R$ 1,63/dia no primeiro ano</p>
+              <p className="text-xs text-[#55556a] mb-6">Pagamento único · para sempre</p>
               <ul className="space-y-3 mb-8">
                 {[
                   'Tudo do plano anual',
@@ -1130,9 +923,7 @@ export default function Landing() {
                 ))}
               </ul>
               <a
-                href={STRIPE_LIFETIME}
-                target="_blank"
-                rel="noopener noreferrer"
+                href="/signup"
                 className="block text-center py-3 rounded-xl bg-[#8b5cf6]/15 border border-[#8b5cf6]/40 text-[#8b5cf6] text-sm font-bold hover:bg-[#8b5cf6]/25 transition-all"
               >
                 ⚡ Acesso vitalício
@@ -1141,13 +932,6 @@ export default function Landing() {
             </div>
             </Reveal>
           </div>
-
-          {/* Founder note */}
-          <Reveal direction="up" delay={300}>
-            <p className="text-[11px] text-[#55556a] italic text-center mt-8 max-w-lg mx-auto leading-relaxed">
-              "Nota do fundador: o Luxor Pro está em fase de lançamento. Esse é o menor preço que praticaremos. Quem assinar agora trava o valor para sempre." — Gabriel, fundador
-            </p>
-          </Reveal>
         </div>
       </section>
 
@@ -1169,12 +953,11 @@ export default function Landing() {
       </section>
 
       {/* ════════════════════════════════════════════════════════════
-          TRUST BADGES — moved above FAQ for maximum visibility
+          TRUST BADGES
       ════════════════════════════════════════════════════════════ */}
-      <section className="py-10 px-6 bg-[#080810]">
+      <section className="py-10 px-6">
         <div className="max-w-4xl mx-auto">
-          <p className="text-center text-xs text-[#55556a] uppercase tracking-widest mb-2">Segurança e tecnologia que você pode confiar</p>
-          <p className="text-center text-xs text-[#333348] mb-6">Utilizado por investidores pessoa física em todo o Brasil</p>
+          <p className="text-center text-xs text-[#55556a] uppercase tracking-widest mb-6">Segurança e tecnologia que você pode confiar</p>
           <div className="flex flex-wrap justify-center items-center gap-8">
             {[
               { icon: <Lock className="w-4 h-4" />, label: 'SSL / TLS 1.3' },
@@ -1308,26 +1091,6 @@ export default function Landing() {
               <ArrowRight className="w-5 h-5" />
             </a>
           </Reveal>
-
-          {/* Objection handling pills */}
-          <Reveal direction="up" delay={390}>
-            <div className="flex flex-wrap justify-center gap-3 mb-6">
-              {[
-                'Sem cartão de crédito nos 7 dias grátis',
-                'Cancele com 1 clique',
-                'Dados nunca vendidos ou compartilhados',
-              ].map(text => (
-                <span
-                  key={text}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#2a2a3e] text-xs text-[#55556a] bg-[#0d0d14]"
-                >
-                  <Check className="w-3 h-3 text-[#00ff88] flex-shrink-0" />
-                  {text}
-                </span>
-              ))}
-            </div>
-          </Reveal>
-
           <Reveal direction="up" delay={420}>
             <div className="flex flex-wrap justify-center gap-5 text-xs text-[#55556a]">
               {['7 dias grátis', 'Cancele quando quiser', '30 dias de garantia'].map(t => (
