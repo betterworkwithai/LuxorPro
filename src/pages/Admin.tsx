@@ -3,6 +3,7 @@ import {
   Users, TrendingUp, CreditCard, AlertTriangle, RefreshCw,
   CheckCircle, Clock, XCircle, Crown, BarChart2, Activity,
   ChevronDown, ChevronUp, ExternalLink, Shield, Settings2, Save, RotateCcw,
+  LineChart, Plus, Trash2, ClipboardList,
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -164,6 +165,54 @@ const INTL_RAW_DEFAULT: RawTargets = {
   'Private Equity':       [0,    4.5,   9,    12  ],
 }
 
+// ─── Benchmark monthly data type ─────────────────────────────────────────────
+export interface BenchmarkRow {
+  date:  string   // YYYY-MM-DD (last trading day of month)
+  cdi:   number
+  dolar: number
+  ibov:  number
+  ipca:  number
+}
+
+const BENCHMARK_DEFAULT: BenchmarkRow[] = [
+  { date: '2023-04-28', cdi: 1.02, dolar: -1.80, ibov:  2.50, ipca: 0.61 },
+  { date: '2023-05-31', cdi: 1.06, dolar: -1.00, ibov:  3.74, ipca: 0.23 },
+  { date: '2023-06-30', cdi: 1.02, dolar:  0.50, ibov:  9.00, ipca: 0.08 },
+  { date: '2023-07-31', cdi: 1.06, dolar: -1.50, ibov:  3.27, ipca: 0.12 },
+  { date: '2023-08-31', cdi: 0.97, dolar:  4.00, ibov: -5.09, ipca: 0.23 },
+  { date: '2023-09-29', cdi: 1.01, dolar:  2.00, ibov:  0.71, ipca: 0.26 },
+  { date: '2023-10-31', cdi: 0.95, dolar:  2.50, ibov: -2.94, ipca: 0.24 },
+  { date: '2023-11-30', cdi: 0.92, dolar: -3.00, ibov: 12.54, ipca: 0.28 },
+  { date: '2023-12-29', cdi: 0.97, dolar: -0.50, ibov:  5.40, ipca: 0.62 },
+  { date: '2024-01-31', cdi: 0.97, dolar:  1.50, ibov: -4.79, ipca: 0.42 },
+  { date: '2024-02-29', cdi: 0.80, dolar:  0.80, ibov:  0.99, ipca: 0.83 },
+  { date: '2024-03-28', cdi: 0.83, dolar:  0.30, ibov: -0.71, ipca: 0.16 },
+  { date: '2024-04-30', cdi: 0.83, dolar:  5.00, ibov: -1.70, ipca: 0.38 },
+  { date: '2024-05-31', cdi: 0.83, dolar:  4.50, ibov: -3.04, ipca: 0.46 },
+  { date: '2024-06-28', cdi: 0.79, dolar:  0.80, ibov:  1.48, ipca: 0.20 },
+  { date: '2024-07-31', cdi: 0.89, dolar: -1.50, ibov:  4.69, ipca: 0.38 },
+  { date: '2024-08-30', cdi: 0.87, dolar:  3.00, ibov:  6.54, ipca: 0.44 },
+  { date: '2024-09-30', cdi: 0.90, dolar:  6.70, ibov:  0.19, ipca: 0.44 },
+  { date: '2024-10-31', cdi: 0.97, dolar:  5.60, ibov: -1.61, ipca: 0.56 },
+  { date: '2024-11-29', cdi: 1.00, dolar:  2.80, ibov: -3.12, ipca: 0.39 },
+  { date: '2024-12-31', cdi: 0.96, dolar:  4.00, ibov: -4.79, ipca: 0.52 },
+  { date: '2025-01-31', cdi: 1.02, dolar: -2.50, ibov: -0.92, ipca: 0.16 },
+  { date: '2025-02-28', cdi: 1.04, dolar: -1.20, ibov: -1.02, ipca: 1.31 },
+  { date: '2025-03-31', cdi: 1.07, dolar:  0.80, ibov: -2.53, ipca: 0.56 },
+  { date: '2025-04-30', cdi: 1.00, dolar:  2.00, ibov: -3.98, ipca: 0.43 },
+  { date: '2025-05-30', cdi: 1.05, dolar: -1.50, ibov:  3.47, ipca: 0.50 },
+  { date: '2025-06-30', cdi: 1.08, dolar:  0.50, ibov:  2.01, ipca: 0.24 },
+  { date: '2025-07-31', cdi: 1.07, dolar: -0.80, ibov:  5.02, ipca: 0.38 },
+  { date: '2025-08-29', cdi: 1.10, dolar: -2.00, ibov: -3.01, ipca: 0.44 },
+  { date: '2025-09-30', cdi: 1.10, dolar:  1.50, ibov:  1.48, ipca: 0.44 },
+  { date: '2025-10-31', cdi: 1.13, dolar:  0.50, ibov:  2.01, ipca: 0.45 },
+  { date: '2025-11-28', cdi: 1.20, dolar: -1.00, ibov:  3.02, ipca: 0.39 },
+  { date: '2025-12-31', cdi: 1.18, dolar:  0.80, ibov: -1.49, ipca: 0.40 },
+  { date: '2026-01-30', cdi: 1.1641575006506,  dolar: -4.9487496365222, ibov: 12.5607345385770, ipca: 0.33 },
+  { date: '2026-02-27', cdi: 0.9970231905116,  dolar: -1.5410795204680, ibov:  4.0929203661809, ipca: 0.70 },
+  { date: '2026-03-31', cdi: 1.2129314202351,  dolar:  1.3574133411009, ibov: -0.7019234050947, ipca: 0.88 },
+]
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function Admin() {
   const [data,    setData]    = useState<AdminData | null>(null)
@@ -182,21 +231,30 @@ export default function Admin() {
   const [suitSaving, setSuitSaving] = useState(false)
   const [suitMsg,    setSuitMsg]    = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
 
+  // ── Benchmark editor ─────────────────────────────────────────────────────
+  const [benchOpen,    setBenchOpen]    = useState(false)
+  const [benchRows,    setBenchRows]    = useState<BenchmarkRow[]>(BENCHMARK_DEFAULT)
+  const [benchSaving,  setBenchSaving]  = useState(false)
+  const [benchMsg,     setBenchMsg]     = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+  const [benchPaste,   setBenchPaste]   = useState(false)
+  const [benchPasteTxt,setBenchPasteTxt]= useState('')
+
   useEffect(() => {
-    async function loadTargets() {
+    async function loadConfig() {
       try {
-        const { data: row } = await supabase
-          .from('admin_config')
-          .select('value')
-          .eq('key', 'suitability_targets')
-          .single()
-        if (row?.value) {
-          if (row.value.local) setLocalRaw(row.value.local as RawTargets)
-          if (row.value.intl)  setIntlRaw(row.value.intl as RawTargets)
+        const { data: suitRow } = await supabase
+          .from('admin_config').select('value').eq('key', 'suitability_targets').single()
+        if (suitRow?.value) {
+          if (suitRow.value.local) setLocalRaw(suitRow.value.local as RawTargets)
+          if (suitRow.value.intl)  setIntlRaw(suitRow.value.intl as RawTargets)
         }
+        const { data: benchRow } = await supabase
+          .from('admin_config').select('value').eq('key', 'benchmark_monthly').single()
+        if (Array.isArray(benchRow?.value) && benchRow.value.length > 0)
+          setBenchRows(benchRow.value as BenchmarkRow[])
       } catch { /* table may not exist yet */ }
     }
-    loadTargets()
+    loadConfig()
   }, [])
 
   const handleSuitSave = async () => {
@@ -244,6 +302,52 @@ export default function Admin() {
 
   const colSums = (raw: RawTargets) =>
     SUIT_PROFILES.map((_, i) => Object.values(raw).reduce((s, r) => s + (r[i] ?? 0), 0))
+
+  // ── Benchmark handlers ───────────────────────────────────────────────────
+  const handleBenchSave = async () => {
+    setBenchSaving(true); setBenchMsg(null)
+    try {
+      const sorted = [...benchRows].sort((a, b) => a.date.localeCompare(b.date))
+      const { error: err } = await supabase
+        .from('admin_config')
+        .upsert({ key: 'benchmark_monthly', value: sorted, updated_at: new Date().toISOString() })
+      if (err) throw err
+      setBenchRows(sorted)
+      setBenchMsg({ type: 'ok', text: `${sorted.length} linhas salvas. Usuários verão os benchmarks atualizados.` })
+    } catch (e) {
+      setBenchMsg({ type: 'err', text: `Erro: ${e instanceof Error ? e.message : String(e)}` })
+    } finally {
+      setBenchSaving(false) }
+  }
+
+  const handleBenchPasteImport = () => {
+    const lines = benchPasteTxt.trim().split('\n').filter(l => l.trim())
+    const parsed: BenchmarkRow[] = []
+    for (const line of lines) {
+      // Accept tab-separated or semicolon-separated: date, cdi, dolar, ibov, ipca
+      const cols = line.split(/\t|;/).map(c => c.trim().replace(',', '.'))
+      if (cols.length < 5) continue
+      const [rawDate, rawCdi, rawDolar, rawIbov, rawIpca] = cols
+      // Accept DD/MM/YYYY or YYYY-MM-DD
+      let date = rawDate
+      const dmyMatch = rawDate.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+      if (dmyMatch) date = `${dmyMatch[3]}-${dmyMatch[2].padStart(2,'0')}-${dmyMatch[1].padStart(2,'0')}`
+      const cdi   = parseFloat(rawCdi)
+      const dolar = parseFloat(rawDolar)
+      const ibov  = parseFloat(rawIbov)
+      const ipca  = parseFloat(rawIpca)
+      if (!date.match(/^\d{4}-\d{2}-\d{2}$/) || isNaN(cdi)) continue
+      parsed.push({ date, cdi, dolar: isNaN(dolar) ? 0 : dolar, ibov: isNaN(ibov) ? 0 : ibov, ipca: isNaN(ipca) ? 0 : ipca })
+    }
+    if (parsed.length === 0) return
+    // Merge: paste rows overwrite existing by date
+    const existing = new Map(benchRows.map(r => [r.date, r]))
+    parsed.forEach(r => existing.set(r.date, r))
+    setBenchRows(Array.from(existing.values()).sort((a, b) => a.date.localeCompare(b.date)))
+    setBenchPasteTxt('')
+    setBenchPaste(false)
+    setBenchMsg({ type: 'ok', text: `${parsed.length} linhas importadas. Clique em Salvar para persistir.` })
+  }
 
   const load = useCallback(async () => {
     setLoading(true); setError(null)
@@ -727,6 +831,145 @@ export default function Admin() {
                 {suitMsg && (
                   <span className={`text-xs font-medium ${suitMsg.type === 'ok' ? 'text-[#00ff88]' : 'text-[#ff4466]'}`}>
                     {suitMsg.text}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── Benchmark Monthly Data Editor ──────────────────────────────── */}
+        <div className="card">
+          <button onClick={() => setBenchOpen(o => !o)}
+            className="w-full flex items-center justify-between px-5 py-4 border-b border-[#1e1e2e]">
+            <div className="flex items-center gap-2">
+              <LineChart className="w-4 h-4 text-[#00d4ff]" />
+              <p className="text-sm font-semibold text-[#e8e8f0]">Benchmarks Mensais</p>
+              <span className="text-[10px] bg-[#00d4ff]/10 text-[#00d4ff] border border-[#00d4ff]/20 px-2 py-0.5 rounded-full font-semibold">
+                {benchRows.length} meses
+              </span>
+            </div>
+            {benchOpen ? <ChevronUp className="w-4 h-4 text-[#55556a]" /> : <ChevronDown className="w-4 h-4 text-[#55556a]" />}
+          </button>
+
+          {benchOpen && (
+            <div className="p-5 space-y-4">
+              <p className="text-xs text-[#8888aa] leading-relaxed">
+                Dados mensais de retorno (%) para CDI, Dólar, Ibovespa e IPCA. São usados pelo Wealth para calcular
+                os benchmarks por período (Mês Atual, Mês Ant., YTD, 12M, 24M, 36M). Cole diretamente do Excel:
+                colunas <code className="text-[#00d4ff] text-[10px]">Data · CDI · Dólar · IBOV · IPCA</code>.
+              </p>
+
+              {/* Paste mode toggle */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => { setBenchPaste(p => !p); setBenchPasteTxt('') }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    benchPaste
+                      ? 'bg-[#00d4ff] text-[#0a0a0f]'
+                      : 'bg-[#16161f] text-[#8888aa] border border-[#1e1e2e] hover:border-[#00d4ff]/40'
+                  }`}
+                >
+                  <ClipboardList className="w-3.5 h-3.5" />
+                  {benchPaste ? 'Cancelar' : 'Colar do Excel'}
+                </button>
+                <button
+                  onClick={() => {
+                    const blank: BenchmarkRow = { date: '', cdi: 0, dolar: 0, ibov: 0, ipca: 0 }
+                    setBenchRows(prev => [...prev, blank])
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#16161f] text-[#8888aa] border border-[#1e1e2e] hover:border-[#00ff88]/40 hover:text-[#00ff88] transition-all"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Adicionar linha
+                </button>
+              </div>
+
+              {/* Paste area */}
+              {benchPaste && (
+                <div className="space-y-2">
+                  <p className="text-[10px] text-[#55556a]">
+                    Cole aqui (tab-separado ou ponto-e-vírgula). Formato: Data · CDI% · Dólar% · IBOV% · IPCA%
+                    <br />Aceita DD/MM/AAAA ou AAAA-MM-DD. Usa vírgula ou ponto como decimal.
+                  </p>
+                  <textarea
+                    value={benchPasteTxt}
+                    onChange={e => setBenchPasteTxt(e.target.value)}
+                    rows={6}
+                    placeholder={"31/01/2026\t1.1641575\t-4.9487\t12.5607\t0.33\n28/02/2026\t0.9970231\t-1.541\t4.0929\t0.70"}
+                    className="w-full bg-[#0a0a0f] border border-[#00d4ff]/30 rounded-lg px-3 py-2 text-xs font-mono text-[#e8e8f0] focus:outline-none focus:border-[#00d4ff]/60 resize-y"
+                  />
+                  <button
+                    onClick={handleBenchPasteImport}
+                    disabled={!benchPasteTxt.trim()}
+                    className="px-4 py-2 rounded-lg text-xs font-semibold bg-[#00d4ff] text-[#0a0a0f] hover:bg-[#00b8d9] disabled:opacity-40 transition-colors"
+                  >
+                    Importar linhas
+                  </button>
+                </div>
+              )}
+
+              {/* Data table */}
+              <div className="overflow-x-auto max-h-[480px] overflow-y-auto rounded-xl border border-[#1e1e2e]">
+                <table className="w-full text-xs min-w-[600px]">
+                  <thead className="sticky top-0 bg-[#0d0d14] z-10">
+                    <tr className="border-b border-[#1e1e2e]">
+                      {['Data (AAAA-MM-DD)', 'CDI %', 'Dólar %', 'IBOV %', 'IPCA %', ''].map(h => (
+                        <th key={h} className="text-left px-3 py-2.5 text-[#55556a] font-semibold uppercase tracking-wider text-[10px]">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {benchRows.map((row, i) => (
+                      <tr key={i} className="border-b border-[#1e1e2e]/40 hover:bg-[#16161f] transition-colors">
+                        {(['date', 'cdi', 'dolar', 'ibov', 'ipca'] as (keyof BenchmarkRow)[]).map(field => (
+                          <td key={field} className="px-2 py-1">
+                            <input
+                              type={field === 'date' ? 'text' : 'number'}
+                              value={row[field]}
+                              step={field === 'date' ? undefined : '0.0001'}
+                              placeholder={field === 'date' ? 'AAAA-MM-DD' : '0.00'}
+                              onChange={e => {
+                                const val = field === 'date' ? e.target.value : parseFloat(e.target.value) || 0
+                                setBenchRows(prev => prev.map((r, idx) => idx === i ? { ...r, [field]: val } : r))
+                                setBenchMsg(null)
+                              }}
+                              className="w-full bg-[#0a0a0f] border border-[#1e1e2e] rounded-md px-2 py-1 text-[#e8e8f0] focus:outline-none focus:border-[#00d4ff]/50 v2-num text-[11px]"
+                            />
+                          </td>
+                        ))}
+                        <td className="px-2 py-1">
+                          <button
+                            onClick={() => setBenchRows(prev => prev.filter((_, idx) => idx !== i))}
+                            className="text-[#ff4466] hover:text-[#ff6680] transition-colors p-1 rounded"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-3 flex-wrap">
+                <button
+                  onClick={handleBenchSave}
+                  disabled={benchSaving}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-[#00d4ff] text-[#0a0a0f] hover:bg-[#00b8d9] disabled:opacity-50 transition-colors"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  {benchSaving ? 'Salvando…' : 'Salvar benchmarks'}
+                </button>
+                <button
+                  onClick={() => { setBenchRows(BENCHMARK_DEFAULT); setBenchMsg(null) }}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-[#1e1e2e] bg-[#0a0a0f] text-[#8888aa] hover:border-[#55556a] transition-colors"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" /> Resetar padrão
+                </button>
+                {benchMsg && (
+                  <span className={`text-xs font-medium ${benchMsg.type === 'ok' ? 'text-[#00ff88]' : 'text-[#ff4466]'}`}>
+                    {benchMsg.text}
                   </span>
                 )}
               </div>

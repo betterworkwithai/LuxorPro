@@ -9,5 +9,10 @@
 
 import type { User } from '@supabase/supabase-js'
 
-export const isAdmin = (user?: User | null): boolean =>
-  user?.app_metadata?.role === 'admin'
+export const isAdmin = (user?: User | null): boolean => {
+  if (user?.app_metadata?.role === 'admin') return true
+  // Fallback: VITE_ADMIN_EMAIL in .env.local — useful when Supabase app_metadata isn't set
+  const adminEmail = import.meta.env.VITE_ADMIN_EMAIL as string | undefined
+  if (adminEmail && user?.email === adminEmail) return true
+  return false
+}

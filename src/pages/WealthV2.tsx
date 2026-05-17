@@ -5,7 +5,7 @@
 //  movers, suitability gauge) + heatmap + posições
 //  table. Wired to the real Zustand store.
 // ─────────────────────────────────────────────
-import React, { useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   AlertTriangle, ArrowDownRight, ArrowDownUp, ArrowRight, ArrowUpRight, Building2,
@@ -21,6 +21,7 @@ import {
 import { InvestmentModal } from '../components/modals/InvestmentModal'
 import type { Investment } from '../lib/types'
 import { pfPath } from '../constants'
+import { supabase } from '../lib/supabase'
 
 type PeriodMode = '1M' | '3M' | 'YTD' | '12M' | '5A' | 'ALL'
 type CurrencyMode = 'BRL' | 'USD' | 'EUR'
@@ -125,8 +126,10 @@ const BENCHMARK_MONTHLY: { date: string; cdi: number; dolar: number; ibov: numbe
   { date: '2026-03-31', cdi: 1.2129314202351, dolar:  1.3574133411009, ibov: -0.7019234050947, ipca: 0.88 },
 ]
 
-function compoundBench(from: string, to: string): { cdi: number; dolar: number; ibov: number; ipca: number } | null {
-  const rows = BENCHMARK_MONTHLY.filter(r => r.date >= from && r.date <= to)
+type BenchmarkMonthly = typeof BENCHMARK_MONTHLY[number]
+
+function compoundBench(data: BenchmarkMonthly[], from: string, to: string): { cdi: number; dolar: number; ibov: number; ipca: number } | null {
+  const rows = data.filter(r => r.date >= from && r.date <= to)
   if (rows.length === 0) return null
   let cdi = 1, dolar = 1, ibov = 1, ipca = 1
   for (const r of rows) {
@@ -152,6 +155,16 @@ export default function WealthV2() {
   const [filterInstitution, setFilterInstitution] = useState<string>('all')
   const [filterTax, setFilterTax] = useState<string>('all')
   const [globalLocation, setGlobalLocation] = useState<'all'|'onshore'|'offshore'>('all')
+  const [benchmarkData, setBenchmarkData] = useState<BenchmarkMonthly[]>(BENCHMARK_MONTHLY)
+
+  useEffect(() => {
+    supabase.from('admin_config').select('value').eq('key', 'benchmark_monthly').single()
+      .then(({ data }) => {
+        if (Array.isArray(data?.value) && data.value.length > 0)
+          setBenchmarkData(data.value as BenchmarkMonthly[])
+      })
+      .catch(() => { /* fallback to hardcoded */ })
+  }, [])
   const [visibleCols, setVisibleCols] = useState<ColId[]>(() => {
     try { const s = localStorage.getItem('luxor-pos-cols-v3'); if (s) return JSON.parse(s) as ColId[] } catch {}
     return DEFAULT_COL_IDS
@@ -1111,6 +1124,98 @@ export default function WealthV2() {
   // Periods to label on the hero CDI line
   const periodLabel = period === 'YTD' ? 'YTD' : period === 'ALL' ? 'Total' : period
 
+  // ── PDF download ────────────────────────────────────────────────────────
+  const [pdfLoading, setPdfLoading] = useState(false)
+
+  const handleDownloadPDF = async () => {
+    setPdfLoading(true)
+    try {
+      const { generateWealthPDF } = await import('../lib/wealthPDF')
+      const profile = (settings.suitability ?? 'Moderado') as SuitabilityProfile
+
+      // Build allocation rows for PDF
+      const buildPdfAlloc = (classes: string[], actuals: Map<string, number>, total: number, targets: Record<string, number>) =>
+        classes.map(cls => {
+          const actualValue = actuals.get(cls) ?? 0
+          const actualPct   = total > 0 ? (actualValue / total) * 100 : 0
+          const targetPct   = targets[cls] ?? 0
+          return { cls, actualPct, targetPct, gapPct: actualPct - targetPct, actualValue }
+        }).filter(r => r.actualValue > 0 || r.targetPct > 0)
+
+      const localActuals = new Map<string, number>()
+      const intlActuals  = new Map<string, number>()
+      let onshoreTotal = 0, offshoreTotal = 0
+      investments.forEach(i => {
+        if (i.location === 'physical-re') return
+        if (globalLocation !== 'all' && i.location !== globalLocation) return
+        const v = convert(i.quantity * i.currentPrice, i.currency, 'BRL', usdToBrl, eurToBrl)
+        if (v <= 0) return
+        if (i.location === 'offshore') {
+          intlActuals.set(canonicalIntlClass(i.assetClass), (intlActuals.get(canonicalIntlClass(i.assetClass)) ?? 0) + v)
+          offshoreTotal += v
+        } else {
+          localActuals.set(canonicalLocalClass(i.assetClass), (localActuals.get(canonicalLocalClass(i.assetClass)) ?? 0) + v)
+          onshoreTotal += v
+        }
+      })
+
+      // Benchmark periods
+      const BENCH_PERIODS = [
+        { label: 'Mês Atual',  from: '2026-03-01', to: '2026-03-31' },
+        { label: 'Mês Ant.',   from: '2026-02-01', to: '2026-02-28' },
+        { label: 'YTD',        from: '2026-01-01', to: '2026-03-31' },
+        { label: '12M',        from: '2025-04-01', to: '2026-03-31' },
+        { label: '24M',        from: '2024-04-01', to: '2026-03-31' },
+        { label: '36M',        from: '2023-04-01', to: '2026-03-31' },
+      ]
+      const benchmarkPeriods = BENCH_PERIODS.map(bp => {
+        const c = compoundBench(benchmarkData, bp.from, bp.to)
+        return { label: bp.label, cdi: c?.cdi ?? null, dolar: c?.dolar ?? null, ibov: c?.ibov ?? null, ipca: c?.ipca ?? null }
+      })
+
+      const iliquidBRL = investments
+        .filter(i => i.location === 'physical-re' && (globalLocation === 'all' || i.location === globalLocation))
+        .reduce((s, i) => s + convert(i.quantity * i.currentPrice, i.currency, 'BRL', usdToBrl, eurToBrl), 0)
+
+      generateWealthPDF({
+        totalBRL:    totals.totalValueBRL,
+        totalUSD:    totals.totalValueBRL / usdToBrl,
+        pctPeriod:   periodGainPct,
+        pctYtd:      periodGainPct,  // best approximation available
+        pct12m:      totals.lifetimeGainPct,
+        pct24m:      totals.lifetimeGainPct,
+        pctInception: totals.lifetimeGainPct,
+        liquidBRL:   totals.totalValueBRL - iliquidBRL,
+        iliquidBRL,
+        suitabilityProfile: profile,
+        location:    globalLocation,
+        currency,
+        usdToBrl,
+        allocationLocal: buildPdfAlloc(LOCAL_CLASSES, localActuals, onshoreTotal, LOCAL_TARGETS[profile]),
+        allocationIntl:  buildPdfAlloc(INTL_CLASSES, intlActuals, offshoreTotal, INTL_TARGETS[profile]),
+        benchmarkPeriods,
+        positions: positionsWithAlloc.map(pos => ({
+          name:         pos.name,
+          ticker:       pos.ticker,
+          assetClass:   pos.assetClass,
+          maturity:     pos.maturityDate,
+          position:     pos.currentBRL,
+          allocPct:     pos.allocPct,
+          pctMtd:       pos.pctMtd,
+          pctPrevMonth: pos.pctPrevMonth,
+          pctYtd:       pos.pctYtd,
+          pct12m:       pos.pct12m,
+          pct24m:       pos.pct24m,
+          pctInception: pos.pctInception,
+          location:     pos.location,
+        })),
+        generatedAt: new Date(),
+      })
+    } finally {
+      setPdfLoading(false)
+    }
+  }
+
   return (
     <div className="v2-root min-w-0" ref={containerRef}>
       <V2PageHeader
@@ -1148,6 +1253,18 @@ export default function WealthV2() {
                 { value: 'offshore', label: 'Exterior' },
               ]}
             />
+            <button
+              onClick={handleDownloadPDF}
+              disabled={pdfLoading}
+              className="px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors border"
+              style={{ background: 'rgba(0,212,255,0.08)', color: '#00d4ff', borderColor: 'rgba(0,212,255,0.25)' }}
+              title="Baixar relatório PDF"
+            >
+              {pdfLoading
+                ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                : <Download className="w-3.5 h-3.5" />}
+              {pdfLoading ? 'Gerando…' : 'PDF'}
+            </button>
             <button
               onClick={() => setShowAddInv(true)}
               className="px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
@@ -2377,7 +2494,7 @@ export default function WealthV2() {
             { key: 'ipca',  label: 'IPCA',      color: '#34d399' },
           ] as const
           type BenchKey = typeof BENCH_ROWS[number]['key']
-          const cells = BENCH_PERIODS.map(p => compoundBench(p.from, p.to))
+          const cells = BENCH_PERIODS.map(p => compoundBench(benchmarkData, p.from, p.to))
           const fmtPct = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`
           return (
             <section className="v2-reveal">

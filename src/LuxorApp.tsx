@@ -207,5 +207,6 @@ export default function LuxorApp() {
       />
     );
 
-  return <AppRoutes isAdminUser={isAdmin(sessionUser)} />;
+  // Local mode (no Supabase): always grant admin so the page is accessible
+  return <AppRoutes isAdminUser={!SUPABASE_CONFIGURED || isAdmin(sessionUser)} />;
 }
