@@ -2542,49 +2542,64 @@ export default function WealthV2() {
                         <div className="px-4 py-10 text-center text-xs text-[#55556a]">Nenhum ativo encontrado.</div>
                       ) : groupedPositions.flatMap(({ key, items, totalBRL, gainPct, totalAllocPct }) => [
 
-                        /* ── Group header ── */
+                        /* ── Group header — same grid as rows for pixel-perfect column alignment ── */
                         <div
                           key={`grp-${key}`}
+                          className="grid items-center gap-1 px-4"
                           style={{
+                            gridTemplateColumns: gridTemplate,
+                            paddingTop: '8px',
+                            paddingBottom: '8px',
                             background: 'linear-gradient(90deg, rgba(0,212,255,0.06) 0%, rgba(0,212,255,0.02) 40%, transparent 100%)',
                             borderTop: '1px solid rgba(0,212,255,0.12)',
                             borderBottom: '1px solid rgba(0,212,255,0.08)',
                           }}
                         >
-                          <div className="flex items-center gap-3 px-4 py-2">
-                            {/* Left accent bar */}
-                            <div className="w-[3px] h-5 rounded-full flex-shrink-0" style={{ background: 'linear-gradient(180deg, #00d4ff, #0066aa)' }}/>
+                          {(() => {
+                            // Columns that show a value — everything to the left is label territory
+                            const VALUE_COLS = new Set(['allocation','position','period','mtd','prevMonth','ytd','m12','m24','inception'])
+                            const pivotIdx = visibleCols.findIndex(id => VALUE_COLS.has(id))
+                            const spanCount = pivotIdx >= 0 ? pivotIdx : visibleCols.length
+                            const valueCols = pivotIdx >= 0 ? visibleCols.slice(pivotIdx) : []
+                            // Perf return: show on whichever of period/ytd/inception appears first
+                            const showReturnOn = valueCols.find(id => id === 'period' || id === 'ytd' || id === 'inception')
+                            return (
+                              <>
+                                {/* Label — spans all pre-value columns */}
+                                <div
+                                  className="flex items-center gap-2 min-w-0"
+                                  style={{ gridColumn: `1 / ${spanCount + 1}` }}
+                                >
+                                  <div className="w-[3px] h-4 rounded-full flex-shrink-0" style={{ background: 'linear-gradient(180deg, #00d4ff, #0066aa)' }}/>
+                                  <span className="text-[11px] font-bold uppercase tracking-widest truncate" style={{ color: '#00d4ff', letterSpacing: '0.08em' }}>{key}</span>
+                                </div>
 
-                            {/* Class label */}
-                            <span
-                              className="text-[11px] font-bold uppercase tracking-widest flex-1 truncate"
-                              style={{ color: '#00d4ff', letterSpacing: '0.08em' }}
-                            >{key}</span>
+                                {/* One cell per value column */}
+                                {valueCols.map(colId => {
+                                  if (colId === 'allocation') return (
+                                    <span key={colId} className="v2-num text-right tabular-nums text-[11px] font-semibold" style={{ color: '#6688aa' }}>
+                                      {totalAllocPct.toFixed(1)}%
+                                    </span>
+                                  )
+                                  if (colId === 'position') return (
+                                    <span key={colId} className="v2-num text-right tabular-nums text-[13px] font-bold" style={{ color: '#ffffff' }}>
+                                      {fmt(toBase(totalBRL), true)}
+                                    </span>
+                                  )
+                                  if (colId === showReturnOn) return (
+                                    <span key={colId} className="v2-num text-right tabular-nums text-[11px] font-semibold" style={{ color: gainPct >= 0 ? '#00ff88' : '#ff4466' }}>
+                                      {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(1)}%
+                                    </span>
+                                  )
+                                  // Secondary perf columns and others: empty placeholder
+                                  return <span key={colId}/>
+                                })}
 
-                            {/* Right-side summary — mimics the grid column positions */}
-                            <div className="flex items-center gap-4 flex-shrink-0">
-                              {visibleCols.includes('allocation') && (
-                                <div className="text-right" style={{ width: '62px' }}>
-                                  <span className="v2-num text-[11px] font-semibold tabular-nums" style={{ color: '#6688aa' }}>{totalAllocPct.toFixed(1)}%</span>
-                                </div>
-                              )}
-                              {visibleCols.includes('position') && (
-                                <div className="text-right" style={{ width: '105px' }}>
-                                  <span className="v2-num text-[13px] font-bold tabular-nums text-white">{fmt(toBase(totalBRL), true)}</span>
-                                </div>
-                              )}
-                              {(visibleCols.includes('period') || visibleCols.includes('ytd') || visibleCols.includes('inception')) && (
-                                <div className="text-right" style={{ width: '80px' }}>
-                                  <span
-                                    className="v2-num text-[11px] font-semibold tabular-nums"
-                                    style={{ color: gainPct >= 0 ? '#00ff88' : '#ff4466' }}
-                                  >{gainPct >= 0 ? '+' : ''}{gainPct.toFixed(1)}%</span>
-                                </div>
-                              )}
-                              {/* spacer for delete col */}
-                              <div style={{ width: '32px' }}/>
-                            </div>
-                          </div>
+                                {/* Delete column spacer */}
+                                <span/>
+                              </>
+                            )
+                          })()}
                         </div>,
 
                         /* ── Item rows ── */
