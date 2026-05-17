@@ -30,21 +30,21 @@ type ColId = 'ticker'|'name'|'assetClass'|'maturity'|'qty'|'pm'|'position'|'allo
 type ColSortKey = 'name'|'class'|'institution'|'qty'|'avgCost'|'currentPrice'|'position'|'period'|'allocation'|'maturity'|'mtd'|'prevMonth'|'ytd'|'m12'|'m24'|'inception'
 interface PosColDef { id: ColId; label: string; width: string; align: 'left'|'right'; sortKey?: ColSortKey; fixed?: boolean; defaultOn?: boolean }
 const POS_COL_DEFS: PosColDef[] = [
-  { id: 'ticker',    label: 'Ticker',     width: '80px',                align: 'left',  sortKey: 'name',                    defaultOn: false },
+  { id: 'ticker',    label: 'Ticker',     width: '80px',                align: 'left',  sortKey: 'name' },
   { id: 'name',      label: 'Ativo',      width: 'minmax(130px,1.4fr)', align: 'left',  sortKey: 'name',       fixed: true, defaultOn: true },
-  { id: 'assetClass',label: 'Classe',     width: 'minmax(100px,1fr)',   align: 'left',  sortKey: 'class',                   defaultOn: true },
-  { id: 'maturity',  label: 'Vencimento', width: '88px',                align: 'left',  sortKey: 'maturity' },
-  { id: 'qty',       label: 'Qtd',        width: '68px',                align: 'right', sortKey: 'qty',                     defaultOn: true },
-  { id: 'pm',        label: 'PM / Atual', width: '116px',               align: 'right', sortKey: 'avgCost',                 defaultOn: true },
+  { id: 'assetClass',label: 'Classe',     width: 'minmax(100px,1fr)',   align: 'left',  sortKey: 'class' },
+  { id: 'maturity',  label: 'Vencimento', width: '88px',                align: 'left',  sortKey: 'maturity',                defaultOn: true },
+  { id: 'qty',       label: 'Qtd',        width: '68px',                align: 'right', sortKey: 'qty' },
+  { id: 'pm',        label: 'PM / Atual', width: '116px',               align: 'right', sortKey: 'avgCost' },
   { id: 'position',  label: 'Posição',    width: '105px',               align: 'right', sortKey: 'position',                defaultOn: true },
   { id: 'allocation',label: 'Aloc.',      width: '62px',                align: 'right', sortKey: 'allocation',              defaultOn: true },
-  { id: 'period',    label: 'Retorno',    width: '80px',                align: 'right', sortKey: 'period',                  defaultOn: true },
-  { id: 'mtd',       label: 'Mês atual',  width: '72px',                align: 'right', sortKey: 'mtd' },
-  { id: 'prevMonth', label: 'Mês ant.',   width: '72px',                align: 'right', sortKey: 'prevMonth' },
-  { id: 'ytd',       label: 'YTD',        width: '70px',                align: 'right', sortKey: 'ytd' },
-  { id: 'm12',       label: '12M',        width: '70px',                align: 'right', sortKey: 'm12' },
-  { id: 'm24',       label: '24M',        width: '70px',                align: 'right', sortKey: 'm24' },
-  { id: 'inception', label: 'Início',     width: '80px',                align: 'right', sortKey: 'inception' },
+  { id: 'period',    label: 'Retorno',    width: '80px',                align: 'right', sortKey: 'period' },
+  { id: 'mtd',       label: 'Mês atual',  width: '72px',                align: 'right', sortKey: 'mtd',                     defaultOn: true },
+  { id: 'prevMonth', label: 'Mês ant.',   width: '72px',                align: 'right', sortKey: 'prevMonth',               defaultOn: true },
+  { id: 'ytd',       label: 'YTD',        width: '70px',                align: 'right', sortKey: 'ytd',                     defaultOn: true },
+  { id: 'm12',       label: '12M',        width: '70px',                align: 'right', sortKey: 'm12',                     defaultOn: true },
+  { id: 'm24',       label: '24M',        width: '70px',                align: 'right', sortKey: 'm24',                     defaultOn: true },
+  { id: 'inception', label: 'Início',     width: '80px',                align: 'right', sortKey: 'inception',               defaultOn: true },
 ]
 const DEFAULT_COL_IDS: ColId[] = POS_COL_DEFS.filter(c => c.defaultOn).map(c => c.id)
 
@@ -95,14 +95,14 @@ export default function WealthV2() {
   const [filterTax, setFilterTax] = useState<string>('all')
   const [globalLocation, setGlobalLocation] = useState<'all'|'onshore'|'offshore'>('all')
   const [visibleCols, setVisibleCols] = useState<ColId[]>(() => {
-    try { const s = localStorage.getItem('luxor-pos-cols-v2'); if (s) return JSON.parse(s) as ColId[] } catch {}
+    try { const s = localStorage.getItem('luxor-pos-cols-v3'); if (s) return JSON.parse(s) as ColId[] } catch {}
     return DEFAULT_COL_IDS
   })
   const [showColPicker, setShowColPicker] = useState(false)
   const dragColFrom = useRef<number | null>(null)
   const updateCols = (cols: ColId[]) => {
     setVisibleCols(cols)
-    try { localStorage.setItem('luxor-pos-cols-v2', JSON.stringify(cols)) } catch {}
+    try { localStorage.setItem('luxor-pos-cols-v3', JSON.stringify(cols)) } catch {}
   }
   type SortKey = ColSortKey
   const [sortKey, setSortKey] = useState<SortKey>('position')
@@ -1031,7 +1031,28 @@ export default function WealthV2() {
         : items.reduce((s, p) => s + p.startBRL, 0)
       const totalAllocPct = items.reduce((s, p) => s + p.allocPct, 0)
       const gainPct = totalBase > 0 ? (totalGain / totalBase) * 100 : 0
-      return { key, items, totalBRL, gainPct, totalAllocPct }
+
+      // Value-weighted average return for each fixed period.
+      // Items that return null for a period (not old enough) are excluded
+      // from that period's calculation. If all items are null → null.
+      const wavg = (getPct: (p: typeof items[0]) => number | null): number | null => {
+        let sumW = 0, sumWR = 0
+        for (const p of items) {
+          const v = getPct(p)
+          if (v !== null) { sumW += p.currentBRL; sumWR += p.currentBRL * v }
+        }
+        return sumW > 0 ? sumWR / sumW : null
+      }
+
+      return {
+        key, items, totalBRL, gainPct, totalAllocPct,
+        grpMtd:       wavg(p => p.pctMtd),
+        grpPrevMonth: wavg(p => p.pctPrevMonth),
+        grpYtd:       wavg(p => p.pctYtd),
+        grp12m:       wavg(p => p.pct12m),
+        grp24m:       wavg(p => p.pct24m),
+        grpInception: wavg(p => p.pctInception),
+      }
     })
   }, [positionsWithAlloc, period])
 
@@ -2540,7 +2561,7 @@ export default function WealthV2() {
                       {/* Body */}
                       {positions.length === 0 ? (
                         <div className="px-4 py-10 text-center text-xs text-[#55556a]">Nenhum ativo encontrado.</div>
-                      ) : groupedPositions.flatMap(({ key, items, totalBRL, gainPct, totalAllocPct }) => [
+                      ) : groupedPositions.flatMap(({ key, items, totalBRL, gainPct, totalAllocPct, grpMtd, grpPrevMonth, grpYtd, grp12m, grp24m, grpInception }) => [
 
                         /* ── Group header — same grid as rows for pixel-perfect column alignment ── */
                         <div
@@ -2586,12 +2607,21 @@ export default function WealthV2() {
                                       {fmt(toBase(totalBRL), true)}
                                     </span>
                                   )
-                                  if (colId === showReturnOn) return (
-                                    <span key={colId} className="v2-num text-right tabular-nums text-[11px] font-semibold" style={{ color: gainPct >= 0 ? '#00ff88' : '#ff4466' }}>
-                                      {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(1)}%
-                                    </span>
-                                  )
-                                  // Secondary perf columns and others: empty placeholder
+                                  // Per-period group aggregates
+                                  const grpPct: number | null =
+                                    colId === 'period'     ? gainPct :
+                                    colId === 'mtd'        ? grpMtd :
+                                    colId === 'prevMonth'  ? grpPrevMonth :
+                                    colId === 'ytd'        ? grpYtd :
+                                    colId === 'm12'        ? grp12m :
+                                    colId === 'm24'        ? grp24m :
+                                    colId === 'inception'  ? grpInception :
+                                    null
+                                  if (grpPct !== undefined) return grpPct === null
+                                    ? <span key={colId} className="v2-num text-right tabular-nums text-[11px]" style={{ color: '#2a2a3e' }}>—</span>
+                                    : <span key={colId} className="v2-num text-right tabular-nums text-[11px] font-semibold" style={{ color: grpPct >= 0 ? '#00ff88' : '#ff4466' }}>
+                                        {grpPct >= 0 ? '+' : ''}{grpPct.toFixed(1)}%
+                                      </span>
                                   return <span key={colId}/>
                                 })}
 
