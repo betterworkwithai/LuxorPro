@@ -259,6 +259,7 @@ export default function WealthV2() {
     return DEFAULT_BENCHMARKS
   })
   const [showBenchmarkPicker, setShowBenchmarkPicker] = useState(false)
+  const [benchSort, setBenchSort] = useState<{ key: 'name' | number; dir: 'asc' | 'desc' }>({ key: 'name', dir: 'asc' })
   const [grossUp, setGrossUp] = useState(() => {
     try { return localStorage.getItem('luxorpro_gross_up') === '1' } catch { return false }
   })
@@ -2653,6 +2654,33 @@ export default function WealthV2() {
           const cells = BENCH_PERIODS.map(p => compoundBench(benchmarkData, p.from, p.to, visibleBenchmarks))
           const fmtPct = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`
 
+          const toggleBenchSort = (key: 'name' | number) => {
+            setBenchSort(prev =>
+              prev.key === key
+                ? { key, dir: prev.dir === 'desc' ? 'asc' : 'desc' }
+                : { key, dir: key === 'name' ? 'asc' : 'desc' }
+            )
+          }
+          const sortedRows = [...activeRows].sort((a, b) => {
+            if (benchSort.key === 'name') {
+              const cmp = a.label.localeCompare(b.label, 'pt-BR')
+              return benchSort.dir === 'asc' ? cmp : -cmp
+            }
+            const pi = benchSort.key as number
+            const av = cells[pi]?.[a.key] ?? (benchSort.dir === 'desc' ? -Infinity : Infinity)
+            const bv = cells[pi]?.[b.key] ?? (benchSort.dir === 'desc' ? -Infinity : Infinity)
+            return benchSort.dir === 'desc' ? bv - av : av - bv
+          })
+          const SortIcon = ({ col }: { col: 'name' | number }) => {
+            const active = benchSort.key === col
+            return (
+              <svg className="inline-block ml-1 w-2.5 h-2.5" viewBox="0 0 10 12" fill="none">
+                <path d="M5 1L5 11M2 4L5 1L8 4" stroke={active && benchSort.dir === 'asc' ? '#00d4ff' : '#55556a'} strokeWidth="1.5" strokeLinecap="round"/>
+                <path d="M5 11L5 1M2 8L5 11L8 8" stroke={active && benchSort.dir === 'desc' ? '#00d4ff' : '#55556a'} strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            )
+          }
+
           const addBenchmark = (key: keyof Omit<BenchmarkMonthly,'date'>) => {
             const next = [...visibleBenchmarks, key]
             setVisibleBenchmarks(next)
@@ -2708,15 +2736,31 @@ export default function WealthV2() {
                   <table className="w-full min-w-[560px] border-collapse">
                     <thead>
                       <tr>
-                        <th className="text-left text-[10px] font-semibold text-[#55556a] uppercase tracking-widest pb-3 pr-4 w-36">Índice</th>
-                        {BENCH_PERIODS.map(p => (
-                          <th key={p.label} className="text-right text-[10px] font-semibold text-[#55556a] uppercase tracking-widest pb-3 px-2">{p.label}</th>
+                        <th className="text-left pb-3 pr-4 w-36">
+                          <button
+                            onClick={() => toggleBenchSort('name')}
+                            className="text-[10px] font-semibold uppercase tracking-widest transition-colors hover:text-[#00d4ff]"
+                            style={{ color: benchSort.key === 'name' ? '#00d4ff' : '#55556a' }}
+                          >
+                            Índice<SortIcon col="name"/>
+                          </button>
+                        </th>
+                        {BENCH_PERIODS.map((p, pi) => (
+                          <th key={p.label} className="text-right pb-3 px-2">
+                            <button
+                              onClick={() => toggleBenchSort(pi)}
+                              className="text-[10px] font-semibold uppercase tracking-widest transition-colors hover:text-[#00d4ff]"
+                              style={{ color: benchSort.key === pi ? '#00d4ff' : '#55556a' }}
+                            >
+                              {p.label}<SortIcon col={pi}/>
+                            </button>
+                          </th>
                         ))}
                         <th className="w-6 pb-3"/>
                       </tr>
                     </thead>
                     <tbody>
-                      {activeRows.map((row, ri) => (
+                      {sortedRows.map((row, ri) => (
                         <tr key={row.key} style={{ borderTop: ri === 0 ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(255,255,255,0.03)' }}>
                           <td className="py-3 pr-4">
                             <div className="flex items-center gap-2">
