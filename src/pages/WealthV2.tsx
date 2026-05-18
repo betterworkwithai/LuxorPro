@@ -623,6 +623,7 @@ export default function WealthV2() {
     keyFn: (i: Investment) => K,
     palette: string[],
     keyOrder?: K[],
+    filterFn?: (i: Investment) => boolean,
   ): {
     slices: DonutSlice[]; total: number;
     rows: { key: K; value: number; pct: number; color: string; items: { inv: Investment; valueBRL: number }[] }[]
@@ -633,6 +634,7 @@ export default function WealthV2() {
     investments.forEach(i => {
       if (i.location === 'physical-re') return
       if (globalLocation !== 'all' && i.location !== globalLocation) return
+      if (filterFn && !filterFn(i)) return
       const v = convert(i.quantity * i.currentPrice, i.currency, 'BRL', usdToBrl, eurToBrl)
       if (v <= 0) return
       const k = keyFn(i)
@@ -959,31 +961,35 @@ export default function WealthV2() {
     return { slices, total, rows }
   }, [investments, usdToBrl, eurToBrl, globalLocation])
 
-  // ── Emissor breakdown ──────────────────────────
+  // ── Emissor breakdown (títulos only) ───────────
   const emisssorBreakdown = useMemo(() => {
     const palette = ['#00d4ff', '#00ff88', '#8b5cf6', '#ec4899', '#f59e0b', '#3b82f6', '#ff7a00', '#14b8a6', '#a855f7', '#84cc16', '#6366f1', '#ff4466']
     return breakdownBy(
       i => (i.issuer && i.issuer.trim().length > 0 ? i.issuer.trim() : 'Não informado'),
       palette,
+      undefined,
+      i => i.productType === 'titulo',
     )
   }, [investments, usdToBrl, eurToBrl, globalLocation])
 
-  // ── Holding breakdown ──────────────────────────
+  // ── Holding breakdown (títulos only) ───────────
   const holdingBreakdown = useMemo(() => {
     const palette = ['#f59e0b', '#00d4ff', '#8b5cf6', '#00ff88', '#ec4899', '#3b82f6', '#ff7a00', '#14b8a6', '#a855f7', '#84cc16', '#6366f1', '#ff4466']
     return breakdownBy(
       i => (i.holding && i.holding.trim().length > 0 ? i.holding.trim() : 'Não informado'),
       palette,
+      undefined,
+      i => i.productType === 'titulo',
     )
   }, [investments, usdToBrl, eurToBrl, globalLocation])
 
   // ── Vencimento (maturity bucket) breakdown ─────
+  // Only includes investments with a real maturity date (excludes sem vencimento)
   const maturityBreakdown = useMemo(() => {
-    const palette = ['#00ff88', '#84cc16', '#f59e0b', '#ff7a00', '#ff4466', '#8b5cf6', '#55556a']
+    const palette = ['#00ff88', '#84cc16', '#f59e0b', '#ff7a00', '#ff4466', '#8b5cf6']
     const today = new Date()
     function bucket(inv: Investment): string {
-      if (!inv.maturityDate) return 'Sem vencimento'
-      const diff = (new Date(inv.maturityDate).getTime() - today.getTime()) / (1000 * 60 * 60 * 24 * 365.25)
+      const diff = (new Date(inv.maturityDate!).getTime() - today.getTime()) / (1000 * 60 * 60 * 24 * 365.25)
       if (diff < 0)  return 'Vencido'
       if (diff < 1)  return '< 1 ano'
       if (diff < 2)  return '1–2 anos'
@@ -992,8 +998,8 @@ export default function WealthV2() {
       if (diff < 10) return '5–10 anos'
       return '+ 10 anos'
     }
-    const BUCKET_ORDER = ['< 1 ano', '1–2 anos', '2–3 anos', '3–5 anos', '5–10 anos', '+ 10 anos', 'Vencido', 'Sem vencimento']
-    return breakdownBy(bucket, palette, BUCKET_ORDER)
+    const BUCKET_ORDER = ['< 1 ano', '1–2 anos', '2–3 anos', '3–5 anos', '5–10 anos', '+ 10 anos', 'Vencido']
+    return breakdownBy(bucket, palette, BUCKET_ORDER, i => !!i.maturityDate && i.maturityDate !== 'none')
   }, [investments, usdToBrl, eurToBrl, globalLocation])
 
   // ── Payment frequency breakdown ────────────────
@@ -1005,12 +1011,14 @@ export default function WealthV2() {
     )
   }, [investments, usdToBrl, eurToBrl, globalLocation])
 
-  // ── Sector breakdown ────────────────────────────
+  // ── Sector breakdown (títulos only) ────────────
   const sectorBreakdown = useMemo(() => {
     const palette = ['#00d4ff', '#00ff88', '#8b5cf6', '#ec4899', '#f59e0b', '#3b82f6', '#ff7a00', '#14b8a6', '#a855f7', '#84cc16', '#6366f1', '#ff4466']
     return breakdownBy(
       i => (i.sector && i.sector.trim().length > 0 ? i.sector.trim() : 'Não informado'),
       palette,
+      undefined,
+      i => i.productType === 'titulo',
     )
   }, [investments, usdToBrl, eurToBrl, globalLocation])
 
@@ -2348,7 +2356,7 @@ export default function WealthV2() {
           {/* Emissor */}
           <ExpandableCard
             title="Emissor · por emissor do ativo"
-            subtitle={`${emisssorBreakdown.rows.filter(r => r.value > 0).length} emissores · ${fmt(toBase(emisssorBreakdown.total), true)} totais`}
+            subtitle={`Títulos · ${emisssorBreakdown.rows.filter(r => r.value > 0).length} emissores · ${fmt(toBase(emisssorBreakdown.total), true)} totais`}
             modalSize="lg"
             detail={
               emisssorBreakdown.rows.length === 0 ? (
@@ -2397,7 +2405,7 @@ export default function WealthV2() {
           {/* Holding */}
           <ExpandableCard
             title="Holding · grupo econômico"
-            subtitle={`${holdingBreakdown.rows.filter(r => r.value > 0).length} holdings · ${fmt(toBase(holdingBreakdown.total), true)} totais`}
+            subtitle={`Títulos · ${holdingBreakdown.rows.filter(r => r.value > 0).length} holdings · ${fmt(toBase(holdingBreakdown.total), true)} totais`}
             modalSize="lg"
             detail={
               holdingBreakdown.rows.length === 0 ? (
@@ -2446,7 +2454,7 @@ export default function WealthV2() {
           {/* Vencimento */}
           <ExpandableCard
             title="Vencimento · prazo dos ativos"
-            subtitle={`${maturityBreakdown.rows.filter(r => r.value > 0).length} faixas de prazo representadas`}
+            subtitle={`Com vencimento · ${maturityBreakdown.rows.filter(r => r.value > 0).length} faixas de prazo`}
             modalSize="lg"
             detail={
               maturityBreakdown.rows.length === 0 ? (
@@ -2547,7 +2555,7 @@ export default function WealthV2() {
           {/* Setor */}
           <ExpandableCard
             title="Setor · exposição setorial"
-            subtitle={`${sectorBreakdown.rows.filter(r => r.value > 0).length} setores · ${fmt(toBase(sectorBreakdown.total), true)} totais`}
+            subtitle={`Títulos · ${sectorBreakdown.rows.filter(r => r.value > 0).length} setores · ${fmt(toBase(sectorBreakdown.total), true)} totais`}
             modalSize="lg"
             detail={
               sectorBreakdown.rows.length === 0 ? (
