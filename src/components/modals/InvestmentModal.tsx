@@ -455,7 +455,7 @@ export function InvestmentModal({ open, onClose, initial, linkedTransactions, se
       country:           f.country || undefined,
       issuer:            f.issuer  || undefined,
       // Type-specific numeric fields
-      maturityDate:      (f.productType === 'titulo' || f.productType === 'coe') && f.maturityDate && f.maturityDate !== 'none' ? f.maturityDate : undefined,
+      maturityDate:      (f.productType === 'titulo' || f.productType === 'coe' || f.productType === 'fundo') && f.maturityDate && f.maturityDate !== 'none' ? f.maturityDate : undefined,
       interestRate:      (f.productType === 'titulo' || f.productType === 'coe') && f.interestRate ? parseFloat(f.interestRate) : undefined,
       custodyFee:        f.productType === 'titulo' && f.custodyFee ? parseFloat(f.custodyFee) : undefined,
       managementFee:     f.productType === 'fundo' && f.managementFee ? parseFloat(f.managementFee) : undefined,
@@ -798,15 +798,17 @@ export function InvestmentModal({ open, onClose, initial, linkedTransactions, se
                   </div>
                 )}
 
-                {/* ── Vencimento (Título, COE) ── */}
-                {(f.productType === 'titulo' || f.productType === 'coe') && (
+                {/* ── Vencimento (Título, COE, Fundo) ── */}
+                {(f.productType === 'titulo' || f.productType === 'coe' || f.productType === 'fundo') && (
                   <div>
                     <label className="text-xs text-[#8888aa] mb-1.5 block">Vencimento</label>
-                    <input type="date" className="input-dark" value={f.maturityDate}
-                      disabled={f.maturityDate === 'none'}
+                    <input type="date" className="input-dark"
+                      value={f.maturityDate === 'none' || (f.productType === 'fundo' && !f.maturityDate) ? '' : f.maturityDate}
+                      disabled={f.maturityDate === 'none' || (f.productType === 'fundo' && !f.maturityDate)}
                       onChange={e => upd('maturityDate', e.target.value)} />
                     <label className="flex items-center gap-2 mt-1.5 text-[11px] text-[#8888aa] cursor-pointer">
-                      <input type="checkbox" checked={f.maturityDate === 'none'}
+                      <input type="checkbox"
+                        checked={f.maturityDate === 'none' || (f.productType === 'fundo' && !f.maturityDate)}
                         onChange={e => upd('maturityDate', e.target.checked ? 'none' : '')} />
                       Sem Vencimento
                     </label>
