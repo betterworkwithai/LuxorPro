@@ -1104,22 +1104,80 @@ export default function Landing() {
       </section>
 
       {/* ════════════════════════════════════════════════════════════
-          FOOTER
+          FOOTER — internal-link-rich for SEO crawl depth
       ════════════════════════════════════════════════════════════ */}
-      <footer className="border-t border-[#1e1e2e] bg-[#080810] py-10 px-6">
-        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-2">
-            <img src="/logo.png" alt="Luxor Pro" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
-            <span className="text-xl font-bold tracking-wide"><span className="text-[#e8e8f0]">Luxor</span><span className="text-[#e8e8f0]">.</span><span style={{ color: '#FF7900' }}>Pro</span></span>
+      <footer className="border-t border-[#1e1e2e] bg-[#080810] pt-14 pb-8 px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-10 mb-12">
+
+            {/* Brand */}
+            <div className="col-span-2 md:col-span-1">
+              <div className="flex items-center gap-2 mb-3">
+                <img src="/logo.png" alt="Luxor Pro" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+                <span className="text-xl font-bold tracking-wide">
+                  <span className="text-[#e8e8f0]">Luxor</span>
+                  <span className="text-[#e8e8f0]">.</span>
+                  <span style={{ color: '#FF7900' }}>Pro</span>
+                </span>
+              </div>
+              <p className="text-xs text-[#55556a] leading-relaxed max-w-[14rem]">
+                Painel financeiro premium para investidores brasileiros — patrimônio, fluxo de caixa e metas em um só lugar, com IA.
+              </p>
+            </div>
+
+            {/* Product */}
+            <nav aria-label="Produto">
+              <h3 className="text-xs font-bold text-[#e8e8f0] uppercase tracking-widest mb-4">Produto</h3>
+              <ul className="space-y-2.5 text-xs text-[#8888aa]">
+                <li><a href="#planos" className="hover:text-[#ff7a00] transition-colors">Planos e preços</a></li>
+                <li><a href="#download" className="hover:text-[#ff7a00] transition-colors">App desktop para Windows</a></li>
+                <li><a href="/signup" className="hover:text-[#ff7a00] transition-colors">Começar 7 dias grátis</a></li>
+                <li><a href="/login" className="hover:text-[#ff7a00] transition-colors">Entrar na minha conta</a></li>
+              </ul>
+            </nav>
+
+            {/* Recursos / SEO content hub anchor */}
+            <nav aria-label="Recursos">
+              <h3 className="text-xs font-bold text-[#e8e8f0] uppercase tracking-widest mb-4">Recursos</h3>
+              <ul className="space-y-2.5 text-xs text-[#8888aa]">
+                <li><a href="/calculadora" className="hover:text-[#ff7a00] transition-colors">Calculadora da Pirâmide Financeira</a></li>
+                <li><a href="#planos" className="hover:text-[#ff7a00] transition-colors">Dúvidas frequentes</a></li>
+                {/* Future content hub URLs — wire these up as the pages ship:
+                    <li><a href="/blog">Blog</a></li>
+                    <li><a href="/alternativa-planilha">Alternativa à planilha</a></li>
+                    <li><a href="/vs-kinvo">Luxor Pro vs Kinvo</a></li>
+                    <li><a href="/glossario">Glossário financeiro</a></li>
+                */}
+              </ul>
+            </nav>
+
+            {/* Contact + Legal */}
+            <nav aria-label="Contato">
+              <h3 className="text-xs font-bold text-[#e8e8f0] uppercase tracking-widest mb-4">Contato</h3>
+              <ul className="space-y-2.5 text-xs text-[#8888aa]">
+                <li>
+                  <a href="mailto:suporte@luxorpro.com.br" className="hover:text-[#ff7a00] transition-colors">
+                    suporte@luxorpro.com.br
+                  </a>
+                </li>
+                <li>
+                  <a href="mailto:suporte@luxorpro.com.br?subject=Sugest%C3%A3o%20de%20feature" className="hover:text-[#ff7a00] transition-colors">
+                    Sugerir uma feature
+                  </a>
+                </li>
+              </ul>
+            </nav>
           </div>
-          <div className="flex flex-wrap justify-center gap-6 text-xs text-[#55556a]">
-            <a href="#planos" className="hover:text-[#ff7a00] transition-colors">Planos</a>
-            <a href="#planos" className="hover:text-[#ff7a00] transition-colors">FAQ</a>
-            <a href="#download" className="hover:text-[#ff7a00] transition-colors">Download</a>
-            <a href="/login" className="hover:text-[#ff7a00] transition-colors">Entrar</a>
-            <a href={`mailto:suporte@luxorpro.com.br`} className="hover:text-[#ff7a00] transition-colors">suporte@luxorpro.com.br</a>
+
+          {/* Bottom bar */}
+          <div className="border-t border-[#1e1e2e] pt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p className="text-xs text-[#333348]">
+              © {new Date().getFullYear()} Luxor Pro. Todos os direitos reservados.
+            </p>
+            <p className="text-[10px] text-[#333348] max-w-xl text-center sm:text-right leading-relaxed">
+              O Luxor Pro é uma ferramenta de organização e visualização financeira. Não constitui consultoria, recomendação ou assessoria de investimentos.
+            </p>
           </div>
-          <p className="text-xs text-[#333348]">© {new Date().getFullYear()} Luxor Pro. Todos os direitos reservados.</p>
         </div>
       </footer>
 

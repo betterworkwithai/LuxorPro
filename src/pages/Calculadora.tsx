@@ -160,6 +160,78 @@ export default function Calculadora() {
     document.head.appendChild(link)
   }, [])
 
+  // Page-level SEO: own title, description, OG tags, canonical, FAQ schema.
+  // We mutate the document head so search engines that render JS (and our future
+  // prerender step) capture page-specific metadata instead of inheriting the
+  // landing's defaults.
+  useEffect(() => {
+    const PAGE_TITLE = 'Calculadora da Pirâmide Financeira — Em qual andar você está? · Luxor Pro'
+    const PAGE_DESC  = 'Descubra seu andar na Pirâmide Financeira Brasileira e seu percentil de riqueza. Calculadora gratuita de liberdade financeira: 7 níveis, da fragilidade ao legado geracional.'
+    const PAGE_URL   = 'https://www.luxorpro.com.br/calculadora'
+
+    const prevTitle = document.title
+    document.title = PAGE_TITLE
+
+    const setMeta = (selector: string, attr: 'name' | 'property', key: string, value: string) => {
+      let el = document.head.querySelector<HTMLMetaElement>(selector)
+      if (!el) {
+        el = document.createElement('meta')
+        el.setAttribute(attr, key)
+        document.head.appendChild(el)
+      }
+      const prev = el.getAttribute('content')
+      el.setAttribute('content', value)
+      return () => { if (prev !== null) el!.setAttribute('content', prev) }
+    }
+
+    const setCanonical = (href: string) => {
+      let el = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]')
+      const prev = el?.getAttribute('href') ?? null
+      if (!el) { el = document.createElement('link'); el.setAttribute('rel', 'canonical'); document.head.appendChild(el) }
+      el.setAttribute('href', href)
+      return () => { if (prev !== null) el!.setAttribute('href', prev) }
+    }
+
+    const restoreFns = [
+      setMeta('meta[name="description"]',          'name',     'description',     PAGE_DESC),
+      setMeta('meta[property="og:title"]',         'property', 'og:title',        PAGE_TITLE),
+      setMeta('meta[property="og:description"]',   'property', 'og:description',  PAGE_DESC),
+      setMeta('meta[property="og:url"]',           'property', 'og:url',          PAGE_URL),
+      setMeta('meta[name="twitter:title"]',        'name',     'twitter:title',   PAGE_TITLE),
+      setMeta('meta[name="twitter:description"]',  'name',     'twitter:description', PAGE_DESC),
+      setMeta('meta[name="twitter:url"]',          'name',     'twitter:url',     PAGE_URL),
+      setCanonical(PAGE_URL),
+    ]
+
+    // FAQPage JSON-LD — content mirrors the visible FAQ section below.
+    const faqSchema = document.createElement('script')
+    faqSchema.type = 'application/ld+json'
+    faqSchema.id   = 'calc-faq-schema'
+    faqSchema.textContent = JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: [
+        { '@type': 'Question', name: 'O que é a Pirâmide Financeira Brasileira?',
+          acceptedAnswer: { '@type': 'Answer', text: 'É um modelo de 7 andares que descreve a jornada do investidor brasileiro — da Fragilidade (sem reserva de emergência) até o Legado (riqueza geracional). Cada andar representa um múltiplo da sua renda mensal acumulado em patrimônio líquido.' } },
+        { '@type': 'Question', name: 'Como a calculadora calcula meu andar?',
+          acceptedAnswer: { '@type': 'Answer', text: 'A calculadora divide seu patrimônio total pela sua renda mensal e mapeia o resultado em um dos 7 andares. É uma estimativa educacional baseada em padrões observados no Brasil; não substitui assessoria financeira profissional.' } },
+        { '@type': 'Question', name: 'Como sair do 1º andar (Fragilidade)?',
+          acceptedAnswer: { '@type': 'Answer', text: 'Foque em construir uma reserva de emergência de pelo menos 3 meses da sua renda em um investimento de liquidez diária, como Tesouro Selic ou CDB com liquidez imediata. Antes disso, qualquer alocação em renda variável é prematura.' } },
+        { '@type': 'Question', name: 'Quantos anos demora para chegar à Liberdade Financeira (6º andar)?',
+          acceptedAnswer: { '@type': 'Answer', text: 'Depende da sua taxa de poupança e do retorno real dos seus investimentos. Com taxa de poupança de 25% da renda e retorno real de 5% ao ano, o caminho típico é 18 a 22 anos. Use o Luxor Pro para projetar seu cenário específico.' } },
+        { '@type': 'Question', name: 'Meus dados ficam salvos?',
+          acceptedAnswer: { '@type': 'Answer', text: 'Não. Os cálculos são feitos 100% no seu navegador. Se você optar por receber o resultado por e-mail, registramos apenas seu nome e endereço de e-mail — nunca os valores de patrimônio ou renda.' } },
+      ],
+    })
+    document.head.appendChild(faqSchema)
+
+    return () => {
+      document.title = prevTitle
+      restoreFns.forEach(fn => fn())
+      faqSchema.remove()
+    }
+  }, [])
+
   const handleCalc = useCallback(() => {
     const age = parseInt(idade)
     const p   = parseFloat(patrim.replace(/\./g, '').replace(',', '.'))
@@ -332,6 +404,12 @@ export default function Calculadora() {
             fontWeight: 300, lineHeight: 1.1, letterSpacing: '-.02em',
             color: '#f0eee8', marginBottom: 16,
           }}>
+            <span style={{
+              position: 'absolute', width: 1, height: 1, padding: 0, margin: -1,
+              overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0,
+            }}>
+              Calculadora da Pirâmide Financeira Brasileira —{' '}
+            </span>
             Em qual andar você<br />
             <em style={{ fontStyle: 'italic', color: '#ff7a00', fontWeight: 400 }}>realmente está?</em>
           </h1>
@@ -827,16 +905,71 @@ export default function Calculadora() {
           </div>
         )}
 
+        {/* ── FAQ section (mirrors FAQPage JSON-LD in <head>) ───────────── */}
+        <section style={{ maxWidth: 720, margin: '0 auto', padding: '40px 24px 60px' }}>
+          <h2 style={{
+            fontFamily: font.display, fontSize: 'clamp(28px, 4vw, 40px)',
+            fontWeight: 400, color: '#f0eee8', textAlign: 'center', marginBottom: 32,
+            letterSpacing: '-.01em',
+          }}>
+            Perguntas <em style={{ fontStyle: 'italic', color: '#ff7a00' }}>frequentes</em>
+          </h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {[
+              { q: 'O que é a Pirâmide Financeira Brasileira?',
+                a: 'É um modelo de 7 andares que descreve a jornada do investidor brasileiro — da Fragilidade (sem reserva de emergência) até o Legado (riqueza geracional). Cada andar representa um múltiplo da sua renda mensal acumulado em patrimônio líquido.' },
+              { q: 'Como a calculadora calcula meu andar?',
+                a: 'A calculadora divide seu patrimônio total pela sua renda mensal e mapeia o resultado em um dos 7 andares. É uma estimativa educacional baseada em padrões observados no Brasil; não substitui assessoria financeira profissional.' },
+              { q: 'Como sair do 1º andar (Fragilidade)?',
+                a: 'Foque em construir uma reserva de emergência de pelo menos 3 meses da sua renda em um investimento de liquidez diária, como Tesouro Selic ou CDB com liquidez imediata. Antes disso, qualquer alocação em renda variável é prematura.' },
+              { q: 'Quantos anos demora para chegar à Liberdade Financeira (6º andar)?',
+                a: 'Depende da sua taxa de poupança e do retorno real dos seus investimentos. Com taxa de poupança de 25% da renda e retorno real de 5% ao ano, o caminho típico é 18 a 22 anos. Use o Luxor Pro para projetar seu cenário específico.' },
+              { q: 'Meus dados ficam salvos?',
+                a: 'Não. Os cálculos são feitos 100% no seu navegador. Se você optar por receber o resultado por e-mail, registramos apenas seu nome e endereço de e-mail — nunca os valores de patrimônio ou renda.' },
+            ].map(({ q, a }) => (
+              <details key={q} style={{
+                background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.08)',
+                borderRadius: 12, padding: '16px 20px',
+              }}>
+                <summary style={{
+                  cursor: 'pointer', fontFamily: font.body, fontSize: 15, fontWeight: 600,
+                  color: '#e8e8f0', listStyle: 'none', outline: 'none',
+                }}>
+                  {q}
+                </summary>
+                <p style={{
+                  fontFamily: font.body, fontSize: 14, color: 'rgba(232,232,240,.7)',
+                  lineHeight: 1.7, marginTop: 12,
+                }}>
+                  {a}
+                </p>
+              </details>
+            ))}
+          </div>
+        </section>
+
         {/* ── Footer ────────────────────────────────────────────────────── */}
         <footer style={{
           borderTop: '1px solid rgba(255,255,255,.06)',
           padding: '28px 24px',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           gap: 24,
+          flexWrap: 'wrap',
         }}>
-          <span style={{ fontFamily: font.display, fontSize: 16, fontWeight: 700, color: '#e8e8f0' }}>
-            Luxor<span style={{ color: '#ff7a00' }}>.Pro</span>
-          </span>
+          <a href="/" style={{ textDecoration: 'none' }}>
+            <span style={{ fontFamily: font.display, fontSize: 16, fontWeight: 700, color: '#e8e8f0' }}>
+              Luxor<span style={{ color: '#ff7a00' }}>.Pro</span>
+            </span>
+          </a>
+          <a href="/" style={{ fontFamily: font.body, fontSize: 12, color: 'rgba(232,232,240,.5)', textDecoration: 'none' }}>
+            Página inicial
+          </a>
+          <a href="/#planos" style={{ fontFamily: font.body, fontSize: 12, color: 'rgba(232,232,240,.5)', textDecoration: 'none' }}>
+            Planos
+          </a>
+          <a href="/signup" style={{ fontFamily: font.body, fontSize: 12, color: 'rgba(232,232,240,.5)', textDecoration: 'none' }}>
+            Começar grátis
+          </a>
           <span style={{ fontFamily: font.body, fontSize: 12, color: 'rgba(232,232,240,.25)' }}>
             Calculadora educacional · Não constitui assessoria financeira.
           </span>

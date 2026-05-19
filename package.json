@@ -5,17 +5,18 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node scripts/prerender.mjs",
+    "build:no-prerender": "vite build",
+    "prerender": "node scripts/prerender.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
-    "cap:sync": "npm run build && npx cap sync",
+    "cap:sync": "npm run build:no-prerender && npx cap sync",
     "cap:android": "npm run cap:sync && npx cap open android",
     "cap:ios": "npm run cap:sync && npx cap open ios",
     "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:8080 && cross-env ELECTRON_DEV=true ELECTRON_DEV_URL=http://localhost:8080 electron electron/main.cjs\"",
-    "electron:build": "cross-env VITE_BASE=./ npm run build && electron-builder"
+    "electron:build": "cross-env VITE_BASE=./ npm run build:no-prerender && electron-builder"
   },
   "main": "electron/main.cjs",
-  "dependencies": {},
   "devDependencies": {
     "@capacitor/android": "^6.0.0",
     "@capacitor/browser": "^6.0.0",
@@ -89,6 +90,7 @@
     "pdfjs-dist": "^5.6.205",
     "postcss": "^8.5.6",
     "posthog-js": "^1.372.10",
+    "puppeteer": "^25.0.4",
     "react": "^18.3.1",
     "react-day-picker": "^8.10.1",
     "react-dom": "^18.3.1",

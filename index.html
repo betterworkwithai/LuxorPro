@@ -17,6 +17,16 @@
     <meta name="robots" content="index, follow" />
     <link rel="canonical" href="https://www.luxorpro.com.br/" />
 
+    <!--
+      Search engine ownership verification.
+      Replace the placeholder content values with the tokens from:
+        • Google Search Console: https://search.google.com/search-console  (Settings → Ownership verification → HTML tag)
+        • Bing Webmaster Tools:  https://www.bing.com/webmasters           (Add a site → HTML Meta Tag)
+      Then submit sitemap.xml in each tool after deploying.
+    -->
+    <!-- <meta name="google-site-verification" content="REPLACE_WITH_GSC_TOKEN" /> -->
+    <!-- <meta name="msvalidate.01"           content="REPLACE_WITH_BING_TOKEN" /> -->
+
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://www.luxorpro.com.br/" />
@@ -83,6 +93,80 @@
         "name": "Luxor Pro",
         "url": "https://www.luxorpro.com.br"
       }
+    }
+    </script>
+
+    <!-- Structured Data — FAQPage (mirrors the FAQ section on the landing) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "O Luxor Pro é seguro para meus dados financeiros?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Sim. Utilizamos criptografia de ponta a ponta (TLS 1.3), infraestrutura Supabase com conformidade SOC 2, e processamento de pagamentos via Stripe — o mesmo usado por Amazon e Shopify. Seus dados nunca são vendidos ou compartilhados."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Posso cancelar a qualquer momento?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Absolutamente. Nos planos mensais e anuais, você pode cancelar com um clique direto pelo portal do cliente — sem burocracia, sem ligações. Você mantém acesso até o fim do período pago."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "O que está incluído nos 7 dias grátis?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Acesso completo a todas as funcionalidades: dashboard, investimentos, fluxo de caixa, metas, IA de documentos e ferramentas financeiras."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Funciona com todos os bancos brasileiros?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "A IA de documentos processa PDFs e extratos do Nubank, Itaú, Bradesco, Santander, XP Investimentos e outros. Você também pode cadastrar ativos manualmente em qualquer instituição."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Como funciona o acesso vitalício?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "É um pagamento único de R$ 597 que garante acesso ao Luxor Pro para sempre — incluindo todas as atualizações futuras. Sem mensalidades, sem surpresas. Pague uma vez, use para sempre."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "E se eu não ficar satisfeito?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Nos planos anuais e vitalício, oferecemos 30 dias de garantia de reembolso total. Se por qualquer motivo não ficar satisfeito, basta enviar um e-mail para suporte@luxorpro.com.br e devolvemos 100% do valor pago."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Posso usar em vários dispositivos?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Sim. O Luxor Pro é 100% web — acesse de qualquer computador, tablet ou celular. Seus dados sincronizam em tempo real em todos os dispositivos."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Preciso instalar algum aplicativo?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Não. O Luxor Pro roda diretamente no navegador, sem instalação. Funciona perfeitamente no Chrome, Safari, Firefox e Edge — em qualquer sistema operacional."
+          }
+        }
+      ]
     }
     </script>
 
