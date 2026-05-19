@@ -25,10 +25,22 @@ const projectRoot = resolve(__dirname, '..')
 const distDir = join(projectRoot, 'dist')
 
 const PRERENDER_ROUTES = ['/', '/calculadora']
-const PORT = 4321
-const HOST = `http://localhost:${PORT}`
 const STARTUP_TIMEOUT_MS = 30_000
 const NAV_TIMEOUT_MS = 30_000
+
+// Pick an ephemeral free port so re-running locally after a crashed previous
+// run never collides on a stuck preview server.
+function getFreePort() {
+  return new Promise((resolveOk, reject) => {
+    const srv = net.createServer()
+    srv.unref()
+    srv.on('error', reject)
+    srv.listen(0, '127.0.0.1', () => {
+      const port = srv.address().port
+      srv.close(() => resolveOk(port))
+    })
+  })
+}
 
 async function exists(p) {
   try { await access(p, fsConstants.F_OK); return true } catch { return false }
@@ -51,6 +63,15 @@ function waitForPort(port, timeoutMs) {
 }
 
 async function main() {
+  // Vercel's build container is missing libnspr4/libnss3, so the Chromium that
+  // puppeteer auto-downloads cannot launch there. Skip prerender on Vercel
+  // until we wire up @sparticuz/chromium. Google executes JS, so the loss is
+  // limited to non-Google crawlers in the interim.
+  if (process.env.VERCEL || process.env.SKIP_PRERENDER) {
+    console.log('[prerender] SKIPPED (VERCEL env detected — Chromium not launchable here).')
+    process.exit(0)
+  }
+
   if (!(await exists(distDir))) {
     console.error('[prerender] dist/ not found — run `vite build` first.')
     process.exit(1)
@@ -67,6 +88,8 @@ async function main() {
     process.exit(1)
   }
 
+  const PORT = await getFreePort()
+  const HOST = `http://localhost:${PORT}`
   console.log(`[prerender] starting vite preview on port ${PORT}…`)
   // Use `shell: true` on Windows so npx.cmd resolves correctly (Node 16+ refuses
   // to spawn .cmd/.bat files without it). On Unix-likes shell:true is also
@@ -97,21 +120,30 @@ async function main() {
         console.log(`[prerender] → ${url}`)
         const page = await browser.newPage()
         try {
+          // Surface page-side errors so we can see why React might not mount.
+          page.on('pageerror', (err) => console.warn(`[prerender] pageerror ${route}: ${err.message}`))
+          page.on('console', (msg) => {
+            if (msg.type() === 'error') console.warn(`[prerender] console.error ${route}: ${msg.text()}`)
+          })
           // Match a desktop viewport so layout-dependent rendering (CSS clamp,
           // responsive grids) settles into the default desktop tree.
           await page.setViewport({ width: 1280, height: 800 })
           await page.goto(url, { waitUntil: 'networkidle0', timeout: NAV_TIMEOUT_MS })
 
-          // Belt-and-suspenders: make sure the React tree has actually rendered
-          // something into #root before we capture the HTML.
+          // Wait for an actual H1 to exist — defeats the Suspense fallback
+          // which only contains a loading <img>. Without this we'd capture
+          // the spinner instead of the page.
           await page.waitForFunction(
-            () => document.getElementById('root')?.childElementCount > 0,
-            { timeout: 10_000 },
-          ).catch(() => console.warn(`[prerender] WARN: root not populated at ${route}`))
+            () => {
+              const h1 = document.querySelector('h1')
+              return h1 && h1.textContent && h1.textContent.trim().length > 0
+            },
+            { timeout: 15_000 },
+          ).catch(() => console.warn(`[prerender] WARN: no <h1> found at ${route}`))
 
           // Give React a beat to flush effects (Calculadora updates <head> in
           // useEffect, so we need this for the per-page title/meta/JSON-LD).
-          await new Promise((r) => setTimeout(r, 250))
+          await new Promise((r) => setTimeout(r, 400))
 
           const html = await page.content()
 

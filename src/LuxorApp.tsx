@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { Suspense, lazy, useEffect, useState } from "react";
 import { Routes, Route } from "react-router-dom";
 import { PageLayout } from "./components/layout/PageLayout";
 import { useStore } from "./store/useStore";
@@ -11,20 +11,24 @@ import { LOCAL_AUTH_KEY } from "./App";
 import type { User } from "@supabase/supabase-js";
 
 import { OnboardingModal } from "./components/ui/OnboardingModal";
-import Dashboard from "./pages/Dashboard";
-import Cashflow from "./pages/Cashflow";
-import Wealth from "./pages/Wealth";
-import DashboardV2 from "./pages/DashboardV2";
-import CashflowV2 from "./pages/CashflowV2";
-import WealthV2 from "./pages/WealthV2";
 import { V2ErrorBoundary } from "./components/v2/V2ErrorBoundary";
-import Goals from "./pages/Goals";
-import DocumentAI from "./pages/DocumentAI";
-import Connections from "./pages/Connections";
-import Settings from "./pages/Settings";
-import FinancialTools from "./pages/FinancialTools";
-import Admin from "./pages/Admin";
 import { isAdmin } from "./lib/admin";
+
+// Lazy-load every routable page so the heavy ones (DocumentAI pulls in
+// tesseract.js + pdfjs-dist; Wealth* pulls in jspdf + html2canvas) only load
+// when the user actually navigates there.
+const Dashboard      = lazy(() => import("./pages/Dashboard"));
+const Cashflow       = lazy(() => import("./pages/Cashflow"));
+const Wealth         = lazy(() => import("./pages/Wealth"));
+const DashboardV2    = lazy(() => import("./pages/DashboardV2"));
+const CashflowV2     = lazy(() => import("./pages/CashflowV2"));
+const WealthV2       = lazy(() => import("./pages/WealthV2"));
+const Goals          = lazy(() => import("./pages/Goals"));
+const DocumentAI     = lazy(() => import("./pages/DocumentAI"));
+const Connections    = lazy(() => import("./pages/Connections"));
+const Settings       = lazy(() => import("./pages/Settings"));
+const FinancialTools = lazy(() => import("./pages/FinancialTools"));
+const Admin          = lazy(() => import("./pages/Admin"));
 
 function LoadingScreen() {
   return (
@@ -37,23 +41,25 @@ function LoadingScreen() {
 function AppRoutes({ isAdminUser }: { isAdminUser: boolean }) {
   return (
     <PageLayout>
-      <Routes>
-        {/* V2 — new default surfaces (real data, redesigned UI) */}
-        <Route path="/" element={<V2ErrorBoundary pageName="Painel"><DashboardV2 /></V2ErrorBoundary>} />
-        <Route path="/cashflow" element={<V2ErrorBoundary pageName="Receitas e Despesas"><CashflowV2 /></V2ErrorBoundary>} />
-        <Route path="/wealth" element={<V2ErrorBoundary pageName="Investimentos"><WealthV2 /></V2ErrorBoundary>} />
-        {/* Legacy fallbacks — kept for users who need the old views */}
-        <Route path="/legacy" element={<Dashboard />} />
-        <Route path="/legacy/cashflow" element={<Cashflow />} />
-        <Route path="/legacy/wealth" element={<Wealth />} />
-        <Route path="/goals" element={<Goals />} />
-        <Route path="/documents" element={<DocumentAI />} />
-        <Route path="/connections" element={<Connections />} />
-        <Route path="/settings" element={<Settings />} />
-        <Route path="/tools" element={<FinancialTools />} />
-        {isAdminUser && <Route path="/admin" element={<Admin />} />}
-        <Route path="*" element={<DashboardV2 />} />
-      </Routes>
+      <Suspense fallback={<LoadingScreen />}>
+        <Routes>
+          {/* V2 — new default surfaces (real data, redesigned UI) */}
+          <Route path="/" element={<V2ErrorBoundary pageName="Painel"><DashboardV2 /></V2ErrorBoundary>} />
+          <Route path="/cashflow" element={<V2ErrorBoundary pageName="Receitas e Despesas"><CashflowV2 /></V2ErrorBoundary>} />
+          <Route path="/wealth" element={<V2ErrorBoundary pageName="Investimentos"><WealthV2 /></V2ErrorBoundary>} />
+          {/* Legacy fallbacks — kept for users who need the old views */}
+          <Route path="/legacy" element={<Dashboard />} />
+          <Route path="/legacy/cashflow" element={<Cashflow />} />
+          <Route path="/legacy/wealth" element={<Wealth />} />
+          <Route path="/goals" element={<Goals />} />
+          <Route path="/documents" element={<DocumentAI />} />
+          <Route path="/connections" element={<Connections />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/tools" element={<FinancialTools />} />
+          {isAdminUser && <Route path="/admin" element={<Admin />} />}
+          <Route path="*" element={<DashboardV2 />} />
+        </Routes>
+      </Suspense>
       <OnboardingModal />
     </PageLayout>
   );

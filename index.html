@@ -170,18 +170,23 @@
     }
     </script>
 
-    <!-- Stripe Buy Button -->
-    <script async src="https://js.stripe.com/v3/buy-button.js"></script>
-
-    <!-- Preconnect to external services -->
+    <!-- Preconnect to font CDN -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 
-    <!-- Google Fonts: Inter + Playfair Display -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet" />
+    <!-- Google Fonts: Inter + Playfair Display
+         Loaded asynchronously to avoid blocking the first paint. The
+         media=print → onload='all' trick lets the browser fetch the stylesheet
+         without making it render-blocking; <noscript> covers no-JS bots. -->
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" media="print" onload="this.media='all'" />
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" /></noscript>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <!-- Stripe Buy Button — deferred and parked at end of body so it doesn't
+         compete with the critical path. Only the pricing section uses it. -->
+    <script async src="https://js.stripe.com/v3/buy-button.js"></script>
   </body>
 </html>

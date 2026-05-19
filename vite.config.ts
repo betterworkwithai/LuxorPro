@@ -22,4 +22,42 @@ export default defineConfig({
     },
     dedupe: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime"],
   },
+  build: {
+    // Lift the warning threshold so chunks split via manualChunks don't trip
+    // the default 500 KB warning. We're intentionally large; the manualChunks
+    // map below is what keeps these out of the landing's critical path.
+    chunkSizeWarningLimit: 1024,
+    rollupOptions: {
+      output: {
+        // Split heavy vendor libs out of the main app chunk so the landing
+        // page doesn't pay for PDF.js, tesseract, etc. it never uses. Each
+        // chunk also caches independently in the browser between deploys.
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return
+          // React + ReactDOM + scheduler + router MUST share a chunk — they
+          // share runtime internals (`__SECRET_INTERNALS_DO_NOT_USE…`) that
+          // break when ReactDOM is loaded from a different chunk than React.
+          if (id.includes('node_modules/react-dom/') ||
+              id.includes('node_modules/react/') ||
+              id.includes('node_modules/react-router/') ||
+              id.includes('node_modules/react-router-dom/') ||
+              id.includes('node_modules/scheduler/'))          return 'vendor-react'
+          if (id.includes('node_modules/@radix-ui/'))          return 'vendor-radix'
+          if (id.includes('node_modules/recharts/') ||
+              id.includes('node_modules/d3-'))                 return 'vendor-charts'
+          if (id.includes('node_modules/@supabase/'))          return 'vendor-supabase'
+          if (id.includes('node_modules/pdfjs-dist/'))         return 'vendor-pdfjs'
+          if (id.includes('node_modules/tesseract.js'))        return 'vendor-tesseract'
+          if (id.includes('node_modules/jspdf'))               return 'vendor-jspdf'
+          if (id.includes('node_modules/html2canvas'))         return 'vendor-html2canvas'
+          if (id.includes('node_modules/framer-motion/'))      return 'vendor-framer'
+          if (id.includes('node_modules/xlsx/'))               return 'vendor-xlsx'
+          if (id.includes('node_modules/@sentry/'))            return 'vendor-sentry'
+          if (id.includes('node_modules/posthog-js/'))         return 'vendor-posthog'
+          if (id.includes('node_modules/lucide-react/'))       return 'vendor-icons'
+          if (id.includes('node_modules/date-fns/'))           return 'vendor-date-fns'
+        },
+      },
+    },
+  },
 })

@@ -466,6 +466,8 @@ export default function Landing() {
         </div>
       </nav>
 
+      <main>
+
       {/* ════════════════════════════════════════════════════════════
           HERO — parallax background + subtle text drift
       ════════════════════════════════════════════════════════════ */}
@@ -1039,7 +1041,7 @@ export default function Landing() {
                   <Download className="w-5 h-5" />
                   Baixar para Windows
                 </a>
-                <span className="text-xs text-[#333348]">macOS e Linux em breve</span>
+                <span className="text-xs text-[#6b6b85]">macOS e Linux em breve</span>
               </div>
             </div>
           </Reveal>
@@ -1102,6 +1104,8 @@ export default function Landing() {
           </Reveal>
         </div>
       </section>
+
+      </main>
 
       {/* ════════════════════════════════════════════════════════════
           FOOTER — internal-link-rich for SEO crawl depth
@@ -1171,10 +1175,10 @@ export default function Landing() {
 
           {/* Bottom bar */}
           <div className="border-t border-[#1e1e2e] pt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <p className="text-xs text-[#333348]">
+            <p className="text-xs text-[#6b6b85]">
               © {new Date().getFullYear()} Luxor Pro. Todos os direitos reservados.
             </p>
-            <p className="text-[10px] text-[#333348] max-w-xl text-center sm:text-right leading-relaxed">
+            <p className="text-[10px] text-[#6b6b85] max-w-xl text-center sm:text-right leading-relaxed">
               O Luxor Pro é uma ferramenta de organização e visualização financeira. Não constitui consultoria, recomendação ou assessoria de investimentos.
             </p>
           </div>

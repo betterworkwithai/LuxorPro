@@ -1,13 +1,31 @@
-import React, { useEffect, useState } from "react";
+import React, { Suspense, lazy, useEffect, useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import Landing from "./pages/Landing";
-import LuxorApp from "./LuxorApp";
-import ResetPassword from "./pages/ResetPassword";
-import Calculadora from "./pages/Calculadora";
 import { supabase, SUPABASE_CONFIGURED } from "./lib/supabase";
+
+// Code-split the heavy auth-gated app, the standalone calculator, and the
+// reset-password flow. None of them are needed before the user navigates off
+// the landing page. This keeps PDF.js / tesseract / html2canvas / jsPDF /
+// recharts / supabase out of the initial bundle.
+const LuxorApp      = lazy(() => import("./LuxorApp"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const Calculadora   = lazy(() => import("./pages/Calculadora"));
 
 // Shared key used across Sidebar, MobileNav, Auth and LuxorApp
 export const LOCAL_AUTH_KEY = "luxorpro_local_auth";
+
+function RouteSuspenseFallback() {
+  // Match the LoadingScreen inside LuxorApp so users don't see a colour flash.
+  return (
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: '#0a0a0f',
+    }}>
+      <img src="/logo.gif" alt="Carregando…" style={{ width: 192, height: 192, objectFit: 'contain' }} />
+    </div>
+  );
+}
 
 /**
  * /login and /signup — explicit auth entries from the marketing page.
@@ -46,9 +64,21 @@ export default function App() {
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<AuthEntry mode="login" />} />
       <Route path="/signup" element={<AuthEntry mode="signup" />} />
-      <Route path="/reset-password" element={<ResetPassword />} />
-      <Route path="/calculadora" element={<Calculadora />} />
-      <Route path="/app/*" element={<LuxorApp />} />
+      <Route path="/reset-password" element={
+        <Suspense fallback={<RouteSuspenseFallback />}>
+          <ResetPassword />
+        </Suspense>
+      } />
+      <Route path="/calculadora" element={
+        <Suspense fallback={<RouteSuspenseFallback />}>
+          <Calculadora />
+        </Suspense>
+      } />
+      <Route path="/app/*" element={
+        <Suspense fallback={<RouteSuspenseFallback />}>
+          <LuxorApp />
+        </Suspense>
+      } />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
