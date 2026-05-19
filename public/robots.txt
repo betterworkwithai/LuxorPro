@@ -1,5 +1,10 @@
 User-agent: *
 Allow: /
 Disallow: /api/
+Disallow: /app/
+Disallow: /app
+Disallow: /login
+Disallow: /signup
+Disallow: /reset-password
 
 Sitemap: https://www.luxorpro.com.br/sitemap.xml
