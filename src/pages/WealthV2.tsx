@@ -27,13 +27,14 @@ type PeriodMode = '1M' | '3M' | 'YTD' | '12M' | '5A' | 'ALL'
 type CurrencyMode = 'BRL' | 'USD' | 'EUR'
 
 // ── Positions table — column registry ──────────────────────────────
-type ColId = 'ticker'|'name'|'assetClass'|'maturity'|'qty'|'pm'|'position'|'allocation'|'period'|'mtd'|'prevMonth'|'ytd'|'m12'|'m24'|'inception'
-type ColSortKey = 'name'|'class'|'institution'|'qty'|'avgCost'|'currentPrice'|'position'|'period'|'allocation'|'maturity'|'mtd'|'prevMonth'|'ytd'|'m12'|'m24'|'inception'
+type ColId = 'ticker'|'name'|'assetClass'|'purchaseDate'|'maturity'|'qty'|'pm'|'position'|'allocation'|'period'|'mtd'|'prevMonth'|'ytd'|'m12'|'m24'|'inception'
+type ColSortKey = 'name'|'class'|'institution'|'qty'|'avgCost'|'currentPrice'|'position'|'period'|'allocation'|'purchaseDate'|'maturity'|'mtd'|'prevMonth'|'ytd'|'m12'|'m24'|'inception'
 interface PosColDef { id: ColId; label: string; width: string; align: 'left'|'right'; sortKey?: ColSortKey; fixed?: boolean; defaultOn?: boolean }
 const POS_COL_DEFS: PosColDef[] = [
   { id: 'ticker',    label: 'Ticker',     width: '80px',                align: 'left',  sortKey: 'name' },
   { id: 'name',      label: 'Ativo',      width: 'minmax(130px,1.4fr)', align: 'left',  sortKey: 'name',       fixed: true, defaultOn: true },
   { id: 'assetClass',label: 'Classe',     width: 'minmax(100px,1fr)',   align: 'left',  sortKey: 'class' },
+  { id: 'purchaseDate', label: 'Data Início', width: '88px',            align: 'left',  sortKey: 'purchaseDate',             defaultOn: true },
   { id: 'maturity',  label: 'Vencimento', width: '88px',                align: 'left',  sortKey: 'maturity',                defaultOn: true },
   { id: 'qty',       label: 'Qtd',        width: '68px',                align: 'right', sortKey: 'qty' },
   { id: 'pm',        label: 'PM / Atual', width: '116px',               align: 'right', sortKey: 'avgCost' },
@@ -1204,6 +1205,7 @@ export default function WealthV2() {
         case 'currentPrice': return dir * (a.currentPrice - b.currentPrice)
         case 'period':       return dir * (a.pct - b.pct)
         case 'allocation':   return dir * (a.allocPct - b.allocPct)
+        case 'purchaseDate': return dir * ((a.purchaseDate ?? '') < (b.purchaseDate ?? '') ? -1 : 1)
         case 'maturity':     return dir * ((a.maturityDate ?? '9999-12-31') < (b.maturityDate ?? '9999-12-31') ? -1 : 1)
         case 'mtd':          { const an = a.pctMtd      ?? -Infinity * dir, bn = b.pctMtd      ?? -Infinity * dir; return dir * (an - bn) }
         case 'prevMonth':    { const an = a.pctPrevMonth ?? -Infinity * dir, bn = b.pctPrevMonth ?? -Infinity * dir; return dir * (an - bn) }
@@ -3080,6 +3082,11 @@ export default function WealthV2() {
                                   )
                                   case 'assetClass': return (
                                     <span key={colId} className="text-[11px] truncate" style={{ color: '#55556a' }}>{p.assetClass}</span>
+                                  )
+                                  case 'purchaseDate': return (
+                                    <span key={colId} className="text-[11px] tabular-nums text-left truncate" style={{ color: p.purchaseDate ? '#8888aa' : '#33334a' }}>
+                                      {p.purchaseDate ? formatDate(p.purchaseDate) : '—'}
+                                    </span>
                                   )
                                   case 'maturity': return (
                                     <span key={colId} className="text-[11px] tabular-nums text-left truncate" style={{ color: p.maturityDate ? '#8888aa' : '#33334a' }}>

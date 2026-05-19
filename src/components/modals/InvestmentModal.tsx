@@ -803,13 +803,13 @@ export function InvestmentModal({ open, onClose, initial, linkedTransactions, se
                   <div>
                     <label className="text-xs text-[#8888aa] mb-1.5 block">Vencimento</label>
                     <input type="date" className="input-dark"
-                      value={f.maturityDate === 'none' || (f.productType === 'fundo' && !f.maturityDate) ? '' : f.maturityDate}
-                      disabled={f.maturityDate === 'none' || (f.productType === 'fundo' && !f.maturityDate)}
+                      value={f.maturityDate === 'none' || (f.productType === 'fundo' && f.maturityDate === '') ? '' : f.maturityDate}
+                      disabled={f.maturityDate === 'none' || (f.productType === 'fundo' && f.maturityDate === '')}
                       onChange={e => upd('maturityDate', e.target.value)} />
                     <label className="flex items-center gap-2 mt-1.5 text-[11px] text-[#8888aa] cursor-pointer">
                       <input type="checkbox"
-                        checked={f.maturityDate === 'none' || (f.productType === 'fundo' && !f.maturityDate)}
-                        onChange={e => upd('maturityDate', e.target.checked ? 'none' : '')} />
+                        checked={f.maturityDate === 'none' || (f.productType === 'fundo' && f.maturityDate === '')}
+                        onChange={e => upd('maturityDate', e.target.checked ? 'none' : new Date().toISOString().slice(0, 10))} />
                       Sem Vencimento
                     </label>
                   </div>
