@@ -52,8 +52,11 @@ export default defineConfig({
           if (id.includes('node_modules/html2canvas'))         return 'vendor-html2canvas'
           if (id.includes('node_modules/framer-motion/'))      return 'vendor-framer'
           if (id.includes('node_modules/xlsx/'))               return 'vendor-xlsx'
-          if (id.includes('node_modules/@sentry/'))            return 'vendor-sentry'
-          if (id.includes('node_modules/posthog-js/'))         return 'vendor-posthog'
+          // NOTE: do NOT route @sentry or posthog-js here — they are
+          // dynamically imported inside src/lib/analytics.ts and Vite
+          // handles the lazy chunk for us. A manualChunks rule on a
+          // dynamic-only module emits an empty named chunk and (worse)
+          // can swallow the actual code in some Rollup versions.
           if (id.includes('node_modules/lucide-react/'))       return 'vendor-icons'
           if (id.includes('node_modules/date-fns/'))           return 'vendor-date-fns'
         },
