@@ -16,7 +16,7 @@ const BRAND_GRADIENT = 'linear-gradient(135deg, #ff7a00, #ff4500)'
 function LuxorLogo() {
   return (
     <div className="flex justify-center mb-6 -mt-2">
-      <img src="/logo.gif" alt="Luxor Pro" className="w-48 h-48 object-contain" />
+      <img src="/logo.png" alt="Luxor Pro" width="192" height="192" className="w-48 h-48 object-contain" />
     </div>
   )
 }

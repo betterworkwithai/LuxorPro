@@ -22,7 +22,13 @@ function RouteSuspenseFallback() {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       background: '#0a0a0f',
     }}>
-      <img src="/logo.gif" alt="Carregando…" style={{ width: 192, height: 192, objectFit: 'contain' }} />
+      <img
+        src="/logo.png"
+        alt="Carregando…"
+        width={192}
+        height={192}
+        style={{ width: 192, height: 192, objectFit: 'contain', animation: 'luxor-pulse 1.6s ease-in-out infinite' }}
+      />
     </div>
   );
 }

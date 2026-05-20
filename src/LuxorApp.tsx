@@ -31,9 +31,18 @@ const FinancialTools = lazy(() => import("./pages/FinancialTools"));
 const Admin          = lazy(() => import("./pages/Admin"));
 
 function LoadingScreen() {
+  // Subtle pulse on the static PNG. The animation is GPU-friendly (opacity +
+  // scale) and respects prefers-reduced-motion via a media query in index.css.
   return (
     <div className="h-screen flex items-center justify-center bg-[#0a0a0f]">
-      <img src="/logo.gif" alt="Carregando…" className="w-64 h-64 object-contain" />
+      <img
+        src="/logo.png"
+        alt="Carregando…"
+        width="256"
+        height="256"
+        className="w-64 h-64 object-contain"
+        style={{ animation: 'luxor-pulse 1.6s ease-in-out infinite' }}
+      />
     </div>
   );
 }

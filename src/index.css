@@ -1,8 +1,21 @@
-@import url("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap");
+/* NOTE: Google Fonts are loaded async via the <link media="print" → onload>
+   trick in index.html. The duplicate @import here used to block the first
+   paint (CSS @import is always render-blocking). Removed. */
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Loading-screen pulse — used by LoadingScreen() and RouteSuspenseFallback.
+   Replaces the previous animated logo.gif. GPU-friendly (opacity/scale only)
+   and disabled for users with prefers-reduced-motion. */
+@keyframes luxor-pulse {
+  0%, 100% { opacity: 0.55; transform: scale(0.96); }
+  50%      { opacity: 1;    transform: scale(1.0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  [style*="luxor-pulse"] { animation: none !important; opacity: 1 !important; }
+}
 
 @layer base {
   :root {

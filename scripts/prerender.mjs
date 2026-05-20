@@ -62,29 +62,40 @@ function waitForPort(port, timeoutMs) {
   })
 }
 
+// Cross-environment Chromium launcher.
+// - Vercel build container is missing libnspr4/libnss3 — the Chromium that
+//   `puppeteer` auto-downloads cannot launch there. We use
+//   `@sparticuz/chromium` instead, which ships a statically-linked binary
+//   built for AWS Lambda / serverless Linux and works on Vercel build too.
+// - Locally we keep using full `puppeteer` so devs don't have to install the
+//   sparticuz binary on macOS/Windows.
+async function launchBrowser() {
+  const onVercel = !!process.env.VERCEL
+  if (onVercel) {
+    const puppeteerCore = (await import('puppeteer-core')).default
+    const chromium = (await import('@sparticuz/chromium')).default
+    return puppeteerCore.launch({
+      args: [...chromium.args, '--no-sandbox', '--disable-setuid-sandbox'],
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
+    })
+  }
+  const puppeteer = (await import('puppeteer')).default
+  return puppeteer.launch({
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+  })
+}
+
 async function main() {
-  // Vercel's build container is missing libnspr4/libnss3, so the Chromium that
-  // puppeteer auto-downloads cannot launch there. Skip prerender on Vercel
-  // until we wire up @sparticuz/chromium. Google executes JS, so the loss is
-  // limited to non-Google crawlers in the interim.
-  if (process.env.VERCEL || process.env.SKIP_PRERENDER) {
-    console.log('[prerender] SKIPPED (VERCEL env detected — Chromium not launchable here).')
+  if (process.env.SKIP_PRERENDER) {
+    console.log('[prerender] SKIPPED (SKIP_PRERENDER env set).')
     process.exit(0)
   }
 
   if (!(await exists(distDir))) {
     console.error('[prerender] dist/ not found — run `vite build` first.')
-    process.exit(1)
-  }
-
-  // puppeteer is loaded lazily so that environments without it (e.g. Capacitor
-  // or Electron builds where we may want to skip prerender) can opt out.
-  let puppeteer
-  try {
-    puppeteer = (await import('puppeteer')).default
-  } catch (err) {
-    console.error('[prerender] puppeteer is not installed. Run `npm i -D puppeteer` and retry.')
-    console.error(err.message)
     process.exit(1)
   }
 
@@ -109,10 +120,7 @@ async function main() {
     await waitForPort(PORT, STARTUP_TIMEOUT_MS)
     console.log('[prerender] preview server ready')
 
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    })
+    const browser = await launchBrowser()
 
     try {
       for (const route of PRERENDER_ROUTES) {
